@@ -1,0 +1,4 @@
+*.o
+launch.json
+tasks.json
+.vscode

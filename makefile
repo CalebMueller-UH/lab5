@@ -21,3 +21,5 @@ clean:
 	rm *.o  
 	rm net367
 
+run:
+	./net367
