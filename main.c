@@ -1,7 +1,10 @@
+/*
+    main.c
+*/
+
 #include "main.h"
 
 #include <fcntl.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +31,7 @@ void main() {
   net_init();
   node_list = net_get_node_list(); /* Returns the list of nodes */
 
-  /* Create nodes, which are child processes */
+  /* Create nodes, which are child processwa */
 
   for (p_node = node_list; p_node != NULL; p_node = p_node->next) {
     pid = fork();

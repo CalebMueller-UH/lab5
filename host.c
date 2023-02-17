@@ -1,6 +1,6 @@
 /*
- * host.c
- */
+    host.c
+*/
 
 #include "host.h"
 
@@ -428,7 +428,7 @@ void host_main(int host_id) {
           /* Wait for a ping reply packet */
 
           if (ping_reply_received == 1) {
-            n = sprintf(man_reply_msg, "Ping acknowledged!");
+            n = sprintf(man_reply_msg, "Ping acked!");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
