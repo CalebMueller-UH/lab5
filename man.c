@@ -4,23 +4,6 @@
 
 #include "man.h"
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "host.h"
-#include "main.h"
-#include "net.h"
-
-#define MAXBUFFER 1000
-#define PIPE_WRITE 1
-#define PIPE_READ 0
-#define TENMILLISEC 10000
-#define DELAY_FOR_HOST_REPLY 10 /* Delay in ten of milliseconds */
-
 void display_host(struct man_port_at_man *list,
                   struct man_port_at_man *curr_host);
 void change_host(struct man_port_at_man *list,
@@ -138,7 +121,7 @@ void set_host_dir(struct man_port_at_man *curr_host) {
 
   printf("Enter directory name: ");
   scanf("%s", name);
-  n = sprintf(msg, "m %s", name);
+  n = snprintf(msg, NAME_LENGTH, "m %s", name);
   write(curr_host->send_fd, msg, n);
 }
 
@@ -162,7 +145,7 @@ void ping(struct man_port_at_man *curr_host) {
 
   printf("Enter id of host to ping: ");
   scanf("%d", &host_to_ping);
-  n = sprintf(msg, "p %d", host_to_ping);
+  n = snprintf(msg, MAN_MSG_LENGTH, "p %d", host_to_ping);
 
   write(curr_host->send_fd, msg, n);
 
@@ -200,7 +183,7 @@ int file_upload(struct man_port_at_man *curr_host) {
   scanf("%d", &host_id);
   printf("\n");
 
-  n = sprintf(msg, "u %d %s", host_id, name);
+  n = snprintf(msg, NAME_LENGTH, "u %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
   usleep(TENMILLISEC);
 }

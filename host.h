@@ -1,8 +1,27 @@
 /*
-    host.h
+  host.h
 */
 
 #pragma once
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "main.h"
+#include "man.h"
+#include "net.h"
+#include "packet.h"
+
+#define MAX_FILE_BUFFER 1000
+#define MAX_MSG_LENGTH 100
+#define MAX_DIR_NAME 100
+#define MAX_FILE_NAME 100
+#define PKT_PAYLOAD_MAX 100
+#define TENMILLISEC 10000 /* 10 millisecond sleep */
 
 enum host_job_type {
   JOB_SEND_PKT_ALL_PORTS,

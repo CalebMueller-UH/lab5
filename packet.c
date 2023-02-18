@@ -4,16 +4,6 @@
 
 #include "packet.h"
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "host.h"
-#include "main.h"
-#include "net.h"
-
 void packet_send(struct net_port *port, struct packet *p) {
   char msg[PAYLOAD_MAX + 4];
   int i;

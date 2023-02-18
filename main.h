@@ -1,8 +1,20 @@
 /*
-    main.h
+  main.h
 */
 
 #pragma once
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include "host.h"
+#include "man.h"
+#include "net.h"
 
 #define BCAST_ADDR 100
 #define PAYLOAD_MAX 100

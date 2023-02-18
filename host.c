@@ -4,25 +4,6 @@
 
 #include "host.h"
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "main.h"
-#include "man.h"
-#include "net.h"
-#include "packet.h"
-
-#define MAX_FILE_BUFFER 1000
-#define MAX_MSG_LENGTH 100
-#define MAX_DIR_NAME 100
-#define MAX_FILE_NAME 100
-#define PKT_PAYLOAD_MAX 100
-#define TENMILLISEC 10000 /* 10 millisecond sleep */
-
 /* Types of packets */
 
 struct file_buf {
@@ -141,9 +122,9 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   char reply_msg[MAX_MSG_LENGTH];
 
   if (dir_valid == 1) {
-    n = sprintf(reply_msg, "%s %d", dir, host_id);
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "%s %d", dir, host_id);
   } else {
-    n = sprintf(reply_msg, "None %d", host_id);
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "None %d", host_id);
   }
 
   write(port->send_fd, reply_msg, n);
@@ -428,7 +409,7 @@ void host_main(int host_id) {
           /* Wait for a ping reply packet */
 
           if (ping_reply_received == 1) {
-            n = sprintf(man_reply_msg, "Ping acked!");
+            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping acked!");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
@@ -436,7 +417,7 @@ void host_main(int host_id) {
             new_job->ping_timer--;
             job_q_add(&job_q, new_job);
           } else { /* Time out */
-            n = sprintf(man_reply_msg, "Ping time out!");
+            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping time out!");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
@@ -451,7 +432,8 @@ void host_main(int host_id) {
 
           /* Open file */
           if (dir_valid == 1) {
-            n = sprintf(name, "./%s/%s", dir, new_job->fname_upload);
+            n = snprintf(name, MAX_FILE_NAME, "./%s/%s", dir,
+                         new_job->fname_upload);
             name[n] = '\0';
             fp = fopen(name, "r");
             if (fp != NULL) {
@@ -549,7 +531,7 @@ void host_main(int host_id) {
              * Then open the file
              */
             file_buf_get_name(&f_buf_upload, string);
-            n = sprintf(name, "./%s/%s", dir, string);
+            n = snprintf(name, MAX_FILE_NAME, "./%s/%s", dir, string);
             name[n] = '\0';
             fp = fopen(name, "w");
 
