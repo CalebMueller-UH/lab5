@@ -13,6 +13,7 @@
 #include "host.h"
 #include "man.h"
 #include "net.h"
+#include "switch.h"
 #include "types.h"
 
 #define BCAST_ADDR 100
