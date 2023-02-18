@@ -14,7 +14,7 @@ void file_buf_init(struct file_buf *f) {
 }
 
 /* Get the file name in the file buffer and store it in name
-   Terminate the string in name with tne null character
+   Terminate the string in name with the null character
  */
 void file_buf_get_name(struct file_buf *f, char name[]) {
   int i;
@@ -155,7 +155,7 @@ int job_q_num(struct job_queue *j_q) { return j_q->occ; }
  */
 
 void host_main(int host_id) {
-  /* State */
+  /* Initialize State */
   char dir[MAX_DIR_NAME];
   int dir_valid = 0;
 
@@ -196,7 +196,6 @@ void host_main(int host_id) {
    * Initialize pipes
    * Get link port to the manager
    */
-
   man_port = net_get_host_port(host_id);
 
   /*

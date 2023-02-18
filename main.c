@@ -16,11 +16,14 @@ void main() {
    *   - nodes, creates a list of nodes
    *   - links, creates/implements the links, e.g., using pipes or sockets
    */
-  net_init();
+  if (net_init() != 0) {
+    fprintf(stderr, "Error initializing network at net_init()\n");
+    return;
+  }
+
   node_list = net_get_node_list(); /* Returns the list of nodes */
 
-  /* Create nodes, which are child processwa */
-
+  /* Create nodes, which are child processes */
   for (p_node = node_list; p_node != NULL; p_node = p_node->next) {
     pid = fork();
 

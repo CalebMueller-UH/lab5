@@ -4,4 +4,10 @@
 
 #include "switch.h"
 
-void switch_main(int id) { return; }
+void switch_main(int id) {
+  /* Initialize State */
+
+  /* Configure Connection */
+
+    return;
+}
