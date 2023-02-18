@@ -1,6 +1,6 @@
-/*
-    net.c
+// net.c
 
+/*
  * Here is where pipes and sockets are created.
  * Note that they are "nonblocking".  This means that
  * whenever a read/write (or send/recv) call is made,

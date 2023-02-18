@@ -1,6 +1,4 @@
-/*
-     net.h
-*/
+// net.h
 
 #pragma once
 

@@ -1,25 +1,10 @@
 /*
-    host.c
+  host.c
 */
 
 #include "host.h"
 
-/* Types of packets */
-
-struct file_buf {
-  char name[MAX_FILE_NAME];
-  int name_length;
-  char buffer[MAX_FILE_BUFFER + 1];
-  int head;
-  int tail;
-  int occ;
-  FILE *fd;
-};
-
-/*
- * File buffer operations
- */
-
+/* File buffer operations */
 /* Initialize file buffer data structure */
 void file_buf_init(struct file_buf *f) {
   f->head = 0;
@@ -28,9 +13,8 @@ void file_buf_init(struct file_buf *f) {
   f->name_length = 0;
 }
 
-/*
- * Get the file name in the file buffer and store it in name
- * Terminate the string in name with tne null character
+/* Get the file name in the file buffer and store it in name
+   Terminate the string in name with tne null character
  */
 void file_buf_get_name(struct file_buf *f, char name[]) {
   int i;

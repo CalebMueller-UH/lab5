@@ -41,6 +41,16 @@ struct man_port_at_man { /* Port located at the host */
   struct man_port_at_man *next;
 };
 
+void display_host(struct man_port_at_man *list,
+                  struct man_port_at_man *curr_host);
+void change_host(struct man_port_at_man *list,
+                 struct man_port_at_man **curr_host);
+void display_host(struct man_port_at_man *list,
+                  struct man_port_at_man *curr_host);
+void display_host_state(struct man_port_at_man *curr_host);
+void set_host_dir(struct man_port_at_man *curr_host);
+char man_get_user_cmd(int curr_host);
+
 /*
  * Main loop for the manager.
  */

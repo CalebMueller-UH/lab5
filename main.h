@@ -1,6 +1,4 @@
-/*
-  main.h
-*/
+// main.h
 
 #pragma once
 
@@ -15,6 +13,7 @@
 #include "host.h"
 #include "man.h"
 #include "net.h"
+#include "types.h"
 
 #define BCAST_ADDR 100
 #define PAYLOAD_MAX 100

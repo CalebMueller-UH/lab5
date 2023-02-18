@@ -23,6 +23,17 @@
 #define PKT_PAYLOAD_MAX 100
 #define TENMILLISEC 10000 /* 10 millisecond sleep */
 
+/* Types of packets */
+struct file_buf {
+  char name[MAX_FILE_NAME];
+  int name_length;
+  char buffer[MAX_FILE_BUFFER + 1];
+  int head;
+  int tail;
+  int occ;
+  FILE *fd;
+};
+
 enum host_job_type {
   JOB_SEND_PKT_ALL_PORTS,
   JOB_PING_SEND_REQ,
