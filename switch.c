@@ -9,7 +9,7 @@
 struct packet *in_packet; /* Incoming packet */
 struct packet *new_packet;
 
-struct job_queue job_q;
+struct job_queue switch_q;
 
 void switch_main(int switch_id) {
   /* Initialize State */
