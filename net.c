@@ -119,30 +119,27 @@ struct net_port *net_get_port_list(int host_id);
 struct net_node *net_get_node_list();
 
 /*
- * Remove all the ports for the host from linked lisst g_port_list.
- * and create another linked list.  Return the pointer to this
- * linked list.
- */
-struct net_port *net_get_port_list(int host_id) {
-  struct net_port **p;
-  struct net_port *r;
-  struct net_port *t;
-
-  r = NULL;
-  p = &g_port_list;
-
-  while (*p != NULL) {
-    if ((*p)->pipe_host_id == host_id) {
-      t = *p;
-      *p = (*p)->next;
-      t->next = r;
-      r = t;
+Function to retrieve a linked list of network ports that belong to a specified
+node. Takes in an ID of the node of interest as an argument. Returns a pointer
+to the head of the resulting linked list.
+*/
+struct net_port *net_get_port_list(int id_of_interest) {
+  struct net_port **curr;
+  struct net_port *result;
+  struct net_port *temp;
+  result = NULL;
+  curr = &g_port_list;
+  while (*curr != NULL) {
+    if ((*curr)->pipe_node_id == id_of_interest) {
+      temp = *curr;
+      *curr = (*curr)->next;
+      temp->next = result;
+      result = temp;
     } else {
-      p = &((*p)->next);
+      curr = &((*curr)->next);
     }
   }
-
-  return r;
+  return result;
 }
 
 /* Return the linked list of nodes */
@@ -351,11 +348,11 @@ void create_port_list() {
 
       p0 = (struct net_port *)malloc(sizeof(struct net_port));
       p0->type = net_link_list[i].type;
-      p0->pipe_host_id = node0;
+      p0->pipe_node_id = node0;
 
       p1 = (struct net_port *)malloc(sizeof(struct net_port));
       p1->type = net_link_list[i].type;
-      p1->pipe_host_id = node1;
+      p1->pipe_node_id = node1;
 
       pipe(fd01); /* Create a pipe */
                   /* Make the pipe nonblocking at both ends */
