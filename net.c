@@ -393,6 +393,7 @@ int load_net_data_file() {
   /* Open network configuration file */
   printf("Enter network data file: ");
   fgets(fname, sizeof(fname), stdin);
+  fname[strcspn(fname, "\n")] = '\0';  // strip the newline character
   fp = fopen(fname, "r");
   if (fp == NULL) {
     printf("net.c: File did not open\n");

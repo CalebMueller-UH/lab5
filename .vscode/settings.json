@@ -3,6 +3,7 @@
         "stdio.h": "c",
         "host.h": "c",
         "man.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "cstdio": "c"
     }
 }
