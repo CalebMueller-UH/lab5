@@ -12,15 +12,11 @@ struct packet *new_packet;
 struct job_queue switch_q;
 
 void switch_main(int switch_id) {
-  /* Initialize State */
-
-  /*
-   * Create an array node_port[ ] to store the network link ports
-   * at the switch.  The number of ports is node_port_num
-   */
+  ///////////// Initialize State //////////////
+  /* Create an array node_port[ ] to store the network link ports
+   The number of ports is node_port_num */
   struct net_port *node_port_list;
   node_port_list = net_get_port_list(switch_id);
-
   /*  Count the number of network link ports */
   int node_port_num;  // Number of node ports
   node_port_num = 0;
