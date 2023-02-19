@@ -19,7 +19,7 @@ void main(int argc, char **argv) {
 
   if (argc > 1) {
     if (net_init(argv[1]) != 0) {
-      fprintf(stderr, "Error initializing network at net_init(argv[1])\n");
+      fprintf(stderr, "Error initializing network at net_init(%s)\n", argv[1]);
       return;
     }
   } else {

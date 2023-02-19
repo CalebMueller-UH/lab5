@@ -392,7 +392,7 @@ void host_main(int host_id) {
           /* Wait for a ping reply packet */
 
           if (ping_reply_received == 1) {
-            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping acked!");
+            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping acknowleged!");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
