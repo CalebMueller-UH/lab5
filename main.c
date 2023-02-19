@@ -4,7 +4,7 @@
 
 #include "main.h"
 
-void main() {
+void main(int argc, char **argv) {
   pid_t pid; /* Process id */
   int k = 0;
   int status;
@@ -16,9 +16,17 @@ void main() {
    *   - nodes, creates a list of nodes
    *   - links, creates/implements the links, e.g., using pipes or sockets
    */
-  if (net_init() != 0) {
-    fprintf(stderr, "Error initializing network at net_init()\n");
-    return;
+
+  if (argc > 1) {
+    if (net_init(argv[1]) != 0) {
+      fprintf(stderr, "Error initializing network at net_init(argv[1])\n");
+      return;
+    }
+  } else {
+    if (net_init(NULL) != 0) {
+      fprintf(stderr, "Error initializing network at net_init(NULL)\n");
+      return;
+    }
   }
 
   node_list = net_get_node_list(); /* Returns the list of nodes */

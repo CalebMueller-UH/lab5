@@ -234,11 +234,12 @@ void net_free_man_ports_at_man() {
 }
 
 /* Initialize network ports and links */
-int net_init() {
+int net_init(char *confname) {
   if (g_initialized == TRUE) { /* Check if the network is already initialized */
     printf("Network already loaded\n");
     return (0);
-  } else if (load_net_data_file() == -1) { /* Load network configuration file */
+  } else if (load_net_data_file(confname) ==
+             -1) { /* Load network configuration file */
     // Error occurred when loading network configuration file
     return (-1);
   }
@@ -343,7 +344,6 @@ void create_port_list() {
 
   g_port_list = NULL;
   for (i = 0; i < net_link_num; i++) {
-    ////////////////////////////////////
     if (net_link_list[i].type == PIPE) {
       node0 = net_link_list[i].pipe_node0;
       node1 = net_link_list[i].pipe_node1;
@@ -374,52 +374,110 @@ void create_port_list() {
       p1->pipe_send_fd = fd10[PIPE_WRITE];
       p0->pipe_recv_fd = fd10[PIPE_READ];
 
-      p0->next = p1; /* Insert ports in linked lisst */
+      p0->next = p1; /* Insert ports in linked list */
       p1->next = g_port_list;
       g_port_list = p0;
+      //////////////////////////////////////////////////
+      //////////////////////////////////////////////////
     } else if (net_link_list[i].type == SOCKET) {
-      ////////////////////////////////////
-      node0 = net_link_list[i].socket_node0;
+      int node0 = net_link_list[i].socket_node0;
       char *domain_name0 = net_link_list[i].socket_domain_name0;
       int port_num0 = net_link_list[i].socket_port_num0;
       char *domain_name1 = net_link_list[i].socket_domain_name1;
       int port_num1 = net_link_list[i].socket_port_num1;
 
       // Create a socket
-      sockfd = socket(AF_INET, SOCK_STREAM, 0);
+      int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+      if (sockfd == -1) {
+        perror("create_port_list: Socket creation failed");
+        exit(1);
+      }
+
+      // Set the socket to non-blocking mode
+      fcntl(sockfd, F_SETFL, O_NONBLOCK);
 
       // Set up the server address structure
+      struct sockaddr_in servaddr;
       bzero(&servaddr, sizeof(servaddr));
       servaddr.sin_family = AF_INET;
-      servaddr.sin_port = htons(port_num1);
-      inet_pton(AF_INET, domain_name1, &servaddr.sin_addr);
+      servaddr.sin_addr.s_addr = INADDR_ANY;
+      servaddr.sin_port = htons(port_num0);
 
-      // Connect to the server
-      if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) !=
-          0) {
-        perror("create_port_list: Socket connect failed");
+      // Bind the socket to the local address and port
+      printf("Bind the socket to the local address and port\n");
+      if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) != 0) {
+        perror("create_port_list: Socket bind failed");
+        exit(1);
+      }
+
+      // Listen for incoming connections
+      if (listen(sockfd, 1) != 0) {
+        perror("create_port_list: Socket listen failed");
         exit(1);
       }
 
       // Create the net_ports for the two ends of the socket link
-      p0 = (struct net_port *)malloc(sizeof(struct net_port));
+      struct net_port *p0 = (struct net_port *)malloc(sizeof(struct net_port));
       p0->type = net_link_list[i].type;
       p0->link_node_id = node0;
-      p0->sock_send_fd = sockfd;
+      p0->sock_listen_fd = sockfd;
+      p0->sock_send_fd = -1;
       p0->next = NULL;
 
-      p1 = (struct net_port *)malloc(sizeof(struct net_port));
+      struct net_port *p1 = (struct net_port *)malloc(sizeof(struct net_port));
       p1->type = net_link_list[i].type;
       p1->link_node_id = -1;  // not used for socket ports
-      p1->sock_listen_fd =
-          sockfd;  // use the same socket file descriptor for both ends
+      p1->sock_listen_fd = -1;
+      p1->sock_send_fd = -1;
       p1->next = NULL;
 
       // Insert ports in linked list
-      p0->next = g_port_list;
-      g_port_list = p0;
-      p1->next = g_port_list;
-      g_port_list = p1;
+      if (g_port_list == NULL) {
+        g_port_list = p0;
+      } else {
+        struct net_port *current = g_port_list;
+        while (current->next != NULL) {
+          current = current->next;
+        }
+        current->next = p0;
+      }
+
+      if (g_port_list == NULL) {
+        g_port_list = p1;
+      } else {
+        struct net_port *current = g_port_list;
+        while (current->next != NULL) {
+          current = current->next;
+        }
+        current->next = p1;
+      }
+
+      printf("here\n");
+      // Set up the file descriptor sets for select()
+      fd_set read_fds, write_fds, except_fds;
+      FD_ZERO(&read_fds);
+      FD_ZERO(&write_fds);
+      FD_ZERO(&except_fds);
+      FD_SET(STDIN_FILENO, &read_fds);
+
+      // Add the file descriptors for the listening sockets to the set
+      struct net_port *port = g_port_list;
+      while (port != NULL) {
+        if (port->type == SOCKET && port->sock_listen_fd != -1) {
+          FD_SET(port->sock_listen_fd, &read_fds);
+        }
+        port = port->next;
+      }
+
+      // Call select() to wait for activity on the sockets
+      if (select(FD_SETSIZE, &read_fds, &write_fds, &except_fds, NULL) == -1) {
+        perror("select");
+        exit(1);
+      }
+
+      // Add the new socket's file descriptor to the set
+      FD_SET(sockfd, &read_fds);
     }
   }
 }  // End of create_port_list()
@@ -476,14 +534,19 @@ void create_port_list() {
  * Loads network configuration file and creates data structures
  * for nodes and links.
  */
-int load_net_data_file() {
+int load_net_data_file(char *confname) {
   FILE *fp;
   char fname[MAX_FILE_NAME_LENGTH];
 
-  /* Open network configuration file */
-  printf("Enter network data file: ");
-  fgets(fname, sizeof(fname), stdin);
-  fname[strcspn(fname, "\n")] = '\0';  // strip the newline character
+  if (confname == NULL) {
+    /* Open network configuration file */
+    printf("Enter network data file: ");
+    fgets(fname, sizeof(fname), stdin);
+    fname[strcspn(fname, "\n")] = '\0';  // strip the newline character
+  } else {
+    strncpy(fname, confname, MAX_FILE_NAME_LENGTH);
+  }
+
   fp = fopen(fname, "r");
   if (fp == NULL) {
     printf("net.c: File did not open\n");
@@ -564,23 +627,17 @@ int load_net_data_file() {
     for (i = 0; i < link_num; i++) {
       fscanf(fp, " %c ", &link_type);
       if (link_type == 'P') {
-        fscanf(fp, " %d %d ", &node0, &node1);
         net_link_list[i].type = PIPE;
+        fscanf(fp, " %d %d ", &node0, &node1);
         net_link_list[i].pipe_node0 = node0;
         net_link_list[i].pipe_node1 = node1;
       } else if (link_type == 'S') {
-        char domain_name0[MAX_DOMAIN_NAME_LENGTH];
-        int port_num0;
-        char domain_name1[MAX_DOMAIN_NAME_LENGTH];
-        int port_num1;
-        fscanf(fp, " %d %s %d %s %d ", &node0, domain_name0, &port_num0,
-               domain_name1, &port_num1);
         net_link_list[i].type = SOCKET;
-        net_link_list[i].socket_node0 = node0;
-        strcpy(net_link_list[i].socket_domain_name0, domain_name0);
-        net_link_list[i].socket_port_num0 = port_num0;
-        strcpy(net_link_list[i].socket_domain_name1, domain_name1);
-        net_link_list[i].socket_port_num1 = port_num1;
+        fscanf(fp, "%d %s %d %s %d", &net_link_list[i].socket_node0,
+               net_link_list[i].socket_domain_name0,
+               &net_link_list[i].socket_port_num0,
+               net_link_list[i].socket_domain_name1,
+               &net_link_list[i].socket_port_num1);
       } else {
         printf(" net.c: Unidentified link type\n");
       }
