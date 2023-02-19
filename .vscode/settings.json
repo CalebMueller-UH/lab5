@@ -4,6 +4,7 @@
         "host.h": "c",
         "man.h": "c",
         "types.h": "c",
-        "cstdio": "c"
+        "cstdio": "c",
+        "netdb.h": "c"
     }
 }

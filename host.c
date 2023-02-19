@@ -400,7 +400,7 @@ void host_main(int host_id) {
             new_job->ping_timer--;
             job_q_add(&host_q, new_job);
           } else { /* Time out */
-            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping time out!");
+            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping timed out!");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);

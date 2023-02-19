@@ -18,11 +18,13 @@ void main(int argc, char **argv) {
    */
 
   if (argc > 1) {
+    // ./net367 called with argument -> net_init with provided arg
     if (net_init(argv[1]) != 0) {
       fprintf(stderr, "Error initializing network at net_init(%s)\n", argv[1]);
       return;
     }
   } else {
+    // ./net367 not called with argument -> net_init with NULL
     if (net_init(NULL) != 0) {
       fprintf(stderr, "Error initializing network at net_init(NULL)\n");
       return;
@@ -34,7 +36,6 @@ void main(int argc, char **argv) {
   /* Create nodes, which are child processes */
   for (p_node = node_list; p_node != NULL; p_node = p_node->next) {
     pid = fork();
-
     if (pid == -1) {
       printf("Error:  the fork() failed\n");
       return;
