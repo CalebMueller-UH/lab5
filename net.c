@@ -12,27 +12,15 @@
  * until the read/write is completely fulfilled.
  */
 
-#include <arpa/inet.h>
-#include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#define _GNU_SOURCE
-#include <fcntl.h>
+#include "net.h"
 
 #include "host.h"
 #include "main.h"
 #include "man.h"
-#include "net.h"
 #include "packet.h"
 
-#define MAX_FILE_NAME 100
+#define MAX_FILE_NAME_LENGTH 100
+#define MAX_DOMAIN_NAME_LENGTH 100
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 
@@ -44,11 +32,13 @@ enum bool { FALSE, TRUE };
  */
 struct net_link {
   enum NetLinkType type;
-  int pipe_node0;    // Used for pipes
-  int pipe_node1;    // Used for pipes
-  int socket_node0;  // Used for sockets
-  int socket_node1;  // Used for sockets
-  int socket_port;   // Used for sockets
+  int pipe_node0;
+  int pipe_node1;
+  int socket_node0;
+  char socket_domain_name0[MAX_DOMAIN_NAME_LENGTH];
+  int socket_port_num0;
+  char socket_domain_name1[MAX_DOMAIN_NAME_LENGTH];
+  int socket_port_num1;
 };
 
 // struct net_link {
@@ -143,7 +133,7 @@ struct net_port *net_get_port_list(int id_of_interest) {
   result = NULL;
   curr = &g_port_list;
   while (*curr != NULL) {
-    if ((*curr)->pipe_node_id == id_of_interest) {
+    if ((*curr)->link_node_id == id_of_interest) {
       temp = *curr;
       *curr = (*curr)->next;
       temp->next = result;
@@ -360,11 +350,11 @@ void create_port_list() {
 
       p0 = (struct net_port *)malloc(sizeof(struct net_port));
       p0->type = net_link_list[i].type;
-      p0->pipe_node_id = node0;
+      p0->link_node_id = node0;
 
       p1 = (struct net_port *)malloc(sizeof(struct net_port));
       p1->type = net_link_list[i].type;
-      p1->pipe_node_id = node1;
+      p1->link_node_id = node1;
 
       pipe(fd01); /* Create a pipe */
                   /* Make the pipe nonblocking at both ends */
@@ -389,48 +379,50 @@ void create_port_list() {
       g_port_list = p0;
     } else if (net_link_list[i].type == SOCKET) {
       ////////////////////////////////////
-      node0 = net_link_list[i].pipe_node0;
-      node1 = net_link_list[i].pipe_node1;
+      node0 = net_link_list[i].socket_node0;
+      char *domain_name0 = net_link_list[i].socket_domain_name0;
+      int port_num0 = net_link_list[i].socket_port_num0;
+      char *domain_name1 = net_link_list[i].socket_domain_name1;
+      int port_num1 = net_link_list[i].socket_port_num1;
 
+      // Create a socket
+      sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+      // Set up the server address structure
+      bzero(&servaddr, sizeof(servaddr));
+      servaddr.sin_family = AF_INET;
+      servaddr.sin_port = htons(port_num1);
+      inet_pton(AF_INET, domain_name1, &servaddr.sin_addr);
+
+      // Connect to the server
+      if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) !=
+          0) {
+        perror("create_port_list: Socket connect failed");
+        exit(1);
+      }
+
+      // Create the net_ports for the two ends of the socket link
       p0 = (struct net_port *)malloc(sizeof(struct net_port));
       p0->type = net_link_list[i].type;
-      p0->pipe_node_id = node0;
+      p0->link_node_id = node0;
+      p0->sock_send_fd = sockfd;
+      p0->next = NULL;
 
       p1 = (struct net_port *)malloc(sizeof(struct net_port));
       p1->type = net_link_list[i].type;
-      p1->pipe_node_id = node1;
+      p1->link_node_id = -1;  // not used for socket ports
+      p1->sock_listen_fd =
+          sockfd;  // use the same socket file descriptor for both ends
+      p1->next = NULL;
 
-      sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
-      bzero(&servaddr, sizeof(servaddr));
-      servaddr.sin_family = AF_INET;
-      servaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-      servaddr.sin_port = htons(net_link_list[i].socket_port);
-
-      if (node0 < node1) {
-        bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-        listen(sockfd, 1);
-        p0->sock_listen_fd = sockfd;
-      } else {
-        sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
-        bzero(&servaddr, sizeof(servaddr));
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        servaddr.sin_port = htons(net_link_list[i].socket_port);
-
-        connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-
-        p0->sock_send_fd = sockfd;
-        p1->sock_recv_fd = sockfd;
-      }
-
-      p0->next = p1; /* Insert ports in linked list */
-      p1->next = g_port_list;
+      // Insert ports in linked list
+      p0->next = g_port_list;
       g_port_list = p0;
+      p1->next = g_port_list;
+      g_port_list = p1;
     }
   }
-}
+}  // End of create_port_list()
 
 // void create_port_list() {
 //   struct net_port *p0;
@@ -448,11 +440,11 @@ void create_port_list() {
 
 //       p0 = (struct net_port *)malloc(sizeof(struct net_port));
 //       p0->type = net_link_list[i].type;
-//       p0->pipe_node_id = node0;
+//       p0->link_node_id = node0;
 
 //       p1 = (struct net_port *)malloc(sizeof(struct net_port));
 //       p1->type = net_link_list[i].type;
-//       p1->pipe_node_id = node1;
+//       p1->link_node_id = node1;
 
 //       pipe(fd01); /* Create a pipe */
 //                   /* Make the pipe nonblocking at both ends */
@@ -486,7 +478,7 @@ void create_port_list() {
  */
 int load_net_data_file() {
   FILE *fp;
-  char fname[MAX_FILE_NAME];
+  char fname[MAX_FILE_NAME_LENGTH];
 
   /* Open network configuration file */
   printf("Enter network data file: ");
@@ -577,11 +569,18 @@ int load_net_data_file() {
         net_link_list[i].pipe_node0 = node0;
         net_link_list[i].pipe_node1 = node1;
       } else if (link_type == 'S') {
-        fscanf(fp, "%d %d ", &node0, &node1);
+        char domain_name0[MAX_DOMAIN_NAME_LENGTH];
+        int port_num0;
+        char domain_name1[MAX_DOMAIN_NAME_LENGTH];
+        int port_num1;
+        fscanf(fp, " %d %s %d %s %d ", &node0, domain_name0, &port_num0,
+               domain_name1, &port_num1);
         net_link_list[i].type = SOCKET;
         net_link_list[i].socket_node0 = node0;
-        net_link_list[i].socket_node1 = node1;
-        fscanf(fp, " %d", &net_link_list[i].socket_port);
+        strcpy(net_link_list[i].socket_domain_name0, domain_name0);
+        net_link_list[i].socket_port_num0 = port_num0;
+        strcpy(net_link_list[i].socket_domain_name1, domain_name1);
+        net_link_list[i].socket_port_num1 = port_num1;
       } else {
         printf(" net.c: Unidentified link type\n");
       }
@@ -605,8 +604,11 @@ int load_net_data_file() {
       printf(" Link (%d, %d) PIPE\n", net_link_list[i].pipe_node0,
              net_link_list[i].pipe_node1);
     } else if (net_link_list[i].type == SOCKET) {
-      printf(" Link (%d, %d) SOCKET port %d\n", net_link_list[i].socket_node0,
-             net_link_list[i].socket_node1, net_link_list[i].socket_port);
+      printf(" Link (%d, %s:%d, %s:%d) SOCKET\n", net_link_list[i].socket_node0,
+             net_link_list[i].socket_domain_name0,
+             net_link_list[i].socket_port_num0,
+             net_link_list[i].socket_domain_name1,
+             net_link_list[i].socket_port_num1);
     }
   }
 

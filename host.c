@@ -172,7 +172,7 @@ void host_main(int host_id) {
 
   int i, k, n;
   int dst;
-  char name[MAX_FILE_NAME];
+  char name[MAX_FILE_NAME_LENGTH];
   char string[PKT_PAYLOAD_MAX + 1];
 
   FILE *fp;
@@ -415,7 +415,7 @@ void host_main(int host_id) {
 
           /* Open file */
           if (dir_valid == 1) {
-            n = snprintf(name, MAX_FILE_NAME, "./%s/%s", dir,
+            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
                          new_job->fname_upload);
             name[n] = '\0';
             fp = fopen(name, "r");
@@ -514,7 +514,7 @@ void host_main(int host_id) {
              * Then open the file
              */
             file_buf_get_name(&f_buf_upload, string);
-            n = snprintf(name, MAX_FILE_NAME, "./%s/%s", dir, string);
+            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir, string);
             name[n] = '\0';
             fp = fopen(name, "w");
 
