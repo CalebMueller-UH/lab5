@@ -36,7 +36,7 @@ void broadcastToAllButSender(struct job_struct *job, struct tableEntry *rt,
                              struct net_port **port_array,
                              int port_array_size) {
   for (int i = 0; i < port_array_size; i++) {
-    if (rt[i].isValid && i != job->in_port_index) {
+    if (i != job->in_port_index) {
       packet_send(port_array[i], job->packet);
     }
   }
@@ -165,6 +165,5 @@ void switch_main(int switch_id) {
 
     /* The host goes to sleep for 10 ms */
     usleep(TENMILLISEC);
-
   } /* End of while loop */
 }
