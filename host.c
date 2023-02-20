@@ -119,7 +119,6 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
  */
 
 void host_main(int host_id) {
-  // printf("DEBUG: id:%d host_main called\n", host_id);
   /* Initialize State */
   char dir[MAX_DIR_NAME];
   int dir_valid = 0;
@@ -250,9 +249,14 @@ void host_main(int host_id) {
       in_packet = (struct packet *)malloc(sizeof(struct packet));
       n = packet_recv(node_port[k], in_packet);
       if ((n > 0) && ((int)in_packet->dst == host_id)) {
-        printf("DEBUG: Host%d host_main: Host %d received packet of type %s\n",
-               host_id, (int)in_packet->dst,
-               get_job_type_literal(in_packet->type));
+#ifdef DEBUG
+        printf(
+            "\033[0;33m"  // yellow text
+            "DEBUG: id:%d host_main: Host %d received packet of type %s\n"
+            "\033[0m",  // regular text
+            host_id, (int)in_packet->dst,
+            get_job_type_literal(in_packet->type));
+#endif
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
         new_job->in_port_index = k;
         new_job->packet = in_packet;
