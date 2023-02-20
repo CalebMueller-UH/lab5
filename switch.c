@@ -6,6 +6,9 @@
 
 #include <stdbool.h>
 
+#define MAX_NUM_ROUTES 100
+#define TENMILLISEC 10000
+
 struct packet *in_packet; /* Incoming packet */
 struct packet *new_packet;
 
@@ -47,18 +50,11 @@ void switch_main(int switch_id) {
   struct net_port *node_port_list;
   struct net_port **node_port_array;
   int node_port_array_size;
-  struct net_port *p;
+  struct net_port *port;
   struct job_struct *new_job;
-  struct job_struct *new_job2;
-  ////// Initialize Router Table //////
-
   struct job_queue switch_q;
 
-  ////// Initialize Switch Job Queue //////
-  /*
-  Routing table index == port
-  Each element within routingTable has both an isValid and dest property
-  */
+  ////// Initialize Router Table //////
   struct tableEntry *routingTable =
       (struct tableEntry *)malloc(sizeof(struct tableEntry) * MAX_NUM_ROUTES);
   for (int i = 0; i < MAX_NUM_ROUTES; i++) {
@@ -73,20 +69,21 @@ void switch_main(int switch_id) {
    */
   node_port_list = net_get_port_list(switch_id);
 
-  /*  Count the number of network link ports */
+  /* Count the number of network link ports */
   node_port_array_size = 0;
-  for (p = node_port_list; p != NULL; p = p->next) {
+  for (port = node_port_list; port != NULL; port = port->next) {
     node_port_array_size++;
   }
+
   /* Create memory space for the array */
   node_port_array = (struct net_port **)malloc(node_port_array_size *
                                                sizeof(struct net_port *));
 
   /* Load ports into the array */
-  p = node_port_list;
-  for (int k = 0; k < node_port_array_size; k++) {
-    node_port_array[k] = p;
-    p = p->next;
+  port = node_port_list;
+  for (int i = 0; i < node_port_array_size; i++) {
+    node_port_array[i] = port;
+    port = port->next;
   }
 
   /* Initialize the job queue */
@@ -94,9 +91,9 @@ void switch_main(int switch_id) {
 
   while (1) {
     /////// Receive In-Coming packet and translate it to job //////
-    for (int k = 0; k < node_port_array_size; k++) {
+    for (int i = 0; i < node_port_array_size; i++) {
       struct packet *in_packet = (struct packet *)malloc(sizeof(struct packet));
-      int n = packet_recv(node_port_array[k], in_packet);
+      int n = packet_recv(node_port_array[i], in_packet);
       if (n > 0) {
 #ifdef DEBUG
         printf(
@@ -104,10 +101,10 @@ void switch_main(int switch_id) {
             "DEBUG: id:%d switch_main: Switch received packet on port:%d "
             "src:%d dst:%d\n"
             "\033[0m",  // regular text
-            switch_id, k, in_packet->src, in_packet->dst);
+            switch_id, i, in_packet->src, in_packet->dst);
 #endif
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-        new_job->in_port_index = k;
+        new_job->in_port_index = i;
         new_job->packet = in_packet;
 
         int srcPortNum = -1;
@@ -118,9 +115,9 @@ void switch_main(int switch_id) {
         packet source, add it to routingTable by setting isValid, and
         associating its id
         */
-        if (routingTable[k].id != in_packet->src || !routingTable[k].isValid) {
-          routingTable[k].isValid = true;
-          routingTable[k].id = in_packet->src;
+        if (routingTable[i].id != in_packet->src || !routingTable[i].isValid) {
+          routingTable[i].isValid = true;
+          routingTable[i].id = in_packet->src;
         }
 
         int dstIndex =
@@ -161,9 +158,18 @@ void switch_main(int switch_id) {
                       new_job->packet);
           break;
       }
-    }
 
+      free(new_job->packet);
+      free(new_job);
+    }
     /* The host goes to sleep for 10 ms */
     usleep(TENMILLISEC);
   } /* End of while loop */
+
+  /* Free dynamically allocated memory */
+  for (int i = 0; i < node_port_array_size; i++) {
+    free(node_port_array[i]);
+  }
+  free(node_port_array);
+  free(routingTable);
 }
