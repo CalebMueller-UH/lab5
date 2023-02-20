@@ -1,26 +1,28 @@
-net367: host.o switch.o packet.o man.o main.o net.o job.o
-	gcc -o net367 host.o switch.o man.o main.o net.o packet.o job.o
+CFLAGS = -g
 
-main.o: main.c 
-	gcc -c main.c
+net367: main.o host.o switch.o man.o net.o packet.o job.o
+	gcc $(CFLAGS) -o net367 main.o host.o switch.o man.o net.o packet.o job.o
 
-host.o: host.c job.h
-	gcc -c host.c 
+main.o: main.c job.h net.h
+	gcc $(CFLAGS) -c main.c
 
-switch.o: switch.c job.h
-	gcc -c switch.c
+host.o: host.c job.h net.h
+	gcc $(CFLAGS) -c host.c 
 
-man.o:  man.c 
-	gcc -c man.c
+switch.o: switch.c job.h net.h
+	gcc $(CFLAGS) -c switch.c
 
-net.o:  net.c 
-	gcc -c net.c
+man.o:  man.c job.h net.h
+	gcc $(CFLAGS) -c man.c
 
-packet.o:  packet.c 
-	gcc -c packet.c
+net.o:  net.c job.h net.h
+	gcc $(CFLAGS) -c net.c
+
+packet.o:  packet.c job.h net.h
+	gcc $(CFLAGS) -c packet.c
 
 job.o: job.c job.h
-	gcc -c job.c
+	gcc $(CFLAGS) -c job.c
 
 clean:
 	rm *.o
