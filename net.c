@@ -115,7 +115,6 @@ struct man_port_at_host *net_get_host_port(int host_id) {
   for (p = g_man_host_port_list; p != NULL && p->host_id != host_id;
        p = p->next)
     ;
-
   return (p);
 }
 

@@ -8,12 +8,6 @@ struct packet *in_packet; /* Incoming packet */
 struct packet *new_packet;
 
 void switch_main(int switch_id) {
-  sleep(1);
-  printf(
-      "\n\033[35"  // magenta text
-      "Hello from switch_main\n"
-      "\033[0m"  // regular text
-  );
   ////////////////// Initializing //////////////////
   struct net_port *node_port_list;
   struct net_port **node_port_array;
@@ -69,15 +63,14 @@ void switch_main(int switch_id) {
     for (int k = 0; k < node_port_array_size; k++) {
       in_packet = (struct packet *)malloc(sizeof(struct packet));
       int n = packet_recv(node_port_array[k], in_packet);
-      if ((n > 0) && ((int)in_packet->dst == switch_id)) {
+      if (n > 0) {
 #ifdef DEBUG
         printf(
-            "\033[35"  // magenta text
-            "DEBUG: id:%d switch_main: Switch received packet on port %d, "
+            "\033[0;33m"  // yellow text
+            "DEBUG: id:%d switch_main: Switch received packet on port:%d "
             "src:%d dst:%d\n"
             "\033[0m",  // regular text
-            switch_id, node_port_array[k]->link_node_id, in_packet->src,
-            in_packet->dst);
+            switch_id, k, in_packet->src, in_packet->dst);
 #endif
 
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
@@ -87,11 +80,10 @@ void switch_main(int switch_id) {
         // int srcPortNum = -1;
         // int dstPortNum = -1;
 
-        //// Check to see if in_packet->src is in router table
-        // for(int i = 0; i< MAX_NUM_ROUTES; i++){
-        //   if(routingTable[i] == in_packet->src){
-
-        //   }
+        // // Check to see if in_packet->src is in router table
+        // for (int i = 0; i < MAX_NUM_ROUTES; i++) {
+        //   if (routingTable[i] != in_packet->src) {
+        //             }
         // }
 
         //// Check to see if in_packet->dst is in router table

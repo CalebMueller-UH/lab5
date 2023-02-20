@@ -17,11 +17,11 @@ void packet_send(struct net_port *port, struct packet *p) {
       msg[i + 4] = p->payload[i];
     }
     write(port->pipe_send_fd, msg, p->length + 4);
-    // printf("PACKET SEND, src=%d dst=%d p-src=%d p-dst=%d\n",
-    //		(int) msg[0],
-    //		(int) msg[1],
-    //		(int) p->src,
-    //		(int) p->dst);
+#ifdef DEBUG
+    printf("PACKETSEND, src=%d dst=%d type=%d len=%d p-src=%d p-dst=%d\n",
+           (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
+           (int)p->dst);
+#endif
   }
 
   return;
@@ -29,27 +29,24 @@ void packet_send(struct net_port *port, struct packet *p) {
 
 int packet_recv(struct net_port *port, struct packet *p) {
   char msg[PAYLOAD_MAX + 4];
-  int n;
-  int i;
+  int bytesRead;
 
   if (port->type == PIPE) {
-    n = read(port->pipe_recv_fd, msg, PAYLOAD_MAX + 4);
-    if (n > 0) {
+    bytesRead = read(port->pipe_recv_fd, msg, PAYLOAD_MAX + 4);
+    if (bytesRead > 0) {
       p->src = (char)msg[0];
       p->dst = (char)msg[1];
       p->type = (char)msg[2];
       p->length = (int)msg[3];
-      for (i = 0; i < p->length; i++) {
+      for (int i = 0; i < p->length; i++) {
         p->payload[i] = msg[i + 4];
       }
-
-      // printf("PACKET RECV, src=%d dst=%d p-src=%d p-dst=%d\n",
-      //		(int) msg[0],
-      //		(int) msg[1],
-      //		(int) p->src,
-      //		(int) p->dst);
+#ifdef DEBUG
+      printf("PACKETRECV, src=%d dst=%d type=%d len=%d p-src=%d p-dst=%d\n",
+             (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
+             (int)p->dst);
+#endif
     }
   }
-
-  return (n);
+  return (bytesRead);
 }
