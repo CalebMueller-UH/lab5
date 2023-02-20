@@ -3,15 +3,15 @@
 #pragma once
 
 #include <arpa/inet.h>
-// #include <errno.h>
-// #include <netdb.h>
+#include <errno.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <sys/select.h>
+#include <sys/select.h>
 #include <sys/socket.h>
-// #include <sys/types.h>
+#include <sys/types.h>
 #include <unistd.h>
 #define _GNU_SOURCE
 #include <fcntl.h>
@@ -23,3 +23,21 @@ struct man_port_at_host *net_get_host_port(int host_id);
 
 struct net_node *net_get_node_list();
 struct net_port *net_get_port_list(int host_id);
+
+/*
+ * Loads network configuration file and creates data structures
+ * for nodes and links.  The results are accessible through
+ * the private global variables
+ */
+int load_net_data_file();
+
+/*
+ * Creates a data structure for the nodes
+ */
+void create_node_list();
+
+/*
+ * Creates links, using pipes
+ * Then creates a port list for these links.
+ */
+void create_port_list();

@@ -9,6 +9,7 @@ char man_get_user_cmd(int curr_host) {
   char cmd;
 
   while (1) {
+    printf("\033[1;36m");  // Set text color to light blue
     /* Display command options */
     printf("\nCommands (Current host ID = %d):\n", curr_host);
     printf("   (s) Display host's state\n");
@@ -20,6 +21,7 @@ char man_get_user_cmd(int curr_host) {
     printf("   (d) Download a file from a host\n");
     printf("   (q) Quit\n");
     printf("   Enter Command: ");
+    printf("\033[0m");  // Reset text color
     do {
       cmd = getchar();
     } while (cmd == ' ' || cmd == '\n'); /* get rid of junk from stdin */

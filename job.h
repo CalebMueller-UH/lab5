@@ -27,15 +27,15 @@ enum job_type {
 };
 
 struct job_struct {
-  struct job_struct *next;
   enum job_type type;
   struct packet *packet;
   int in_port_index;
   int out_port_index;
-  int ping_timer;
-  int file_upload_dst;
   char fname_download[100];
   char fname_upload[100];
+  int timeToLive;
+  int file_upload_dst;
+  struct job_struct *next;
 };
 
 /////////////////////////////////////////////////////////
@@ -44,10 +44,10 @@ struct job_struct {
 char *get_job_type_literal(enum job_type t);
 
 /* Add a job to the job queue */
-void job_enqueue(struct job_queue *j_q, struct job_struct *j);
+void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j);
 
 /* Remove job from the job queue, and return pointer to the job*/
-struct job_struct *job_dequeue(struct job_queue *j_q);
+struct job_struct *job_dequeue(int id, struct job_queue *j_q);
 
 /* Initialize job queue */
 void job_queue_init(struct job_queue *j_q);

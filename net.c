@@ -40,12 +40,6 @@ struct net_link {
   int socket_remote_port;
 };
 
-// struct net_link {
-//   enum NetLinkType type;
-//   int pipe_node0;
-//   int pipe_node1;
-// };
-
 /*
  * The following are private global variables to this file net.c
  */
@@ -73,27 +67,8 @@ static int net_link_num;
  * and ports of links to the manager
  */
 static struct net_port *g_port_list = NULL;
-
 static struct man_port_at_man *g_man_man_port_list = NULL;
 static struct man_port_at_host *g_man_host_port_list = NULL;
-
-/*
- * Loads network configuration file and creates data structures
- * for nodes and links.  The results are accessible through
- * the private global variables
- */
-int load_net_data_file();
-
-/*
- * Creates a data structure for the nodes
- */
-void create_node_list();
-
-/*
- * Creates links, using pipes
- * Then creates a port list for these links.
- */
-void create_port_list();
 
 /*
  * Creates ports at the manager and ports at the hosts so that
@@ -155,7 +130,6 @@ struct man_port_at_man *net_get_man_ports_at_man_list() {
 /* Return the port used by host to link with other nodes */
 struct man_port_at_host *net_get_host_port(int host_id) {
   struct man_port_at_host *p;
-
   for (p = g_man_host_port_list; p != NULL && p->host_id != host_id;
        p = p->next)
     ;
@@ -166,9 +140,7 @@ struct man_port_at_host *net_get_host_port(int host_id) {
 /* Close all host ports not used by manager */
 void net_close_man_ports_at_hosts() {
   struct man_port_at_host *p_h;
-
   p_h = g_man_host_port_list;
-
   while (p_h != NULL) {
     close(p_h->send_fd);
     close(p_h->recv_fd);
@@ -179,9 +151,7 @@ void net_close_man_ports_at_hosts() {
 /* Close all host ports used by manager except to host_id */
 void net_close_man_ports_at_hosts_except(int host_id) {
   struct man_port_at_host *p_h;
-
   p_h = g_man_host_port_list;
-
   while (p_h != NULL) {
     if (p_h->host_id != host_id) {
       close(p_h->send_fd);
@@ -195,9 +165,7 @@ void net_close_man_ports_at_hosts_except(int host_id) {
 void net_free_man_ports_at_hosts() {
   struct man_port_at_host *p_h;
   struct man_port_at_host *t_h;
-
   p_h = g_man_host_port_list;
-
   while (p_h != NULL) {
     t_h = p_h;
     p_h = p_h->next;
@@ -208,9 +176,7 @@ void net_free_man_ports_at_hosts() {
 /* Close all manager ports */
 void net_close_man_ports_at_man() {
   struct man_port_at_man *p_m;
-
   p_m = g_man_man_port_list;
-
   while (p_m != NULL) {
     close(p_m->send_fd);
     close(p_m->recv_fd);
@@ -222,9 +188,7 @@ void net_close_man_ports_at_man() {
 void net_free_man_ports_at_man() {
   struct man_port_at_man *p_m;
   struct man_port_at_man *t_m;
-
   p_m = g_man_man_port_list;
-
   while (p_m != NULL) {
     t_m = p_m;
     p_m = p_m->next;
@@ -242,24 +206,8 @@ int net_init(char *confname) {
     // Error occurred when loading network configuration file
     return (-1);
   }
-  /*
-   * Create a linked list of node information at g_node_list
-   */
   create_node_list();
-
-  /*
-   * Create pipes and sockets to realize network links
-   * and store the ports of the links at g_port_list
-   */
   create_port_list();
-
-  /*
-   * Create pipes to connect the manager to hosts
-   * and store the ports at the host at g_man_host_port_list
-   * as a linked list
-   * and store the ports at the manager at g_man_man_port_list
-   * as a linked list
-   */
   create_man_ports(&g_man_man_port_list, &g_man_host_port_list);
 
   return 0;
@@ -280,15 +228,12 @@ void create_man_ports(struct man_port_at_man **p_man,
   struct man_port_at_man *p_m;
   struct man_port_at_host *p_h;
   int host;
-
   for (p = g_node_list; p != NULL; p = p->next) {
     if (p->type == HOST) {
       p_m = (struct man_port_at_man *)malloc(sizeof(struct man_port_at_man));
       p_m->host_id = p->id;
-
       p_h = (struct man_port_at_host *)malloc(sizeof(struct man_port_at_host));
       p_h->host_id = p->id;
-
       pipe(fd0); /* Create a pipe */
                  /* Make the pipe nonblocking at both ends */
       fcntl(fd0[PIPE_WRITE], F_SETFL,
@@ -297,7 +242,6 @@ void create_man_ports(struct man_port_at_man **p_man,
             fcntl(fd0[PIPE_READ], F_GETFL) | O_NONBLOCK);
       p_m->send_fd = fd0[PIPE_WRITE];
       p_h->recv_fd = fd0[PIPE_READ];
-
       pipe(fd1); /* Create a pipe */
                  /* Make the pipe nonblocking at both ends */
       fcntl(fd1[PIPE_WRITE], F_SETFL,
@@ -306,10 +250,8 @@ void create_man_ports(struct man_port_at_man **p_man,
             fcntl(fd1[PIPE_READ], F_GETFL) | O_NONBLOCK);
       p_h->send_fd = fd1[PIPE_WRITE];
       p_m->recv_fd = fd1[PIPE_READ];
-
       p_m->next = *p_man;
       *p_man = p_m;
-
       p_h->next = *p_host;
       *p_host = p_h;
     }
@@ -320,7 +262,6 @@ void create_man_ports(struct man_port_at_man **p_man,
 void create_node_list() {
   struct net_node *p;
   int i;
-
   g_node_list = NULL;
   for (i = 0; i < net_node_num; i++) {
     p = (struct net_node *)malloc(sizeof(struct net_node));
@@ -337,23 +278,18 @@ void create_port_list() {
   int node0, node1;
   int fd01[2];
   int fd10[2];
-
   g_port_list = NULL;
-
   for (int i = 0; i < net_link_num; i++) {
     if (net_link_list[i].type == PIPE) {
       ////////////////////// PIPE ///////////////////////////
       node0 = net_link_list[i].node0;
       node1 = net_link_list[i].node1;
-
       p0 = (struct net_port *)malloc(sizeof(struct net_port));
       p0->type = net_link_list[i].type;
       p0->link_node_id = node0;
-
       p1 = (struct net_port *)malloc(sizeof(struct net_port));
       p1->type = net_link_list[i].type;
       p1->link_node_id = node1;
-
       pipe(fd01); /* Create a pipe */
                   /* Make the pipe nonblocking at both ends */
       fcntl(fd01[PIPE_WRITE], F_SETFL,
@@ -362,7 +298,6 @@ void create_port_list() {
             fcntl(fd01[PIPE_READ], F_GETFL) | O_NONBLOCK);
       p0->pipe_send_fd = fd01[PIPE_WRITE];
       p1->pipe_recv_fd = fd01[PIPE_READ];
-
       pipe(fd10); /* Create a pipe */
                   /* Make the pipe nonblocking at both ends */
       fcntl(fd10[PIPE_WRITE], F_SETFL,
@@ -371,28 +306,23 @@ void create_port_list() {
             fcntl(fd10[PIPE_READ], F_GETFL) | O_NONBLOCK);
       p1->pipe_send_fd = fd10[PIPE_WRITE];
       p0->pipe_recv_fd = fd10[PIPE_READ];
-
       p0->next = p1; /* Insert ports in linked list */
       p1->next = g_port_list;
       g_port_list = p0;
-
     } else if (net_link_list[i].type == SOCKET) {
       ////////////////////// SOCKET ///////////////////////////
       int sockfd;
       struct sockaddr_in servaddr;
       struct net_port *p0, *p1;
-
       // Create socket file descriptor
       sockfd = socket(AF_INET, SOCK_STREAM, 0);
       if (sockfd == -1) {
         // handle error
       }
-
       // Set socket options
       int optval = 1;
       setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval,
                  sizeof(int));
-
       // Bind the socket to a local address and port
       struct sockaddr_in addr;
       addr.sin_family = AF_INET;
@@ -401,7 +331,6 @@ void create_port_list() {
       if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
         // handle error
       }
-
       // Connect the socket to the remote address and port
       servaddr.sin_family = AF_INET;
       servaddr.sin_addr.s_addr =
@@ -411,25 +340,20 @@ void create_port_list() {
           -1) {
         // handle error
       }
-
       // Set socket file descriptor to non-blocking mode
       int flags = fcntl(sockfd, F_GETFL, 0);
       fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-
       // Create struct net_port for each node
       p0 = (struct net_port *)malloc(sizeof(struct net_port));
       p1 = (struct net_port *)malloc(sizeof(struct net_port));
-
       p0->type = net_link_list[i].type;
       p0->link_node_id = node0;
       p0->socket_send_fd = sockfd;
       p0->next = NULL;
-
       p1->type = net_link_list[i].type;
       p1->link_node_id = node1;
       p1->socket_recv_fd = sockfd;
       p1->next = NULL;
-
       // Set file descriptors for each net_port
       p0->next = p1;
       p1->next = g_port_list;
@@ -445,7 +369,6 @@ void create_port_list() {
 int load_net_data_file(char *confname) {
   FILE *fp;
   char fname[MAX_FILE_NAME_LENGTH];
-
   if (confname == NULL) {
     /* Open network configuration file */
     printf("Enter network data file: ");
@@ -454,31 +377,18 @@ int load_net_data_file(char *confname) {
   } else {
     strncpy(fname, confname, MAX_FILE_NAME_LENGTH);
   }
-
   fp = fopen(fname, "r");
   if (fp == NULL) {
     printf("net.c: File did not open\n");
     return (-1);
   }
-
   int i;
   int node_num;
   char node_type;
   int node_id;
-
-  /*
-   * Read node information from the file and
-   * fill in data structure for nodes.
-   * The data structure is an array net_node_list[ ]
-   * and the size of the array is net_node_num.
-
-   * Note that net_node_list[] and net_node_num are
-   * private global variables.
-   */
   fscanf(fp, "%d", &node_num);
   printf("Number of Nodes = %d: \n", node_num);
   net_node_num = node_num;
-
   if (node_num < 1) {
     printf("net.c: No nodes\n");
     fclose(fp);
@@ -488,7 +398,6 @@ int load_net_data_file(char *confname) {
         (struct net_node *)malloc(sizeof(struct net_node) * node_num);
     for (i = 0; i < node_num; i++) {
       fscanf(fp, " %c ", &node_type);
-
       if (node_type == 'H') {
         fscanf(fp, " %d ", &node_id);
         net_node_list[i].type = HOST;
@@ -500,7 +409,6 @@ int load_net_data_file(char *confname) {
       } else {
         printf(" net.c: Unidentified Node Type\n");
       }
-
       if (i != node_id) {
         printf(" net.c: Incorrect node id\n");
         fclose(fp);
@@ -508,23 +416,12 @@ int load_net_data_file(char *confname) {
       }
     }
   }
-  /*
-   * Read link information from the file and
-   * fill in data structure for links.
-   * The data structure is an array net_link_list[ ]
-   * and the size of the array is net_link_num.
-   * Note that net_link_list[] and net_link_num are
-   * private global variables.
-   */
-
   int link_num;
   char link_type;
   int node0, node1;
-
   fscanf(fp, " %d ", &link_num);
   printf("Number of Links = %d\n", link_num);
   net_link_num = link_num;
-
   if (link_num < 1) {
     printf("net.c: No links\n");
     fclose(fp);
@@ -559,7 +456,6 @@ int load_net_data_file(char *confname) {
       }
     }
   }
-
   /* Display the nodes and links of the network */
   printf("Nodes:\n");
   for (i = 0; i < net_node_num; i++) {
@@ -584,7 +480,6 @@ int load_net_data_file(char *confname) {
              net_link_list[i].socket_remote_port);
     }
   }
-
   fclose(fp);
   return (0);
 }

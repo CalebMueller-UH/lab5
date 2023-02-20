@@ -9,6 +9,7 @@
         "main.h": "c",
         "net.h": "c",
         "packet.h": "c",
-        "job.h": "c"
+        "job.h": "c",
+        "unistd.h": "c"
     }
 }
