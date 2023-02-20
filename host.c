@@ -204,7 +204,6 @@ void host_main(int host_id) {
           break;
 
         case 'm':
-          dir_valid = 0;
           size_t len = strnlen(man_msg, MAX_DIR_NAME - 1);
           if (is_valid_directory(man_msg)) {
             memcpy(dir, man_msg, len);

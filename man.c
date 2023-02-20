@@ -4,35 +4,28 @@
 
 #include "man.h"
 
+void man_print_command_prompt(int curr_host) {
+  printf("\033[1;36m");  // Set text color to light blue
+  /* Display command options */
+  printf("\nCommands (Current host ID = %d):\n", curr_host);
+  printf("   (s) Display host's state\n");
+  printf("   (m) Set host's main directory\n");
+  printf("   (h) Display all hosts\n");
+  printf("   (c) Change host\n");
+  printf("   (p) Ping a host\n");
+  printf("   (u) Upload a file to a host\n");
+  printf("   (d) Download a file from a host\n");
+  printf("   (q) Quit\n");
+  printf("   Enter Command: ");
+  printf("\033[0m");  // Reset text color
+}
+
 /* Get the user command */
 char man_get_user_cmd(int curr_host) {
   char cmd;
-  int printFlag = 1;
-
   while (1) {
-    if (printFlag) {
-      int pid = fork();
-      if (pid == 0) {
-        usleep(50000);
-        printf("\033[1;36m");  // Set text color to light blue
-        /* Display command options */
-        printf("\nCommands (Current host ID = %d):\n", curr_host);
-        printf("   (s) Display host's state\n");
-        printf("   (m) Set host's main directory\n");
-        printf("   (h) Display all hosts\n");
-        printf("   (c) Change host\n");
-        printf("   (p) Ping a host\n");
-        printf("   (u) Upload a file to a host\n");
-        printf("   (d) Download a file from a host\n");
-        printf("   (q) Quit\n");
-        printf("   Enter Command: ");
-        printf("\033[0m");  // Reset text color
-      }
-      printFlag = 0;
-    }
     do {
       cmd = getchar();
-      printFlag = 1;
     } while (cmd == ' ' || cmd == '\n'); /* get rid of junk from stdin */
 
     /* Ensure that the command is valid */
@@ -47,7 +40,7 @@ char man_get_user_cmd(int curr_host) {
       case 'q':
         return cmd;
       default:
-        printf("Invalid: you entered %c\n\n", cmd);
+        printf("The command %c that you entered is not recognized\n\n", cmd);
     }
   }
 }
@@ -203,6 +196,8 @@ void man_main() {
   char cmd; /* Command entered by user */
 
   while (1) {
+    man_print_command_prompt(curr_host->host_id);
+
     /* Get a command from the user */
     cmd = man_get_user_cmd(curr_host->host_id);
 
