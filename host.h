@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -34,5 +36,7 @@ struct file_buf {
   int occ;
   FILE *fd;
 };
+
+int is_valid_directory(const char *path);
 
 void host_main(int host_id);

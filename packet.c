@@ -18,9 +18,11 @@ void packet_send(struct net_port *port, struct packet *p) {
     }
     write(port->pipe_send_fd, msg, p->length + 4);
 #ifdef DEBUG
-    printf("PACKETSEND, src=%d dst=%d type=%d len=%d p-src=%d p-dst=%d\n",
-           (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
-           (int)p->dst);
+    printf(
+        "\x1b[35mPACKETSEND, src=%d dst=%d type=%d len=%d p-src=%d "
+        "p-dst=%d\x1b[0m\n",
+        (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
+        (int)p->dst);
 #endif
   }
 
@@ -42,9 +44,11 @@ int packet_recv(struct net_port *port, struct packet *p) {
         p->payload[i] = msg[i + 4];
       }
 #ifdef DEBUG
-      printf("PACKETRECV, src=%d dst=%d type=%d len=%d p-src=%d p-dst=%d\n",
-             (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
-             (int)p->dst);
+      printf(
+          "\x1b[35mPACKETRECV, src=%d dst=%d type=%d len=%d p-src=%d "
+          "p-dst=%d\x1b[0m\n",
+          (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
+          (int)p->dst);
 #endif
     }
   }

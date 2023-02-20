@@ -9,19 +9,23 @@ char man_get_user_cmd(int curr_host) {
   char cmd;
 
   while (1) {
-    printf("\033[1;36m");  // Set text color to light blue
-    /* Display command options */
-    printf("\nCommands (Current host ID = %d):\n", curr_host);
-    printf("   (s) Display host's state\n");
-    printf("   (m) Set host's main directory\n");
-    printf("   (h) Display all hosts\n");
-    printf("   (c) Change host\n");
-    printf("   (p) Ping a host\n");
-    printf("   (u) Upload a file to a host\n");
-    printf("   (d) Download a file from a host\n");
-    printf("   (q) Quit\n");
-    printf("   Enter Command: ");
-    printf("\033[0m");  // Reset text color
+    int pid = fork();
+    if (pid == 0) {
+      usleep(50000);
+      printf("\033[1;36m");  // Set text color to light blue
+      /* Display command options */
+      printf("\nCommands (Current host ID = %d):\n", curr_host);
+      printf("   (s) Display host's state\n");
+      printf("   (m) Set host's main directory\n");
+      printf("   (h) Display all hosts\n");
+      printf("   (c) Change host\n");
+      printf("   (p) Ping a host\n");
+      printf("   (u) Upload a file to a host\n");
+      printf("   (d) Download a file from a host\n");
+      printf("   (q) Quit\n");
+      printf("   Enter Command: ");
+      printf("\033[0m");  // Reset text color
+    }
     do {
       cmd = getchar();
     } while (cmd == ' ' || cmd == '\n'); /* get rid of junk from stdin */

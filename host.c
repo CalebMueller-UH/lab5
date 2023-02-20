@@ -95,9 +95,13 @@ int get_man_command(struct man_port_at_host *port, char msg[], char *c) {
   return n;
 }
 
-/*
- * Operations requested by the manager
- */
+int is_valid_directory(const char *path) {
+  struct stat sb;
+  if (stat(path, &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+    return 0;
+  }
+  return 1;
+}
 
 /* Send back state of the host to the manager as a text message */
 void reply_display_host_state(struct man_port_at_host *port, char dir[],
@@ -106,18 +110,18 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   char reply_msg[MAX_MSG_LENGTH];
 
   if (dir_valid == 1) {
-    n = snprintf(reply_msg, MAX_MSG_LENGTH, "%s %d", dir, host_id);
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\x1b[32;1m%s %d\x1b[0m", dir,
+                 host_id);
   } else {
-    n = snprintf(reply_msg, MAX_MSG_LENGTH, "None %d", host_id);
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\x1b[32;1mNone %d\x1b[0m",
+                 host_id);
   }
 
   write(port->send_fd, reply_msg, n);
 }
 
-/*
- *  Main
- */
-
+////////////////////////////////////////////////
+////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
   /* Initialize State */
   char dir[MAX_DIR_NAME];
@@ -200,11 +204,22 @@ void host_main(int host_id) {
           break;
 
         case 'm':
-          dir_valid = 1;
-          for (i = 0; man_msg[i] != '\0'; i++) {
-            dir[i] = man_msg[i];
+          dir_valid = 0;
+          size_t len = strnlen(man_msg, MAX_DIR_NAME - 1);
+          if (is_valid_directory(man_msg)) {
+            memcpy(dir, man_msg, len);
+            dir[len] = '\0';  // add null character
+            dir_valid = 1;
+            printf("\x1b[32mhost%d's main directory set to %s\x1b[0m\n",
+                   host_id, dir);
+          } else {
+            printf("\x1b[31m%s is not a valid directory\x1b[0m\n", man_msg);
           }
-          dir[i] = man_msg[i];
+
+          // for (i = 0; man_msg[i] != '\0'; i++) {
+          //   dir[i] = man_msg[i];
+          // }
+          // dir[i] = man_msg[i];
           break;
 
         case 'p':  // Sending ping request
@@ -329,7 +344,8 @@ void host_main(int host_id) {
 
         case JOB_PING_WAIT_FOR_REPLY:
           if (ping_reply_received == 1) {
-            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping acknowleged!");
+            n = snprintf(man_reply_msg, MAN_MSG_LENGTH,
+                         "\x1b[32;1mPing acknowleged!\x1b[0m");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
@@ -337,7 +353,8 @@ void host_main(int host_id) {
             new_job->timeToLive--;
             job_enqueue(host_id, &host_q, new_job);
           } else { /* Time out */
-            n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping timed out!");
+            n = snprintf(man_reply_msg, MAN_MSG_LENGTH,
+                         "\x1b[31;1mPing timed out!\x1b[0m");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
@@ -350,8 +367,8 @@ void host_main(int host_id) {
         case JOB_FILE_UPLOAD_SEND:
           /* Open file */
           if (dir_valid == 1) {
-            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
-                         new_job->fname_upload);
+            n = snprintf(name, MAX_FILE_NAME_LENGTH, "\x1b[32;1m./%s/%s\x1b[0m",
+                         dir, new_job->fname_upload);
             name[n] = '\0';
             fp = fopen(name, "r");
             if (fp != NULL) {
@@ -435,7 +452,8 @@ void host_main(int host_id) {
              * Then open the file
              */
             file_buf_get_name(&f_buf_upload, string);
-            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir, string);
+            n = snprintf(name, MAX_FILE_NAME_LENGTH, "\x1b[32;1m./%s/%s\x1b[0m",
+                         dir, string);
             name[n] = '\0';
             fp = fopen(name, "w");
             if (fp != NULL) {

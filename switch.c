@@ -61,11 +61,10 @@ void switch_main(int switch_id) {
     routingTable[i].isValid = false;
     routingTable[i].id = -1;
   }
-  ////// Initialize Router Table //////
 
   /*
-   * Create an array node_port_array[ ] to store the network link ports
-   * at the switch.  The number of ports is node_port_array_size
+   Create an array node_port_array[] to store the network link ports
+   at the switch.  The number of ports is node_port_array_size
    */
   node_port_list = net_get_port_list(switch_id);
 
@@ -90,10 +89,11 @@ void switch_main(int switch_id) {
   job_queue_init(&switch_q);
 
   while (1) {
-    /////// Receive In-Coming packet and translate it to job //////
+    /////// Receive In-Coming packet and translate it to a job //////
     for (int i = 0; i < node_port_array_size; i++) {
       struct packet *in_packet = (struct packet *)malloc(sizeof(struct packet));
       int n = packet_recv(node_port_array[i], in_packet);
+
       if (n > 0) {
 #ifdef DEBUG
         printf(
@@ -131,7 +131,7 @@ void switch_main(int switch_id) {
           new_job->type = UNKNOWN_PORT_BROADCAST;
           job_enqueue(switch_id, &switch_q, new_job);
         } else {
-          // Enqueue a FORWARD_PACKET_TO_PORT job forward the current in_packet
+          // enqueue a FORWARD_PACKET_TO_PORT job forward the current in_packet
           // to the associated port
           new_job->type = FORWARD_PACKET_TO_PORT;
           new_job->out_port_index = dstIndex;
@@ -167,6 +167,7 @@ void switch_main(int switch_id) {
   } /* End of while loop */
 
   /* Free dynamically allocated memory */
+  free(in_packet);
   for (int i = 0; i < node_port_array_size; i++) {
     free(node_port_array[i]);
   }
