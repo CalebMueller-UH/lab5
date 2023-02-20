@@ -15,7 +15,6 @@
 #include "man.h"
 #include "net.h"
 #include "switch.h"
-#include "types.h"
 
 #define BCAST_ADDR 100
 #define PAYLOAD_MAX 100

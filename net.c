@@ -337,12 +337,10 @@ void create_port_list() {
   int node0, node1;
   int fd01[2];
   int fd10[2];
-  int sockfd;
-  struct sockaddr_in servaddr;
-  int i;
 
   g_port_list = NULL;
-  for (i = 0; i < net_link_num; i++) {
+
+  for (int i = 0; i < net_link_num; i++) {
     if (net_link_list[i].type == PIPE) {
       ////////////////////// PIPE ///////////////////////////
       node0 = net_link_list[i].node0;
@@ -380,12 +378,9 @@ void create_port_list() {
 
     } else if (net_link_list[i].type == SOCKET) {
       ////////////////////// SOCKET ///////////////////////////
-
       int sockfd;
       struct sockaddr_in servaddr;
       struct net_port *p0, *p1;
-      int node0 = net_link_list[i].node0;
-      int node1 = net_link_list[i].node1;
 
       // Create socket file descriptor
       sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -393,7 +388,7 @@ void create_port_list() {
         // handle error
       }
 
-      // Set socket options (optional)
+      // Set socket options
       int optval = 1;
       setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval,
                  sizeof(int));

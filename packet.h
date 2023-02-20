@@ -2,8 +2,6 @@
      packet.h
 */
 
-#include "types.h"
-
 #pragma once
 
 #include <fcntl.h>

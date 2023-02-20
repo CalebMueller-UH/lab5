@@ -114,42 +114,6 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   write(port->send_fd, reply_msg, n);
 }
 
-/* Job queue operations */
-
-/* Add a job to the job queue */
-void job_q_add(struct job_queue *j_q, struct host_job *j) {
-  if (j_q->head == NULL) {
-    j_q->head = j;
-    j_q->tail = j;
-    j_q->occ = 1;
-  } else {
-    (j_q->tail)->next = j;
-    j->next = NULL;
-    j_q->tail = j;
-    j_q->occ++;
-  }
-}
-
-/* Remove job from the job queue, and return pointer to the job*/
-struct host_job *job_q_remove(struct job_queue *j_q) {
-  struct host_job *j;
-
-  if (j_q->occ == 0) return (NULL);
-  j = j_q->head;
-  j_q->head = (j_q->head)->next;
-  j_q->occ--;
-  return (j);
-}
-
-/* Initialize job queue */
-void job_q_init(struct job_queue *j_q) {
-  j_q->occ = 0;
-  j_q->head = NULL;
-  j_q->tail = NULL;
-}
-
-int job_q_num(struct job_queue *j_q) { return j_q->occ; }
-
 /*
  *  Main
  */
@@ -181,8 +145,8 @@ void host_main(int host_id) {
   struct packet *new_packet;
 
   struct net_port *p;
-  struct host_job *new_job;
-  struct host_job *new_job2;
+  struct job_struct *new_job;
+  struct job_struct *new_job2;
 
   struct job_queue host_q;
 
@@ -225,7 +189,6 @@ void host_main(int host_id) {
 
   while (1) {
     /* Execute command from manager, if any */
-
     /* Get command from manager */
     n = get_man_command(man_port, man_msg, &man_cmd);
 
@@ -252,12 +215,12 @@ void host_main(int host_id) {
           new_packet->dst = (char)dst;
           new_packet->type = (char)PKT_PING_REQ;
           new_packet->length = 0;
-          new_job = (struct host_job *)malloc(sizeof(struct host_job));
+          new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job->packet = new_packet;
           new_job->type = JOB_SEND_PKT_ALL_PORTS;
           job_q_add(&host_q, new_job);
 
-          new_job2 = (struct host_job *)malloc(sizeof(struct host_job));
+          new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
           ping_reply_received = 0;
           new_job2->type = JOB_PING_WAIT_FOR_REPLY;
           new_job2->ping_timer = 10;
@@ -267,7 +230,7 @@ void host_main(int host_id) {
 
         case 'u': /* Upload a file to a host */
           sscanf(man_msg, "%d %s", &dst, name);
-          new_job = (struct host_job *)malloc(sizeof(struct host_job));
+          new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job->type = JOB_FILE_UPLOAD_SEND;
           new_job->file_upload_dst = dst;
           for (i = 0; name[i] != '\0'; i++) {
@@ -292,7 +255,7 @@ void host_main(int host_id) {
       n = packet_recv(node_port[k], in_packet);
 
       if ((n > 0) && ((int)in_packet->dst == host_id)) {
-        new_job = (struct host_job *)malloc(sizeof(struct host_job));
+        new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
         new_job->in_port_index = k;
         new_job->packet = in_packet;
 
@@ -376,7 +339,7 @@ void host_main(int host_id) {
           new_packet->length = 0;
 
           /* Create job for the ping reply */
-          new_job2 = (struct host_job *)malloc(sizeof(struct host_job));
+          new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job2->type = JOB_SEND_PKT_ALL_PORTS;
           new_job2->packet = new_packet;
 
@@ -437,7 +400,7 @@ void host_main(int host_id) {
                * Create a job to send the packet
                * and put it in the job queue
                */
-              new_job2 = (struct host_job *)malloc(sizeof(struct host_job));
+              new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
               new_job2->type = JOB_SEND_PKT_ALL_PORTS;
               new_job2->packet = new_packet;
               job_q_add(&host_q, new_job2);
@@ -466,7 +429,7 @@ void host_main(int host_id) {
                * and put the job in the job queue
                */
 
-              new_job2 = (struct host_job *)malloc(sizeof(struct host_job));
+              new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
               new_job2->type = JOB_SEND_PKT_ALL_PORTS;
               new_job2->packet = new_packet;
               job_q_add(&host_q, new_job2);
