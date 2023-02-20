@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include "job.h"
@@ -14,5 +15,12 @@
 
 // Forward declaration
 struct netport;
+
+struct tableEntry {
+  bool isValid;
+  int id;
+};
+
+int searchRoutingTableForValidID(struct tableEntry* rt, int id);
 
 void switch_main(int switch_id);

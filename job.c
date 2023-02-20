@@ -29,10 +29,8 @@ char *get_job_type_literal(enum job_type t) {
       return "JOB_FILE_UPLOAD_RECV_START";
     case JOB_FILE_UPLOAD_RECV_END:
       return "JOB_FILE_UPLOAD_RECV_END";
-    case CHECK_ROUTING_TABLE_FOR_ID:
-      return "CHECK_ROUTING_TABLE_FOR_ID";
-    case UPDATE_ROUTING_TABLE_WITH_ID:
-      return "UPDATE_ROUTING_TABLE_WITH_ID";
+    case FORWARD_PACKET_TO_PORT:
+      return "FORWARD_PACKET_TO_PORT";
     case UNKNOWN_PORT_BROADCAST:
       return "UNKNOWN_PORT_BROADCAST";
   }
@@ -47,7 +45,6 @@ void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j) {
          get_job_type_literal(j->type));
   printf("\033[0m");  // Reset text color to default
 #endif
-
   if (j_q->head == NULL) {
     j_q->head = j;
     j_q->tail = j;

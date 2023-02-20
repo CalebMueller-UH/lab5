@@ -7,6 +7,23 @@
 struct packet *in_packet; /* Incoming packet */
 struct packet *new_packet;
 
+/*
+This function searches a routing table for a valid ID.
+The function takes in two parameters: a pointer to a struct tableEntry and an
+integer ID. It iterates through the maximum number of routes and checks if the
+ID matches the current entry's ID and if it is valid. If it finds a match, it
+returns the index of that entry in the routing table. Otherwise, it returns -1
+indicating that no valid entry was found.
+*/
+int searchRoutingTableForValidID(struct tableEntry *rt, int id) {
+  for (int i = 0; i < MAX_NUM_ROUTES; i++) {
+    if (rt[i].id == id && rt[i].isValid == true) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 void switch_main(int switch_id) {
   ////////////////// Initializing //////////////////
   struct net_port *node_port_list;
@@ -24,13 +41,16 @@ void switch_main(int switch_id) {
   struct job_queue switch_q;
 
   ////// Initialize Router Table //////
+
   /*
-  routingTable index == switch port number
-  routingTable value at index = node ID
+  Routing table index == port
+  Each element within routingTable has both an isValid and dest property
   */
-  int routingTable[MAX_NUM_ROUTES];
+  struct tableEntry *routingTable =
+      (struct tableEntry *)malloc(sizeof(struct tableEntry) * MAX_NUM_ROUTES);
   for (int i = 0; i < MAX_NUM_ROUTES; i++) {
-    routingTable[i] = -1;
+    routingTable[i].isValid = false;
+    routingTable[i].id = -1;
   }
 
   /*
@@ -77,16 +97,33 @@ void switch_main(int switch_id) {
         new_job->in_port_index = k;
         new_job->packet = in_packet;
 
-        // int srcPortNum = -1;
-        // int dstPortNum = -1;
+        int srcPortNum = -1;
+        int dstPortNum = -1;
 
-        // // Check to see if in_packet->src is in router table
-        // for (int i = 0; i < MAX_NUM_ROUTES; i++) {
-        //   if (routingTable[i] != in_packet->src) {
-        //             }
-        // }
+        /*
+        if the routingTable does not have a valid matching entry for incoming
+        packet source, add it to routingTable by setting isValid, and
+        associating its id
+        */
+        if (routingTable[k].id != in_packet->src || !routingTable[k].isValid) {
+          routingTable[k].isValid = true;
+          routingTable[k].id = in_packet->src;
+        }
 
-        //// Check to see if in_packet->dst is in router table
+        int dstIndex =
+            searchRoutingTableForValidID(routingTable, in_packet->dst);
+        if (dstIndex < 0) {
+          /*
+       if routingTable does not have a valid matching entry for incoming
+       packet destination enque an UNKNOWN_PORT_BROADCAST job to broadcast the
+       current packet to all ports except the current port
+       */
+
+        } else {
+          // Enqueue a FORWARD_PACKET_TO_PORT job forward the current in_packet
+          // to the associated port
+        }
+
         // switch (in_packet->type) {
         //   case (char)PKT_PING_REQ:
         //     new_job->type = JOB_PING_SEND_REPLY;
