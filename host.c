@@ -215,11 +215,6 @@ void host_main(int host_id) {
           } else {
             printf("\x1b[31m%s is not a valid directory\x1b[0m\n", man_msg);
           }
-
-          // for (i = 0; man_msg[i] != '\0'; i++) {
-          //   dir[i] = man_msg[i];
-          // }
-          // dir[i] = man_msg[i];
           break;
 
         case 'p':  // Sending ping request
