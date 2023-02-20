@@ -129,8 +129,8 @@ void host_main(int host_id) {
   struct man_port_at_host *man_port;  // Port to the manager
 
   struct net_port *node_port_list;
-  struct net_port **node_port;  // Array of pointers to node ports
-  int node_port_num;            // Number of node ports
+  struct net_port **node_port_array;  // Array of pointers to node ports
+  int node_port_array_size;           // Number of node ports
 
   int ping_reply_received;
 
@@ -163,24 +163,24 @@ void host_main(int host_id) {
   man_port = net_get_host_port(host_id);
 
   /*
-   * Create an array node_port[ ] to store the network link ports
-   * at the host.  The number of ports is node_port_num
+   * Create an array node_port_array[ ] to store the network link ports
+   * at the host.  The number of ports is node_port_array_size
    */
   node_port_list = net_get_port_list(host_id);
 
   /*  Count the number of network link ports */
-  node_port_num = 0;
+  node_port_array_size = 0;
   for (p = node_port_list; p != NULL; p = p->next) {
-    node_port_num++;
+    node_port_array_size++;
   }
   /* Create memory space for the array */
-  node_port =
-      (struct net_port **)malloc(node_port_num * sizeof(struct net_port *));
+  node_port_array = (struct net_port **)malloc(node_port_array_size *
+                                               sizeof(struct net_port *));
 
   /* Load ports into the array */
   p = node_port_list;
-  for (k = 0; k < node_port_num; k++) {
-    node_port[k] = p;
+  for (k = 0; k < node_port_array_size; k++) {
+    node_port_array[k] = p;
     p = p->next;
   }
 
@@ -245,9 +245,9 @@ void host_main(int host_id) {
     }
 
     /////// Receive In-Coming packet and translate it to job //////
-    for (k = 0; k < node_port_num; k++) {
+    for (k = 0; k < node_port_array_size; k++) {
       in_packet = (struct packet *)malloc(sizeof(struct packet));
-      n = packet_recv(node_port[k], in_packet);
+      n = packet_recv(node_port_array[k], in_packet);
       if ((n > 0) && ((int)in_packet->dst == host_id)) {
 #ifdef DEBUG
         printf(
@@ -299,8 +299,8 @@ void host_main(int host_id) {
       //////////// EXECUTE FETCHED JOB ////////////
       switch (new_job->type) {
         case JOB_SEND_PKT_ALL_PORTS:
-          for (k = 0; k < node_port_num; k++) {
-            packet_send(node_port[k], new_job->packet);
+          for (k = 0; k < node_port_array_size; k++) {
+            packet_send(node_port_array[k], new_job->packet);
           }
           free(new_job->packet);
           free(new_job);

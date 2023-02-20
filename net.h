@@ -25,6 +25,27 @@ struct net_node *net_get_node_list();
 struct net_port *net_get_port_list(int host_id);
 
 /*
+ * Creates ports at the manager and ports at the hosts so that
+ * the manager can communicate with the hosts.  The list of
+ * ports at the manager side is p_m.  The list of ports
+ * at the host side is p_h.
+ */
+void create_man_ports(struct man_port_at_man **p_m,
+                      struct man_port_at_host **p_h);
+void net_close_man_ports_at_hosts();
+void net_close_man_ports_at_hosts_except(int host_id);
+void net_free_man_ports_at_hosts();
+void net_close_man_ports_at_man();
+void net_free_man_ports_at_man();
+
+/*
+Function to retrieve a linked list of network ports that belong to a specified
+node. Takes in an ID of the node of interest as an argument. Returns a pointer
+to the head of the resulting linked list.
+*/
+struct net_port *net_get_port_list(int host_id);
+
+/*
  * Loads network configuration file and creates data structures
  * for nodes and links.  The results are accessible through
  * the private global variables

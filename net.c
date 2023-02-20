@@ -40,9 +40,8 @@ struct net_link {
   int socket_remote_port;
 };
 
-/*
- * The following are private global variables to this file net.c
- */
+///////////////////////////////////////////////////////////////////////////////
+////////////////////// PRIVATE GLOBAL VARIABLES FOR NET.C /////////////////////
 static enum bool g_initialized = FALSE; /* Network initialized? */
 /* The network is initialized only once */
 
@@ -70,25 +69,8 @@ static struct net_port *g_port_list = NULL;
 static struct man_port_at_man *g_man_man_port_list = NULL;
 static struct man_port_at_host *g_man_host_port_list = NULL;
 
-/*
- * Creates ports at the manager and ports at the hosts so that
- * the manager can communicate with the hosts.  The list of
- * ports at the manager side is p_m.  The list of ports
- * at the host side is p_h.
- */
-void create_man_ports(struct man_port_at_man **p_m,
-                      struct man_port_at_host **p_h);
-
-void net_close_man_ports_at_hosts();
-void net_close_man_ports_at_hosts_except(int host_id);
-void net_free_man_ports_at_hosts();
-void net_close_man_ports_at_man();
-void net_free_man_ports_at_man();
-
-/*
- * Get the list of ports for host host_id
- */
-struct net_port *net_get_port_list(int host_id);
+////////////////////// PRIVATE GLOBAL VARIABLES FOR NET.C /////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 /*
  * Get the list of nodes
