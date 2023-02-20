@@ -24,8 +24,6 @@
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 
-enum bool { FALSE, TRUE };
-
 /*
  * Struct used to store a link. It is used when the
  * network configuration file is loaded.
@@ -42,7 +40,7 @@ struct net_link {
 
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////// PRIVATE GLOBAL VARIABLES FOR NET.C /////////////////////
-static enum bool g_initialized = FALSE; /* Network initialized? */
+bool g_initialized = false; /* Network initialized? */
 /* The network is initialized only once */
 
 /*
@@ -179,7 +177,7 @@ void net_free_man_ports_at_man() {
 
 /* Initialize network ports and links */
 int net_init(char *confname) {
-  if (g_initialized == TRUE) { /* Check if the network is already initialized */
+  if (g_initialized == true) { /* Check if the network is already initialized */
     printf("Network already loaded\n");
     return (0);
   } else if (load_net_data_file(confname) ==
