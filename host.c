@@ -185,7 +185,7 @@ void host_main(int host_id) {
   }
 
   /* Initialize the job queue */
-  job_q_init(&host_q);
+  job_queue_init(&host_q);
 
   while (1) {
     /* Execute command from manager, if any */
@@ -218,13 +218,13 @@ void host_main(int host_id) {
           new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job->packet = new_packet;
           new_job->type = JOB_SEND_PKT_ALL_PORTS;
-          job_q_add(&host_q, new_job);
+          job_enqueue(&host_q, new_job);
 
           new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
           ping_reply_received = 0;
           new_job2->type = JOB_PING_WAIT_FOR_REPLY;
           new_job2->ping_timer = 10;
-          job_q_add(&host_q, new_job2);
+          job_enqueue(&host_q, new_job2);
 
           break;
 
@@ -237,7 +237,7 @@ void host_main(int host_id) {
             new_job->fname_upload[i] = name[i];
           }
           new_job->fname_upload[i] = '\0';
-          job_q_add(&host_q, new_job);
+          job_enqueue(&host_q, new_job);
 
           break;
         default:;
@@ -255,6 +255,8 @@ void host_main(int host_id) {
       n = packet_recv(node_port[k], in_packet);
 
       if ((n > 0) && ((int)in_packet->dst == host_id)) {
+        printf("DEBUG: Host%d host_main: Host %d received packet\n", host_id,
+               (int)in_packet->dst);
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
         new_job->in_port_index = k;
         new_job->packet = in_packet;
@@ -267,8 +269,10 @@ void host_main(int host_id) {
            * the ping request and ping reply
            */
           case (char)PKT_PING_REQ:
+            printf("DEBUG: Host%d host_main: in_packet->type: PKT_PING_REQ\n",
+                   host_id);
             new_job->type = JOB_PING_SEND_REPLY;
-            job_q_add(&host_q, new_job);
+            job_enqueue(&host_q, new_job);
             break;
 
           case (char)PKT_PING_REPLY:
@@ -292,12 +296,12 @@ void host_main(int host_id) {
 
           case (char)PKT_FILE_UPLOAD_START:
             new_job->type = JOB_FILE_UPLOAD_RECV_START;
-            job_q_add(&host_q, new_job);
+            job_enqueue(&host_q, new_job);
             break;
 
           case (char)PKT_FILE_UPLOAD_END:
             new_job->type = JOB_FILE_UPLOAD_RECV_END;
-            job_q_add(&host_q, new_job);
+            job_enqueue(&host_q, new_job);
             break;
           default:
             free(in_packet);
@@ -312,13 +316,11 @@ void host_main(int host_id) {
      * Execute one job in the job queue
      */
 
-    if (job_q_num(&host_q) > 0) {
+    if (job_queue_length(&host_q) > 0) {
       /* Get a new job from the job queue */
-      new_job = job_q_remove(&host_q);
+      new_job = job_dequeue(&host_q);
 
-      /* Send packet on all ports */
       switch (new_job->type) {
-        /* Send packets on all ports */
         case JOB_SEND_PKT_ALL_PORTS:
           for (k = 0; k < node_port_num; k++) {
             packet_send(node_port[k], new_job->packet);
@@ -327,10 +329,7 @@ void host_main(int host_id) {
           free(new_job);
           break;
 
-        /* The next three jobs deal with the pinging process */
         case JOB_PING_SEND_REPLY:
-          /* Send a ping reply packet */
-
           /* Create ping reply packet */
           new_packet = (struct packet *)malloc(sizeof(struct packet));
           new_packet->dst = new_job->packet->src;
@@ -344,7 +343,7 @@ void host_main(int host_id) {
           new_job2->packet = new_packet;
 
           /* Enter job in the job queue */
-          job_q_add(&host_q, new_job2);
+          job_enqueue(&host_q, new_job2);
 
           /* Free old packet and job memory space */
           free(new_job->packet);
@@ -361,7 +360,7 @@ void host_main(int host_id) {
             free(new_job);
           } else if (new_job->ping_timer > 1) {
             new_job->ping_timer--;
-            job_q_add(&host_q, new_job);
+            job_enqueue(&host_q, new_job);
           } else { /* Time out */
             n = snprintf(man_reply_msg, MAN_MSG_LENGTH, "Ping timed out!");
             man_reply_msg[n] = '\0';
@@ -403,7 +402,7 @@ void host_main(int host_id) {
               new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
               new_job2->type = JOB_SEND_PKT_ALL_PORTS;
               new_job2->packet = new_packet;
-              job_q_add(&host_q, new_job2);
+              job_enqueue(&host_q, new_job2);
 
               /*
                * Create the second packet which
@@ -432,7 +431,7 @@ void host_main(int host_id) {
               new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
               new_job2->type = JOB_SEND_PKT_ALL_PORTS;
               new_job2->packet = new_packet;
-              job_q_add(&host_q, new_job2);
+              job_enqueue(&host_q, new_job2);
 
               free(new_job);
             } else {

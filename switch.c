@@ -43,7 +43,7 @@ void switch_main(int switch_id) {
   struct job_struct *new_job;
 
   /* Initialize the job queue */
-  job_q_init(&switch_q);
+  job_queue_init(&switch_q);
 
   /////////////////////////////
   ////// Job Queue Setup //////
@@ -73,9 +73,9 @@ void switch_main(int switch_id) {
      * Execute one job in the job queue
      */
 
-    if (job_q_num(&switch_q) > 0) {
+    if (job_queue_length(&switch_q) > 0) {
       /* Get a new job from the job queue */
-      new_job = job_q_remove(&switch_q);
+      new_job = job_dequeue(&switch_q);
 
       /* Send packet on all ports */
       switch (new_job->type) {

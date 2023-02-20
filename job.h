@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <stdio.h>
 #include <stdlib.h>
 
 struct job_queue {
@@ -40,14 +41,16 @@ struct job_struct {
 /////////////////////////////////////////////////////////
 /////////////// Job Related Functions ///////////////////
 
+char *get_job_type_literal(enum job_type t);
+
 /* Add a job to the job queue */
-void job_q_add(struct job_queue *j_q, struct job_struct *j);
+void job_enqueue(struct job_queue *j_q, struct job_struct *j);
 
 /* Remove job from the job queue, and return pointer to the job*/
-struct job_struct *job_q_remove(struct job_queue *j_q);
+struct job_struct *job_dequeue(struct job_queue *j_q);
 
 /* Initialize job queue */
-void job_q_init(struct job_queue *j_q);
+void job_queue_init(struct job_queue *j_q);
 
 /*
 This function returns the number of jobs in a job queue.
@@ -56,7 +59,7 @@ j_q - a pointer to a job queue structure
 Returns:
 int - the number of jobs in the job queue
 */
-int job_q_num(struct job_queue *j_q);
+int job_queue_length(struct job_queue *j_q);
 
 /////////////// Job Related Functions ///////////////////
 /////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@
         "netdb.h": "c",
         "main.h": "c",
         "net.h": "c",
-        "packet.h": "c"
+        "packet.h": "c",
+        "job.h": "c"
     }
 }
