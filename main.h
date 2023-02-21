@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -42,6 +43,7 @@ struct net_port {
   int link_node_id;
   int send_fd;
   int recv_fd;
+  struct sockaddr_in *remoteaddr;
   struct net_port *next;
 };
 

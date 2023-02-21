@@ -282,6 +282,10 @@ void create_port_list() {
             fcntl(fd10[PIPE_READ], F_GETFL) | O_NONBLOCK);
       p1->send_fd = fd10[PIPE_WRITE];
       p0->recv_fd = fd10[PIPE_READ];
+      /* Insert ports in linked list */
+      p0->next = p1;
+      p1->next = g_port_list;
+      g_port_list = p0;
     } else if (net_link_list[i].type == SOCKET) {
 ////////////////////// SOCKET //////////////////////////////
 #define MAX_NUM_CONNECTS 20
@@ -328,11 +332,11 @@ void create_port_list() {
           inet_addr(net_link_list[i].socket_remote_domain);
       localaddr.sin_port = htons(net_link_list[i].socket_remote_port);
       p0->send_fd = sendfd;
+      p0->remoteaddr = &remoteaddr;
+      /* Insert port in linked list */
+      p0->next = g_port_list;
+      g_port_list = p0;
     }
-    /* Insert ports in linked list */
-    p0->next = p1;
-    p1->next = g_port_list;
-    g_port_list = p0;
   }
 }  // End of create_port_list()
 
