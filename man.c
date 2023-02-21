@@ -5,7 +5,6 @@
 #include "man.h"
 
 void man_print_command_prompt(int curr_host) {
-  usleep(50000);
   printf("\033[1;36m");  // Set text color to light blue
   /* Display command options */
   printf("\nCommands (Current host ID = %d):\n", curr_host);
