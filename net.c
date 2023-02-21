@@ -252,92 +252,87 @@ void create_node_list() {
 }
 
 void create_port_list() {
-  struct net_port *p0;
-  struct net_port *p1;
-  int node0, node1;
   int fd01[2];
   int fd10[2];
   g_port_list = NULL;
   for (int i = 0; i < net_link_num; i++) {
+    struct net_port *p0 = (struct net_port *)malloc(sizeof(struct net_port));
+    struct net_port *p1 = (struct net_port *)malloc(sizeof(struct net_port));
+    int node0 = net_link_list[i].node0;
+    int node1 = net_link_list[i].node1;
+    p0->link_node_id = node0;
+    p1->link_node_id = node1;
     if (net_link_list[i].type == PIPE) {
       ////////////////////// PIPE ///////////////////////////
-      node0 = net_link_list[i].node0;
-      node1 = net_link_list[i].node1;
-      p0 = (struct net_port *)malloc(sizeof(struct net_port));
       p0->type = net_link_list[i].type;
-      p0->link_node_id = node0;
-      p1 = (struct net_port *)malloc(sizeof(struct net_port));
       p1->type = net_link_list[i].type;
-      p1->link_node_id = node1;
       pipe(fd01); /* Create a pipe */
                   /* Make the pipe nonblocking at both ends */
       fcntl(fd01[PIPE_WRITE], F_SETFL,
             fcntl(fd01[PIPE_WRITE], F_GETFL) | O_NONBLOCK);
       fcntl(fd01[PIPE_READ], F_SETFL,
             fcntl(fd01[PIPE_READ], F_GETFL) | O_NONBLOCK);
-      p0->pipe_send_fd = fd01[PIPE_WRITE];
-      p1->pipe_recv_fd = fd01[PIPE_READ];
+      p0->send_fd = fd01[PIPE_WRITE];
+      p1->recv_fd = fd01[PIPE_READ];
       pipe(fd10); /* Create a pipe */
                   /* Make the pipe nonblocking at both ends */
       fcntl(fd10[PIPE_WRITE], F_SETFL,
             fcntl(fd10[PIPE_WRITE], F_GETFL) | O_NONBLOCK);
       fcntl(fd10[PIPE_READ], F_SETFL,
             fcntl(fd10[PIPE_READ], F_GETFL) | O_NONBLOCK);
-      p1->pipe_send_fd = fd10[PIPE_WRITE];
-      p0->pipe_recv_fd = fd10[PIPE_READ];
-      p0->next = p1; /* Insert ports in linked list */
-      p1->next = g_port_list;
-      g_port_list = p0;
+      p1->send_fd = fd10[PIPE_WRITE];
+      p0->recv_fd = fd10[PIPE_READ];
     } else if (net_link_list[i].type == SOCKET) {
-      ////////////////////// SOCKET ///////////////////////////
-      int sockfd;
-      struct sockaddr_in servaddr;
-      struct net_port *p0, *p1;
-      // Create socket file descriptor
-      sockfd = socket(AF_INET, SOCK_STREAM, 0);
-      if (sockfd == -1) {
-        // handle error
-      }
-      // Set socket options
-      int optval = 1;
-      setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval,
-                 sizeof(int));
-      // Bind the socket to a local address and port
-      struct sockaddr_in addr;
-      addr.sin_family = AF_INET;
-      addr.sin_addr.s_addr = inet_addr(net_link_list[i].socket_local_domain);
-      addr.sin_port = htons(net_link_list[i].socket_local_port);
-      if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        // handle error
-      }
-      // Connect the socket to the remote address and port
-      servaddr.sin_family = AF_INET;
-      servaddr.sin_addr.s_addr =
-          inet_addr(net_link_list[i].socket_remote_domain);
-      servaddr.sin_port = htons(net_link_list[i].socket_remote_port);
-      if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) ==
-          -1) {
-        // handle error
-      }
-      // Set socket file descriptor to non-blocking mode
-      int flags = fcntl(sockfd, F_GETFL, 0);
-      fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-      // Create struct net_port for each node
-      p0 = (struct net_port *)malloc(sizeof(struct net_port));
-      p1 = (struct net_port *)malloc(sizeof(struct net_port));
+////////////////////// SOCKET //////////////////////////////
+#define MAX_NUM_CONNECTS 20
       p0->type = net_link_list[i].type;
-      p0->link_node_id = node0;
-      p0->socket_send_fd = sockfd;
-      p0->next = NULL;
-      p1->type = net_link_list[i].type;
-      p1->link_node_id = node1;
-      p1->socket_recv_fd = sockfd;
-      p1->next = NULL;
-      // Set file descriptors for each net_port
-      p0->next = p1;
-      p1->next = g_port_list;
-      g_port_list = p0;
+      // Receiving Server
+      int recfd = socket(AF_INET, SOCK_STREAM, 0);
+      if (recfd < 0) {
+        fprintf(stderr,
+                "Error: create_port_list: failed to create recfd socket\n");
+      }
+      int reuseaddr = 1;  // set the option to 1 (true)
+      setsockopt(recfd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr,
+                 sizeof(reuseaddr));
+      struct sockaddr_in localaddr;
+      // Configure localaddr
+      localaddr.sin_family = AF_INET;
+      localaddr.sin_addr.s_addr =
+          inet_addr(net_link_list[i].socket_local_domain);
+      localaddr.sin_port = htons(net_link_list[i].socket_local_port);
+      // Bind the receiving server socket to the local address and port
+      if (bind(recfd, (struct sockaddr *)&localaddr, sizeof(localaddr)) == -1) {
+        fprintf(stderr,
+                "Error: create_port_list: failed to bind recfd socket\n");
+      }
+      // Put the server socket in listening mode
+      int ret = listen(recfd, MAX_NUM_CONNECTS);
+      if (ret < 0) {
+        fprintf(stderr,
+                "Error: create_port_list: failed to put recfd socket in "
+                "listening mode\n");
+      }
+      p0->recv_fd = recfd;
+
+      // Sending Client
+      int sendfd = socket(AF_INET, SOCK_STREAM, 0);
+      if (sendfd < 0) {
+        fprintf(stderr,
+                "Error: create_port_list: failed to create sendfd socket\n");
+      }
+      struct sockaddr_in remoteaddr;
+      // Configure remoteaddr
+      remoteaddr.sin_family = AF_INET;
+      remoteaddr.sin_addr.s_addr =
+          inet_addr(net_link_list[i].socket_remote_domain);
+      localaddr.sin_port = htons(net_link_list[i].socket_remote_port);
+      p0->send_fd = sendfd;
     }
+    /* Insert ports in linked list */
+    p0->next = p1;
+    p1->next = g_port_list;
+    g_port_list = p0;
   }
 }  // End of create_port_list()
 

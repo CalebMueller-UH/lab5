@@ -16,7 +16,7 @@ void packet_send(struct net_port *port, struct packet *p) {
     for (i = 0; i < p->length; i++) {
       msg[i + 4] = p->payload[i];
     }
-    write(port->pipe_send_fd, msg, p->length + 4);
+    write(port->send_fd, msg, p->length + 4);
 #ifdef DEBUG
     printf(
         "\x1b[35mPACKETSEND, src=%d dst=%d type=%d len=%d p-src=%d "
@@ -34,7 +34,7 @@ int packet_recv(struct net_port *port, struct packet *p) {
   int bytesRead;
 
   if (port->type == PIPE) {
-    bytesRead = read(port->pipe_recv_fd, msg, PAYLOAD_MAX + 4);
+    bytesRead = read(port->recv_fd, msg, PAYLOAD_MAX + 4);
     if (bytesRead > 0) {
       p->src = (char)msg[0];
       p->dst = (char)msg[1];

@@ -39,24 +39,11 @@ struct net_node { /* Network node, e.g., host or switch */
 
 struct net_port {
   enum NetLinkType type;
-  int link_node_id;      // Used for pipes and sockets
-  int pipe_send_fd;      // Used for pipes
-  int pipe_recv_fd;      // Used for pipes
-  int socket_listen_fd;  // Used for sockets
-  int socket_send_fd;    // Used for sockets
-  int socket_recv_fd;    // Used for sockets
+  int link_node_id;
+  int send_fd;
+  int recv_fd;
   struct net_port *next;
 };
-
-// struct net_port { /* port to communicate with another node */
-//   enum NetLinkType type;
-//   int link_node_id;
-//   int pipe_send_fd;
-//   int pipe_recv_fd;
-//   struct net_port *next;
-// };
-
-/* Packet sent between nodes  */
 
 struct packet { /* struct for a packet */
   char src;
