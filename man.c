@@ -254,7 +254,7 @@ void man_main() {
         file_upload(curr_host);
         break;
       case 'd': /* Download a file from a host */
-        printf("This command is not implemented\n");
+        file_upload(curr_host);
         break;
       case 'q': /* Quit */
         return;
