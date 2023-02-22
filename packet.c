@@ -21,8 +21,8 @@ void packet_send(struct net_port *port, struct packet *p) {
     bytesSent = write(port->send_fd, msg, p->length + 4);
 
   } else if (port->type == SOCKET) {
-    bytesSent = sock_send(port->remoteLinkDomain, port->remoteLinkPort, msg,
-                          p->length + 4);
+    bytesSent = sock_send(port->localDomain, port->remoteDomain,
+                          port->remotePort, msg, p->length + 4);
   }
 
 #ifdef DEBUG
@@ -42,8 +42,8 @@ int packet_recv(struct net_port *port, struct packet *p) {
     // Parse Packet
     bytesRead = read(port->recv_fd, msg, PAYLOAD_MAX + 4);
   } else if (port->type == SOCKET) {
-    bytesRead = sock_recv(port->recv_fd, msg, PAYLOAD_MAX + 4,
-                          port->remoteLinkDomain, port->remoteLinkPort);
+    bytesRead =
+        sock_recv(port->send_fd, msg, PAYLOAD_MAX + 4, port->remoteDomain);
   }
   if (bytesRead > 0) {
 #ifdef DEBUG

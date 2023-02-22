@@ -43,8 +43,9 @@ struct net_port {
   int link_node_id;
   int send_fd;
   int recv_fd;
-  char remoteLinkDomain[MAX_DOMAIN_NAME_LENGTH];
-  int remoteLinkPort;
+  char localDomain[MAX_DOMAIN_NAME_LENGTH];
+  char remoteDomain[MAX_DOMAIN_NAME_LENGTH];
+  int remotePort;
   struct net_port *next;
 };
 

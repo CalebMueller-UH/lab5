@@ -270,10 +270,10 @@ void create_port_list() {
     p1->link_node_id = node1;
     if (net_link_list[i].type == PIPE) {
       ////////////////////// PIPE ///////////////////////////
-      strncpy(p0->remoteLinkDomain, "", MAX_DOMAIN_NAME_LENGTH);
-      p0->remoteLinkPort = -1;
-      strncpy(p1->remoteLinkDomain, "", MAX_DOMAIN_NAME_LENGTH);
-      p1->remoteLinkPort = -1;
+      strncpy(p0->remoteDomain, "", MAX_DOMAIN_NAME_LENGTH);
+      p0->remotePort = -1;
+      strncpy(p1->remoteDomain, "", MAX_DOMAIN_NAME_LENGTH);
+      p1->remotePort = -1;
       p0->type = net_link_list[i].type;
       p1->type = net_link_list[i].type;
       pipe(fd01); /* Create a pipe */
@@ -303,9 +303,11 @@ void create_port_list() {
       p0->send_fd = sock_server_init(net_link_list[i].socket_local_domain,
                                      net_link_list[i].socket_local_port);
       p0->recv_fd = 0;
-      strncpy(p0->remoteLinkDomain, net_link_list[i].socket_remote_domain,
+      strncpy(p0->localDomain, net_link_list[i].socket_local_domain,
               MAX_DOMAIN_NAME_LENGTH);
-      p0->remoteLinkPort = net_link_list[i].socket_remote_port;
+      strncpy(p0->remoteDomain, net_link_list[i].socket_remote_domain,
+              MAX_DOMAIN_NAME_LENGTH);
+      p0->remotePort = net_link_list[i].socket_remote_port;
       /* Insert port into linked list */
       p0->next = g_port_list;
       g_port_list = p0;
