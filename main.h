@@ -18,7 +18,6 @@
 #include "switch.h"
 
 #define BCAST_ADDR 100
-#define PAYLOAD_MAX 100
 #define STRING_MAX 100
 #define NAME_LENGTH 100
 
@@ -48,19 +47,3 @@ struct net_port {
   int remotePort;
   struct net_port *next;
 };
-
-struct packet { /* struct for a packet */
-  char src;
-  char dst;
-  char type;
-  int length;
-  char payload[PAYLOAD_MAX];
-};
-
-/* Types of packets */
-#define PKT_PING_REQ 0
-#define PKT_PING_REPLY 1
-#define PKT_FILE_UPLOAD_START 2
-#define PKT_FILE_UPLOAD_CONTINUE 3
-#define PKT_FILE_UPLOAD_END 4
-#define PKT_FILE_DOWNLOAD_REQUEST 5

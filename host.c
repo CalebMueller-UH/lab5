@@ -249,6 +249,18 @@ void host_main(int host_id) {
           break;
 
         case 'd': /* Download a file to host */
+          sscanf(man_msg, "%d %s", &dst, name);
+          new_packet = (struct packet *)malloc(sizeof(struct packet));
+          new_packet->src = (char)host_id;
+          new_packet->dst = (char)dst;
+          new_packet->type = (char)PKT_FILE_DOWNLOAD_REQUEST;
+          new_packet->length = strnlen(name, MAX_DIR_NAME);
+          new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
+          new_job->packet = new_packet;
+          new_job->type = FILE_DOWNLOAD_REQUEST;
+          job_enqueue(host_id, &host_q, new_job);
+          break;
+
         default:;
       }
     }
@@ -293,7 +305,7 @@ void host_main(int host_id) {
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQUEST:
-            new_job->type = FILE_UPLOAD_RECV_END;
+            new_job->type = FILE_UPLOAD_SEND;
             job_enqueue(host_id, &host_q, new_job);
             break;
 
@@ -471,6 +483,26 @@ void host_main(int host_id) {
           break;
 
         case FILE_DOWNLOAD_REQUEST:
+
+          // Find which net_port entry in net_port_array has desired destination
+          int destIndex = -1;
+          for (int i = 0; i < node_port_array_size; i++) {
+            if (node_port_array[i]->link_node_id == (int)new_job->packet->dst) {
+              destIndex = i;
+            }
+          }
+          // If node_port_array had the destination id, send to that node
+          if (destIndex >= 0) {
+            packet_send(node_port_array[destIndex], new_job->packet);
+          } else {
+            // Else, broadcast packet to all hosts
+            for (k = 0; k < node_port_array_size; k++) {
+              packet_send(node_port_array[k], new_job->packet);
+            }
+          }
+          free(new_job->packet);
+          free(new_job);
+          break;
       }
     }
 
