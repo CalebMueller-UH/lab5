@@ -33,6 +33,7 @@ struct packet { /* struct for a packet */
 #define PKT_FILE_UPLOAD_CONTINUE 3
 #define PKT_FILE_UPLOAD_END 4
 #define PKT_FILE_DOWNLOAD_REQUEST 5
+#define PKT_REQUEST_RESPONSE 6
 
 // receive packet on port
 int packet_recv(struct net_port *port, struct packet *p);

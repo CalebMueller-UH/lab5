@@ -312,13 +312,41 @@ void host_main(int host_id) {
 
           case (char)PKT_FILE_DOWNLOAD_REQUEST:
             new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-            new_job->type = FILE_UPLOAD_SEND;
-            new_job->file_upload_dst = in_packet->src;
-            strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
-            new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)] =
-                '\0';
-            job_enqueue(host_id, &host_q, new_job);
+
+            // Check to see if file exists
+            char filepath[MAX_DIR_NAME + PAYLOAD_MAX];
+            sprintf(filepath, "%s/%s", dir, in_packet->payload);
+            FILE *file = fopen(filepath, "r");
+            if (file == NULL) {
+              // File does not exist
+              new_job->type = SEND_REQUEST_RESPONSE;
+              new_job->packet->dst = in_packet->src;
+              new_job->packet->src = host_id;
+              new_job->packet->type = PKT_REQUEST_RESPONSE;
+              const char *response = "File does not exist";
+              new_job->packet->length = strlen(response);
+              strncpy(new_job->packet->payload, response, strlen(response));
+              job_enqueue(host_id, &host_q, new_job);
+            } else {
+              // File exists, start file upload
+              new_job->type = FILE_UPLOAD_SEND;
+              new_job->file_upload_dst = in_packet->src;
+              strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
+              new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)] =
+                  '\0';
+              job_enqueue(host_id, &host_q, new_job);
+            }
             break;
+
+            // new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
+            // new_job->type = FILE_UPLOAD_SEND;
+            // new_job->file_upload_dst = in_packet->src;
+            // strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
+            // new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)]
+            // =
+            //     '\0';
+            // job_enqueue(host_id, &host_q, new_job);
+            // break;
 
           default:
             free(in_packet);

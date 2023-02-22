@@ -67,18 +67,20 @@ int packet_recv(struct net_port *port, struct packet *p) {
 
 char *get_packet_type_literal(int pktType) {
   switch (pktType) {
-    case 0:
+    case PKT_PING_REQ:
       return "PKT_PING_REQ ";
-    case 1:
+    case PKT_PING_REPLY:
       return "PKT_PING_REPLY ";
-    case 2:
+    case PKT_FILE_UPLOAD_START:
       return "PKT_FILE_UPLOAD_START ";
-    case 3:
+    case PKT_FILE_UPLOAD_CONTINUE:
       return "PKT_FILE_UPLOAD_CONTINUE ";
-    case 4:
+    case PKT_FILE_UPLOAD_END:
       return "PKT_FILE_UPLOAD_END ";
-    case 5:
+    case PKT_FILE_DOWNLOAD_REQUEST:
       return "PKT_FILE_DOWNLOAD_REQUEST ";
+    case PKT_REQUEST_RESPONSE:
+      return "PKT_REQUEST_RESPONSE";
     default:
       return "Unknown Packet Type";
   }
