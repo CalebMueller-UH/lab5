@@ -183,6 +183,36 @@ int file_upload(struct man_port_at_man *curr_host) {
   usleep(TENMILLISEC);
 }
 
+/*
+ * Command host to download a file to another host.
+ *
+ * User is queried for the
+ *    - name of the file to transfer;
+ *        the file is in the current directory 'dir'
+ *    - id of the host to ping.
+ *
+ * A command message is sent to the current host.
+ *    The message starrts with 'u' followed by the
+ *    -  id of the destination host
+ *    -  name of file to transfer
+ */
+int file_download(struct man_port_at_man *curr_host) {
+  int n;
+  int host_id;
+  char name[NAME_LENGTH];
+  char msg[NAME_LENGTH];
+
+  printf("Enter file name to download: ");
+  scanf("%s", name);
+  printf("Enter host id that has this file:  ");
+  scanf("%d", &host_id);
+  printf("\n");
+
+  n = snprintf(msg, NAME_LENGTH, "u %d %s", host_id, name);
+  write(curr_host->send_fd, msg, n);
+  usleep(TENMILLISEC);
+}
+
 /*****************************
  * Main loop of the manager  *
  *****************************/

@@ -15,20 +15,22 @@ enum value is not found, it will return "UNKNOWN JOB TYPE".
 */
 char *get_job_type_literal(enum job_type t) {
   switch (t) {
-    case JOB_SEND_PKT_ALL_PORTS:
-      return "JOB_SEND_PKT_ALL_PORTS";
-    case JOB_PING_SEND_REQ:
-      return "JOB_PING_SEND_REQ";
-    case JOB_PING_SEND_REPLY:
-      return "JOB_PING_SEND_REPLY";
-    case JOB_PING_WAIT_FOR_REPLY:
-      return "JOB_PING_WAIT_FOR_REPLY";
-    case JOB_FILE_UPLOAD_SEND:
-      return "JOB_FILE_UPLOAD_SEND";
-    case JOB_FILE_UPLOAD_RECV_START:
-      return "JOB_FILE_UPLOAD_RECV_START";
-    case JOB_FILE_UPLOAD_RECV_END:
-      return "JOB_FILE_UPLOAD_RECV_END";
+    case SEND_PKT_ALL_PORTS:
+      return "SEND_PKT_ALL_PORTS";
+    case PING_SEND_REQ:
+      return "PING_SEND_REQ";
+    case PING_SEND_REPLY:
+      return "PING_SEND_REPLY";
+    case PING_WAIT_FOR_REPLY:
+      return "PING_WAIT_FOR_REPLY";
+    case FILE_UPLOAD_SEND:
+      return "FILE_UPLOAD_SEND";
+    case FILE_UPLOAD_RECV_START:
+      return "FILE_UPLOAD_RECV_START";
+    case FILE_UPLOAD_RECV_END:
+      return "FILE_UPLOAD_RECV_END";
+    case FILE_DOWNLOAD_REQUEST:
+      return "FILE_DOWNLOAD_REQUEST";
     case FORWARD_PACKET_TO_PORT:
       return "FORWARD_PACKET_TO_PORT";
     case UNKNOWN_PORT_BROADCAST:
