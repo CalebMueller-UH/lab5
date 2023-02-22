@@ -16,6 +16,8 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 
+#include "socket.h"
+
 int net_init();
 
 struct man_port_at_man *net_get_man_ports_at_man_list();
@@ -52,13 +54,8 @@ struct net_port *net_get_port_list(int host_id);
  */
 int load_net_data_file();
 
-/*
- * Creates a data structure for the nodes
- */
+/* Creates a data structure for the nodes */
 void create_node_list();
 
-/*
- * Creates links, using pipes
- * Then creates a port list for these links.
- */
+/* Creates links, using pipes, then creates a port list for these links */
 void create_port_list();

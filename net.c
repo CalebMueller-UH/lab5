@@ -20,7 +20,6 @@
 #include "packet.h"
 
 #define MAX_FILE_NAME_LENGTH 100
-#define MAX_DOMAIN_NAME_LENGTH 100
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 
@@ -176,12 +175,12 @@ void net_free_man_ports_at_man() {
 }
 
 /* Initialize network ports and links */
-int net_init(char *confname) {
+int net_init(char *confFile) {
   if (g_initialized == true) { /* Check if the network is already initialized */
     printf("Network already loaded\n");
     return (0);
-  } else if (load_net_data_file(confname) ==
-             -1) { /* Load network configuration file */
+    /* Load network configuration file */
+  } else if (load_net_data_file(confFile) == -1) {
     // Error occurred when loading network configuration file
     return (-1);
   }
@@ -237,7 +236,14 @@ void create_man_ports(struct man_port_at_man **p_man,
   }
 }
 
-/* Create a linked list of nodes at g_node_list */
+/*
+This code creates a linked list of nodes. It begins by setting the global node
+list g_node_list to NULL. It then iterates through the net_node_list array,
+creating a new node for each element in the array and adding it to the linked
+list. Each node contains an ID and type taken from the element in the
+net_node_list array. The newly created node is then set as the head of the
+linked list.
+*/
 void create_node_list() {
   struct net_node *p;
   int i;
@@ -264,6 +270,10 @@ void create_port_list() {
     p1->link_node_id = node1;
     if (net_link_list[i].type == PIPE) {
       ////////////////////// PIPE ///////////////////////////
+      strncpy(p0->remoteLinkDomain, "", MAX_DOMAIN_NAME_LENGTH);
+      p0->remoteLinkPort = -1;
+      strncpy(p1->remoteLinkDomain, "", MAX_DOMAIN_NAME_LENGTH);
+      p1->remoteLinkPort = -1;
       p0->type = net_link_list[i].type;
       p1->type = net_link_list[i].type;
       pipe(fd01); /* Create a pipe */
@@ -287,53 +297,16 @@ void create_port_list() {
       p1->next = g_port_list;
       g_port_list = p0;
     } else if (net_link_list[i].type == SOCKET) {
-////////////////////// SOCKET //////////////////////////////
-#define MAX_NUM_CONNECTS 20
+      ////////////////////// SOCKET ///////////////////////////
+      free(p1);
       p0->type = net_link_list[i].type;
-      // Receiving Server
-      int recfd = socket(AF_INET, SOCK_STREAM, 0);
-      if (recfd < 0) {
-        fprintf(stderr,
-                "Error: create_port_list: failed to create recfd socket\n");
-      }
-      int reuseaddr = 1;  // set the option to 1 (true)
-      setsockopt(recfd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr,
-                 sizeof(reuseaddr));
-      struct sockaddr_in localaddr;
-      // Configure localaddr
-      localaddr.sin_family = AF_INET;
-      localaddr.sin_addr.s_addr =
-          inet_addr(net_link_list[i].socket_local_domain);
-      localaddr.sin_port = htons(net_link_list[i].socket_local_port);
-      // Bind the receiving server socket to the local address and port
-      if (bind(recfd, (struct sockaddr *)&localaddr, sizeof(localaddr)) == -1) {
-        fprintf(stderr,
-                "Error: create_port_list: failed to bind recfd socket\n");
-      }
-      // Put the server socket in listening mode
-      int ret = listen(recfd, MAX_NUM_CONNECTS);
-      if (ret < 0) {
-        fprintf(stderr,
-                "Error: create_port_list: failed to put recfd socket in "
-                "listening mode\n");
-      }
-      p0->recv_fd = recfd;
-
-      // Sending Client
-      int sendfd = socket(AF_INET, SOCK_STREAM, 0);
-      if (sendfd < 0) {
-        fprintf(stderr,
-                "Error: create_port_list: failed to create sendfd socket\n");
-      }
-      struct sockaddr_in remoteaddr;
-      // Configure remoteaddr
-      remoteaddr.sin_family = AF_INET;
-      remoteaddr.sin_addr.s_addr =
-          inet_addr(net_link_list[i].socket_remote_domain);
-      localaddr.sin_port = htons(net_link_list[i].socket_remote_port);
-      p0->send_fd = sendfd;
-      p0->remoteaddr = &remoteaddr;
-      /* Insert port in linked list */
+      p0->send_fd = sock_server_init(net_link_list[i].socket_local_domain,
+                                     net_link_list[i].socket_local_port);
+      p0->recv_fd = 0;
+      strncpy(p0->remoteLinkDomain, net_link_list[i].socket_remote_domain,
+              MAX_DOMAIN_NAME_LENGTH);
+      p0->remoteLinkPort = net_link_list[i].socket_remote_port;
+      /* Insert port into linked list */
       p0->next = g_port_list;
       g_port_list = p0;
     }
@@ -341,19 +314,27 @@ void create_port_list() {
 }  // End of create_port_list()
 
 /*
- * Loads network configuration file and creates data structures
- * for nodes and links.
- */
-int load_net_data_file(char *confname) {
+- This function loads network configuration data from a file and stores it in
+two arrays, net_node_list and net_link_list.
+- If no file name is given as an argument, it prompts the user to enter one.
+- The function reads the number of nodes and links from the file, and allocates
+memory for arrays to store this data.
+- It then reads and stores each node and link's properties, including node type,
+ID, link type, nodes it connects, and socket information.
+- The function displays all nodes and links stored in their respective arrays
+before closing the file.
+- It returns 0 if successful, or -1 otherwise.
+*/
+int load_net_data_file(char *confFile) {
   FILE *fp;
   char fname[MAX_FILE_NAME_LENGTH];
-  if (confname == NULL) {
+  if (confFile == NULL) {
     /* Open network configuration file */
     printf("Enter network data file: ");
     fgets(fname, sizeof(fname), stdin);
     fname[strcspn(fname, "\n")] = '\0';  // strip the newline character
   } else {
-    strncpy(fname, confname, MAX_FILE_NAME_LENGTH);
+    strncpy(fname, confFile, MAX_FILE_NAME_LENGTH);
   }
   fp = fopen(fname, "r");
   if (fp == NULL) {

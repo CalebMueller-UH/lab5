@@ -43,7 +43,8 @@ struct net_port {
   int link_node_id;
   int send_fd;
   int recv_fd;
-  struct sockaddr_in *remoteaddr;
+  char remoteLinkDomain[MAX_DOMAIN_NAME_LENGTH];
+  int remoteLinkPort;
   struct net_port *next;
 };
 

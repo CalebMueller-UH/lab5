@@ -14,6 +14,7 @@
 #include "host.h"
 #include "main.h"
 #include "net.h"
+#include "socket.h"
 
 // receive packet on port
 int packet_recv(struct net_port *port, struct packet *p);
