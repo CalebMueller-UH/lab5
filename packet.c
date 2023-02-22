@@ -47,7 +47,6 @@ int packet_recv(struct net_port *port, struct packet *p) {
   }
   if (bytesRead > 0) {
 #ifdef DEBUG
-
     p->src = (char)msg[0];
     p->dst = (char)msg[1];
     p->type = (char)msg[2];

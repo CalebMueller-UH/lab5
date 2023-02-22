@@ -75,8 +75,10 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
       perror("\t");
       return -1;
     } else {
-      printf("Accepted connection from %s:%d\n",
+#ifdef DEBUG
+      printf("\x1b[1;30mSOCK_RECV: accepted connection from %s:%d\x1b[0m\n",
              inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
+#endif
     }
 
     // Check if the remote address and port match the desired address
@@ -96,12 +98,15 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
       return -1;
     }
 
-    printf("bytesRead: %d\n", bytesRead);
-
     close(client_fd);
     break;  // Successfully read data from the desired remote address and port,
             // exit loop
   }
+
+#ifdef DEBUG
+  printf("\x1b[1;30mSOCK_RECV: received %d bytes from %s\x1b[0m\n", bytesRead,
+         remoteDomain);
+#endif
 
   return bytesRead;
 }
@@ -119,6 +124,7 @@ int sock_send(const char* localDomain, const char* remoteDomain,
   struct sockaddr_in local_addr;
   local_addr.sin_family = AF_INET;
   local_addr.sin_addr.s_addr = inet_addr(localDomain);
+  local_addr.sin_port = htons(0);
   int bind_result =
       bind(sock_fd, (struct sockaddr*)&local_addr, sizeof(local_addr));
   if (bind_result < 0) {
@@ -127,6 +133,11 @@ int sock_send(const char* localDomain, const char* remoteDomain,
     close(sock_fd);
     return -1;
   }
+
+  // Get the local port assigned by the OS
+  struct sockaddr_in local_addr_assigned;
+  socklen_t addr_len = sizeof(local_addr_assigned);
+  getsockname(sock_fd, (struct sockaddr*)&local_addr_assigned, &addr_len);
 
   // Connect to remote server
   struct sockaddr_in server_addr;
@@ -152,5 +163,13 @@ int sock_send(const char* localDomain, const char* remoteDomain,
   }
 
   close(sock_fd);
+
+#ifdef DEBUG
+  printf(
+      "\x1b[1;30mSOCK_SEND: sent %d bytes to %s:%d from local port "
+      "%d\x1b[0m\n",
+      bytesSent, remoteDomain, remotePort, ntohs(local_addr_assigned.sin_port));
+#endif
+
   return bytesSent;
 }

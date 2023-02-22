@@ -66,7 +66,7 @@ struct job_struct *job_dequeue(int id, struct job_queue *j_q) {
 #ifdef DEBUG
   printf(
       "\x1b[31m"  // red text
-      "DEBUG: id:%d job_dequeue: job_struct.type: %s\n"
+      "DEBUG: \tid:%d job_dequeue: job_struct.type: %s\n"
       "\x1b[0m",  // reset text
       id, get_job_type_literal(j->type));
 #endif
