@@ -361,8 +361,8 @@ void host_main(int host_id) {
         case JOB_FILE_UPLOAD_SEND:
           /* Open file */
           if (dir_valid == 1) {
-            n = snprintf(name, MAX_FILE_NAME_LENGTH, "\x1b[32;1m./%s/%s\x1b[0m",
-                         dir, new_job->fname_upload);
+            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
+                         new_job->fname_upload);
             name[n] = '\0';
             fp = fopen(name, "r");
             if (fp != NULL) {
@@ -446,8 +446,7 @@ void host_main(int host_id) {
              * Then open the file
              */
             file_buf_get_name(&f_buf_upload, string);
-            n = snprintf(name, MAX_FILE_NAME_LENGTH, "\x1b[32;1m./%s/%s\x1b[0m",
-                         dir, string);
+            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir, string);
             name[n] = '\0';
             fp = fopen(name, "w");
             if (fp != NULL) {

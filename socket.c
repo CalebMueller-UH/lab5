@@ -43,6 +43,8 @@ int sock_server_init(const char* localDomain, const int localPort) {
 
 int sock_recv(const int sockfd, char* buffer, const int bufferMax,
               const char* remoteDomain) {
+  struct sockaddr_in remote_addr;
+  socklen_t addr_len = sizeof(remote_addr);
   int bytesRead = 0;
 
   fd_set read_fds;
@@ -66,9 +68,6 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
     }
 
     // Incoming data available, accept the incoming connection and read data
-    struct sockaddr_in remote_addr;
-    socklen_t addr_len = sizeof(remote_addr);
-
     int client_fd = accept(sockfd, (struct sockaddr*)&remote_addr, &addr_len);
     if (client_fd < 0) {
       fprintf(stderr, "\nError: sock_recv: failed to accept connection\n");
@@ -104,8 +103,9 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
   }
 
 #ifdef DEBUG
-  printf("\x1b[1;30mSOCK_RECV: received %d bytes from %s\x1b[0m\n", bytesRead,
-         remoteDomain);
+  printf("\x1b[1;30mSOCK_RECV: received %d bytes from %s:%d\x1b[0m\n",
+         bytesRead, inet_ntoa(remote_addr.sin_addr),
+         ntohs(remote_addr.sin_port));
 #endif
 
   return bytesRead;
