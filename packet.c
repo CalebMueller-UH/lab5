@@ -4,8 +4,6 @@
 
 #include "packet.h"
 
-#define MAX_SEND_TRIES 3
-
 void packet_send(struct net_port *port, struct packet *p) {
   char msg[PAYLOAD_MAX + 4];
   int bytesSent = -1;

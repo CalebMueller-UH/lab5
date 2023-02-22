@@ -7,7 +7,7 @@ socket.c
 int sock_server_init(const char* localDomain, const int localPort) {
   int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (sock_fd < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_server_init: failed to create socket\n");
     return -1;
   }
 
@@ -19,7 +19,7 @@ int sock_server_init(const char* localDomain, const int localPort) {
   int bind_result =
       bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
   if (bind_result < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_server_init: failed to bind sock_fd\n");
     close(sock_fd);
     return -1;
   }
@@ -27,7 +27,10 @@ int sock_server_init(const char* localDomain, const int localPort) {
   // set socket to listen for incoming connections
   int listen_result = listen(sock_fd, SOMAXCONN);
   if (listen_result < 0) {
-    // handle error
+    fprintf(
+        stderr,
+        "Error: sock_server_init: failed set set socket to listen on %s:%d\n",
+        localDomain, localPort);
     close(sock_fd);
     return -1;
   }
@@ -50,7 +53,7 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
   // Use select to wait for incoming data on the socket
   int select_result = select(sockfd + 1, &read_fds, NULL, NULL, &timeout);
   if (select_result < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_recv: select failed\n");
     return -1;
   } else if (select_result == 0) {
     // No data available within timeout period
@@ -63,7 +66,7 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
 
   int client_fd = accept(sockfd, (struct sockaddr*)&remote_addr, &addr_len);
   if (client_fd < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_recv: failed to accept\n");
     return -1;
   }
 
@@ -77,7 +80,7 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
   // Incoming data available, read it into the buffer
   bytesRead = recv(client_fd, buffer, bufferMax, 0);
   if (bytesRead < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_recv: bytesRead value < 0\n");
     close(client_fd);
     return -1;
   }
@@ -90,7 +93,7 @@ int sock_send(const char* remoteDomain, const int remotePort, char* msg,
               int msgLen) {
   int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (sock_fd < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_send: failed to create socket\n");
     return -1;
   }
 
@@ -102,7 +105,7 @@ int sock_send(const char* remoteDomain, const int remotePort, char* msg,
   int connect_result =
       connect(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
   if (connect_result < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_send: connect_result < 0\n");
     close(sock_fd);
     return -1;
   }
@@ -110,7 +113,7 @@ int sock_send(const char* remoteDomain, const int remotePort, char* msg,
   // Send data to remote server
   int bytesSent = send(sock_fd, msg, msgLen, 0);
   if (bytesSent < 0) {
-    // handle error
+    fprintf(stderr, "Error: sock_send: bytesSent < 0\n");
     close(sock_fd);
     return -1;
   }
