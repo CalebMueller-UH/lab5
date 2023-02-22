@@ -120,6 +120,11 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   write(port->send_fd, reply_msg, n);
 }
 
+void printPacket(struct packet *p) {
+  printf("Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n", p->src,
+         p->dst, get_packet_type_literal(p->type), p->length, p->payload);
+}
+
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
@@ -255,6 +260,7 @@ void host_main(int host_id) {
           new_packet->dst = (char)dst;
           new_packet->type = (char)PKT_FILE_DOWNLOAD_REQUEST;
           new_packet->length = strnlen(name, MAX_DIR_NAME);
+          strncpy(new_packet->payload, name, MAX_DIR_NAME);
           new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job->packet = new_packet;
           new_job->type = FILE_DOWNLOAD_REQUEST;
@@ -276,7 +282,7 @@ void host_main(int host_id) {
             "DEBUG: id:%d host_main: Host %d received packet of type %s\n"
             "\033[0m",  // regular text
             host_id, (int)in_packet->dst,
-            get_job_type_literal(in_packet->type));
+            get_packet_type_literal(in_packet->type));
 #endif
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
         new_job->in_port_index = k;
@@ -305,7 +311,12 @@ void host_main(int host_id) {
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQUEST:
+            new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
             new_job->type = FILE_UPLOAD_SEND;
+            new_job->file_upload_dst = in_packet->src;
+            strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
+            new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)] =
+                '\0';
             job_enqueue(host_id, &host_q, new_job);
             break;
 
@@ -443,6 +454,7 @@ void host_main(int host_id) {
            * Transfer the file name in the packet payload
            * to the file buffer data structure
            */
+
           file_buf_put_name(&f_buf_upload, new_job->packet->payload,
                             new_job->packet->length);
           free(new_job->packet);
