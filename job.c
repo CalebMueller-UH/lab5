@@ -31,6 +31,8 @@ char *get_job_type_literal(enum job_type t) {
       return "FILE_UPLOAD_RECV_END";
     case FILE_DOWNLOAD_REQUEST:
       return "FILE_DOWNLOAD_REQUEST";
+    case SEND_REQUEST_RESPONSE:
+      return "DISPLAY_REQUEST_RESPONSE";
     case DISPLAY_REQUEST_RESPONSE:
       return "DISPLAY_REQUEST_RESPONSE";
     case FORWARD_PACKET_TO_PORT:
