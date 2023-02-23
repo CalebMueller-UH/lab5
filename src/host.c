@@ -216,6 +216,8 @@ void host_main(int host_id) {
 
     /* Execute command */
     if (n > 0) {
+      sem_wait(&console_print_access);
+
       switch (man_cmd) {
         case 's':
           reply_display_host_state(man_port, dir, dir_valid, host_id);

@@ -11,6 +11,11 @@ void main(int argc, char **argv) {
   struct net_node *node_list;
   struct net_node *p_node;
 
+  // Create shared memory for the binary semaphore
+  int shmid = create_shared_memory(sizeof(binary_semaphore));
+  binary_semaphore *console_print_access = attach_shared_memory(shmid);
+  console_print_access->value = 1;
+
   /*
    * Read network configuration file, which specifies
    *   - nodes, creates a list of nodes
@@ -60,5 +65,9 @@ void main(int argc, char **argv) {
    * We reach here if the user quits the manager.
    * The following will terminate all the children processes.
    */
+
+  // Detach and destroy shared memory
+  detach_shared_memory(console_print_access);
+  destroy_shared_memory(shmid);
   kill(0, SIGKILL); /* Kill all processes */
 }
