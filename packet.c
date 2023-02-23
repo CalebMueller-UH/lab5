@@ -26,11 +26,9 @@ void packet_send(struct net_port *port, struct packet *p) {
   }
 
 #ifdef DEBUG
-  printf(
-      "\033[35mPACKETSEND, src=%d dst=%d type=%d len=%d p-src=%d "
-      "p-dst=%d\033[0m\n",
-      (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
-      (int)p->dst);
+  printf("\033[35mPACKETSEND: ");
+  printPacket(p);
+  printf("\033[0m");
 #endif
 }
 
@@ -55,11 +53,9 @@ int packet_recv(struct net_port *port, struct packet *p) {
       p->payload[i] = msg[i + 4];
     }
 
-    printf(
-        "\033[35mPACKETRECV, src=%d dst=%d type=%d len=%d p-src=%d "
-        "p-dst=%d\033[0m\n",
-        (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
-        (int)p->dst);
+    printf("\033[35mPACKETRECV: ");
+    printPacket(p);
+    printf("\033[0m");
 #endif
   }
   return (bytesRead);
@@ -84,4 +80,9 @@ char *get_packet_type_literal(int pktType) {
     default:
       return "Unknown Packet Type";
   }
+}
+
+void printPacket(struct packet *p) {
+  printf("Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n", p->src,
+         p->dst, get_packet_type_literal(p->type), p->length, p->payload);
 }

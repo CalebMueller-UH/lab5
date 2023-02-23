@@ -120,9 +120,23 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   write(port->send_fd, reply_msg, n);
 }
 
-void printPacket(struct packet *p) {
-  printf("Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n", p->src,
-         p->dst, get_packet_type_literal(p->type), p->length, p->payload);
+int sendPacketTo(struct net_port **arr, int arrSize, struct packet *p) {
+  // Find which net_port entry in net_port_array has desired destination
+  int destIndex = -1;
+  for (int i = 0; i < arrSize; i++) {
+    if (arr[i]->link_node_id == p->dst) {
+      destIndex = i;
+    }
+  }
+  // If node_port_array had the destination id, send to that node
+  if (destIndex >= 0) {
+    packet_send(arr[destIndex], p);
+  } else {
+    // Else, broadcast packet to all connected hosts
+    for (int i = 0; i < arrSize; i++) {
+      packet_send(arr[i], p);
+    }
+  }
 }
 
 ////////////////////////////////////////////////
@@ -524,22 +538,31 @@ void host_main(int host_id) {
 
         case FILE_DOWNLOAD_REQUEST:
 
-          // Find which net_port entry in net_port_array has desired destination
-          int destIndex = -1;
-          for (int i = 0; i < node_port_array_size; i++) {
-            if (node_port_array[i]->link_node_id == (int)new_job->packet->dst) {
-              destIndex = i;
-            }
-          }
-          // If node_port_array had the destination id, send to that node
-          if (destIndex >= 0) {
-            packet_send(node_port_array[destIndex], new_job->packet);
-          } else {
-            // Else, broadcast packet to all hosts
-            for (k = 0; k < node_port_array_size; k++) {
-              packet_send(node_port_array[k], new_job->packet);
-            }
-          }
+          sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
+          // // Find which net_port entry in net_port_array has desired
+          // // destination
+          // int destIndex = -1;
+          // for (int i = 0; i < node_port_array_size; i++) {
+          //   if (node_port_array[i]->link_node_id ==
+          //   (int)new_job->packet->dst) {
+          //     destIndex = i;
+          //   }
+          // }
+          // // If node_port_array had the destination id, send to that node
+          // if (destIndex >= 0) {
+          //   packet_send(node_port_array[destIndex], new_job->packet);
+          // } else {
+          //   // Else, broadcast packet to all connected hosts
+          //   for (k = 0; k < node_port_array_size; k++) {
+          //     packet_send(node_port_array[k], new_job->packet);
+          //   }
+          // }
+          free(new_job->packet);
+          free(new_job);
+          break;
+
+        case SEND_REQUEST_RESPONSE:
+          sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
           free(new_job->packet);
           free(new_job);
           break;

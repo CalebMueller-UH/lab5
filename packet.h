@@ -42,3 +42,5 @@ int packet_recv(struct net_port *port, struct packet *p);
 void packet_send(struct net_port *port, struct packet *p);
 
 char *get_packet_type_literal(int pktType);
+
+void printPacket(struct packet *p);
