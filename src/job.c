@@ -32,7 +32,7 @@ char *get_job_type_literal(enum job_type t) {
     case FILE_DOWNLOAD_REQUEST:
       return "FILE_DOWNLOAD_REQUEST";
     case SEND_REQUEST_RESPONSE:
-      return "DISPLAY_REQUEST_RESPONSE";
+      return "SEND_REQUEST_RESPONSE";
     case DISPLAY_REQUEST_RESPONSE:
       return "DISPLAY_REQUEST_RESPONSE";
     case FORWARD_PACKET_TO_PORT:
@@ -72,7 +72,7 @@ struct job_struct *job_dequeue(int id, struct job_queue *j_q) {
 #ifdef DEBUG
   printf(
       "\x1b[31m"  // red text
-      "DEBUG: \tid:%d job_dequeue: job_struct.type: %s\n"
+      "DEBUG: id:%d job_dequeue: job_struct.type: %s\n"
       "\x1b[0m",  // reset text
       id, get_job_type_literal(j->type));
 #endif
@@ -97,6 +97,3 @@ Returns:
 int - the number of jobs in the job queue
 */
 int job_queue_length(struct job_queue *j_q) { return j_q->occ; }
-
-/////////////// Job Related Functions ///////////////////
-/////////////////////////////////////////////////////////

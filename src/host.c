@@ -312,6 +312,7 @@ void host_main(int host_id) {
             free(in_packet);
             ping_reply_received = 1;
             free(new_job);
+            new_job = NULL;
             break;
 
           case (char)PKT_FILE_UPLOAD_START:
@@ -335,7 +336,7 @@ void host_main(int host_id) {
               new_job->packet->dst = in_packet->src;
               new_job->packet->src = host_id;
               new_job->packet->type = PKT_REQUEST_RESPONSE;
-              const char *response = "File does not exist";
+              const char *response = "File does not exist\0";
               new_job->packet->length = strlen(response);
               strncpy(new_job->packet->payload, response, strlen(response));
               job_enqueue(host_id, &host_q, new_job);
@@ -350,7 +351,7 @@ void host_main(int host_id) {
             }
             break;
 
-          case PKT_REQUEST_RESPONSE:
+          case (char)PKT_REQUEST_RESPONSE:
             new_job->type = DISPLAY_REQUEST_RESPONSE;
             new_job->packet = in_packet;
             job_enqueue(host_id, &host_q, new_job);
@@ -359,6 +360,7 @@ void host_main(int host_id) {
           default:
             free(in_packet);
             free(new_job);
+            new_job = NULL;
         }
       } else {
         free(in_packet);
@@ -378,6 +380,7 @@ void host_main(int host_id) {
           }
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
 
         case PING_SEND_REPLY:
@@ -399,6 +402,7 @@ void host_main(int host_id) {
           /* Free old packet and job memory space */
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
 
         case PING_WAIT_FOR_REPLY:
@@ -408,6 +412,7 @@ void host_main(int host_id) {
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
+            new_job = NULL;
           } else if (new_job->timeToLive > 1) {
             new_job->timeToLive--;
             job_enqueue(host_id, &host_q, new_job);
@@ -417,8 +422,8 @@ void host_main(int host_id) {
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
+            new_job = NULL;
           }
-
           break;
 
           /* The next three jobs deal with uploading a file */
@@ -476,6 +481,7 @@ void host_main(int host_id) {
               new_job2->packet = new_packet;
               job_enqueue(host_id, &host_q, new_job2);
               free(new_job);
+              new_job = NULL;
             } else {
               /* Didn't open file */
             }
@@ -495,6 +501,7 @@ void host_main(int host_id) {
                             new_job->packet->length);
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
 
         case FILE_UPLOAD_RECV_END:
@@ -506,6 +513,7 @@ void host_main(int host_id) {
                        new_job->packet->length);
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           if (dir_valid == 1) {
             /*
              * Get file name from the file buffer
@@ -527,39 +535,42 @@ void host_main(int host_id) {
               }
               fclose(fp);
             }
+            printf("Host%d: File Transfer Done\n", host_id);
           }
           break;
 
         case FILE_DOWNLOAD_REQUEST:
-
           sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
-          // // Find which net_port entry in net_port_array has desired
-          // // destination
-          // int destIndex = -1;
-          // for (int i = 0; i < node_port_array_size; i++) {
-          //   if (node_port_array[i]->link_node_id ==
-          //   (int)new_job->packet->dst) {
-          //     destIndex = i;
-          //   }
-          // }
-          // // If node_port_array had the destination id, send to that node
-          // if (destIndex >= 0) {
-          //   packet_send(node_port_array[destIndex], new_job->packet);
-          // } else {
-          //   // Else, broadcast packet to all connected hosts
-          //   for (k = 0; k < node_port_array_size; k++) {
-          //     packet_send(node_port_array[k], new_job->packet);
-          //   }
-          // }
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
 
         case SEND_REQUEST_RESPONSE:
           sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
+
+        case DISPLAY_REQUEST_RESPONSE:
+          printf("working\n");
+          char *response = (char *)malloc(sizeof(char) * PAYLOAD_MAX);
+          strncpy(response, new_job->packet->payload, PAYLOAD_MAX);
+          response[new_job->packet->length] = '\0';
+          printf("Response: %s", response);
+          free(new_job->packet);
+          free(new_job);
+          new_job = NULL;
+          break;
+
+        default:
+#ifdef DEBUG
+          printf(
+              "DEBUG: id:%d host_main: job_handler defaulted with job type: "
+              "%s\n",
+              host_id, get_job_type_literal(new_job->type));
+#endif
       }
     }
 
