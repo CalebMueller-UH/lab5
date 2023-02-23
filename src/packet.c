@@ -26,7 +26,7 @@ void packet_send(struct net_port *port, struct packet *p) {
   }
 
 #ifdef DEBUG
-  // printPacket(p);
+  printPacket(p);
 #endif
 }
 
@@ -51,7 +51,7 @@ int packet_recv(struct net_port *port, struct packet *p) {
       p->payload[i] = msg[i + 4];
     }
 
-    // printPacket(p);
+    printPacket(p);
 #endif
   }
   return (bytesRead);

@@ -327,6 +327,8 @@ void host_main(int host_id) {
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQUEST:
+            // Sanitize packet payload to ensure it's null terminated
+            in_packet->payload[in_packet->length] = '\0';
             // Check to see if file exists
             char filepath[MAX_DIR_NAME + PAYLOAD_MAX];
             sprintf(filepath, "%s/%s", dir, in_packet->payload);
