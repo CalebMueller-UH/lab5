@@ -554,11 +554,7 @@ void host_main(int host_id) {
           break;
 
         case DISPLAY_REQUEST_RESPONSE:
-          printf("working\n");
-          char *response = (char *)malloc(sizeof(char) * PAYLOAD_MAX);
-          strncpy(response, new_job->packet->payload, PAYLOAD_MAX);
-          response[new_job->packet->length] = '\0';
-          printf("Response: %s", response);
+          printf("%s\n", new_job->packet->payload);
           free(new_job->packet);
           free(new_job);
           new_job = NULL;
