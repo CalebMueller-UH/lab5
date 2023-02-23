@@ -5,20 +5,18 @@
 #include "man.h"
 
 void man_print_command_prompt(int curr_host) {
-  usleep(50000);
-  printf("\033[1;36m");  // Set text color to light blue
+  usleep(75000);
   /* Display command options */
-  printf("\nCommands (Current host ID = %d):\n", curr_host);
-  printf("   (s) Display host's state\n");
-  printf("   (m) Set host's main directory\n");
-  printf("   (h) Display all hosts\n");
-  printf("   (c) Change host\n");
-  printf("   (p) Ping a host\n");
-  printf("   (u) Upload a file to a host\n");
-  printf("   (d) Download a file from a host\n");
-  printf("   (q) Quit\n");
-  printf("   Enter Command: ");
-  printf("\033[0m");  // Reset text color
+  colorPrint(BOLD_CYAN, "\nCommands (Current host ID = %d):\n", curr_host);
+  colorPrint(CYAN, "   (s) Display host's state\n");
+  colorPrint(CYAN, "   (m) Set host's main directory\n");
+  colorPrint(CYAN, "   (h) Display all hosts\n");
+  colorPrint(CYAN, "   (c) Change host\n");
+  colorPrint(CYAN, "   (p) Ping a host\n");
+  colorPrint(CYAN, "   (u) Upload a file to a host\n");
+  colorPrint(CYAN, "   (d) Download a file from a host\n");
+  colorPrint(CYAN, "   (q) Quit\n");
+  colorPrint(CYAN, "   Enter Command: ");
 }
 
 /* Get the user command */
@@ -41,7 +39,8 @@ char man_get_user_cmd(int curr_host) {
       case 'q':
         return cmd;
       default:
-        printf("The command %c that you entered is not recognized\n\n", cmd);
+        colorPrint(BOLD_RED, "%c is not a valid command\n", cmd);
+        man_print_command_prompt(curr_host);
     }
   }
 }
@@ -52,7 +51,7 @@ void change_host(struct man_port_at_man *list,
   int new_host_id;
 
   // display_host(list, *curr_host);
-  printf("Enter new host: ");
+  colorPrint(BOLD_CYAN, "Enter new host: ");
   scanf("%d", &new_host_id);
   printf("\n");
 
@@ -71,11 +70,11 @@ void display_host(struct man_port_at_man *list,
                   struct man_port_at_man *curr_host) {
   struct man_port_at_man *p;
 
-  printf("\nHost list:\n");
+  colorPrint(CYAN, "\nHost list:\n");
   for (p = list; p != NULL; p = p->next) {
-    printf("   Host id = %d ", p->host_id);
+    colorPrint(CYAN, "   Host id = %d ", p->host_id);
     if (p->host_id == curr_host->host_id) {
-      printf("(<- connected)");
+      colorPrint(GREEN, "(<- connected)");
     }
     printf("\n");
   }
@@ -105,8 +104,8 @@ void display_host_state(struct man_port_at_man *curr_host) {
   }
   reply[n] = '\0';
   sscanf(reply, "%s %d", dir, &host_id);
-  printf("Host %d state: \n", host_id);
-  printf("    Directory = %s\n", dir);
+  colorPrint(CYAN, "Host %d state: \n", host_id);
+  colorPrint(CYAN, "    Directory = %s\n", dir);
 }
 
 void set_host_dir(struct man_port_at_man *curr_host) {
@@ -114,7 +113,7 @@ void set_host_dir(struct man_port_at_man *curr_host) {
   char msg[NAME_LENGTH];
   int n;
 
-  printf("Enter directory name: ");
+  colorPrint(CYAN, "Enter directory name: ");
   scanf("%s", name);
   n = snprintf(msg, NAME_LENGTH, "m %s", name);
   write(curr_host->send_fd, msg, n);
@@ -138,7 +137,7 @@ void ping(struct man_port_at_man *curr_host) {
   int host_to_ping;
   int n;
 
-  printf("Enter id of host to ping: ");
+  colorPrint(CYAN, "Enter id of host to ping: ");
   scanf("%d", &host_to_ping);
   n = snprintf(msg, MAN_MSG_LENGTH, "p %d", host_to_ping);
 
@@ -150,7 +149,7 @@ void ping(struct man_port_at_man *curr_host) {
     n = read(curr_host->recv_fd, reply, MAN_MSG_LENGTH);
   }
   reply[n] = '\0';
-  printf("%s\n", reply);
+  colorPrint(CYAN, "%s\n", reply);
 }
 
 /*
@@ -172,9 +171,9 @@ int file_upload(struct man_port_at_man *curr_host) {
   char name[NAME_LENGTH];
   char msg[NAME_LENGTH];
 
-  printf("Enter file name to upload: ");
+  colorPrint(CYAN, "Enter file name to upload: ");
   scanf("%s", name);
-  printf("Enter host id of destination:  ");
+  colorPrint(CYAN, "Enter host id of destination:  ");
   scanf("%d", &host_id);
   printf("\n");
 
@@ -202,9 +201,9 @@ int file_download(struct man_port_at_man *curr_host) {
   char name[NAME_LENGTH];
   char msg[NAME_LENGTH];
 
-  printf("Enter file name to download: ");
+  colorPrint(CYAN, "Enter file name to download: ");
   scanf("%s", name);
-  printf("Enter host id that has this file:  ");
+  colorPrint(CYAN, "Enter host id that has this file:  ");
   scanf("%d", &host_id);
   printf("\n");
 
@@ -259,7 +258,7 @@ void man_main() {
       case 'q': /* Quit */
         return;
       default:
-        printf("\nInvalid, you entered %c\n\n", cmd);
+        colorPrint(BOLD_RED, "\nInvalid, you entered %c\n\n", cmd);
     }
   }
 }

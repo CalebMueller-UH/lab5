@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "color.h"
 #include "job.h"
 #include "main.h"
 #include "man.h"

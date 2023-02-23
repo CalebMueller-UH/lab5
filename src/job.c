@@ -46,10 +46,8 @@ char *get_job_type_literal(enum job_type t) {
 /* Add a job to the job queue */
 void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j) {
 #ifdef DEBUG
-  printf("\033[0;32m");  // Set text color to green
-  printf("DEBUG: id:%d job_enqueue: job_struct.type: %s\n", id,
-         get_job_type_literal(j->type));
-  printf("\033[0m");  // Reset text color to default
+  colorPrint(GREEN, "DEBUG: id:%d job_enqueue: job_struct.type: %s\n", id,
+             get_job_type_literal(j->type));
 #endif
   if (j_q->head == NULL) {
     j_q->head = j;
@@ -70,11 +68,8 @@ struct job_struct *job_dequeue(int id, struct job_queue *j_q) {
   j = j_q->head;
 
 #ifdef DEBUG
-  printf(
-      "\x1b[31m"  // red text
-      "DEBUG: id:%d job_dequeue: job_struct.type: %s\n"
-      "\x1b[0m",  // reset text
-      id, get_job_type_literal(j->type));
+  colorPrint(RED, "DEBUG: id:%d job_dequeue: job_struct.type: %s\n", id,
+             get_job_type_literal(j->type));
 #endif
 
   j_q->head = (j_q->head)->next;

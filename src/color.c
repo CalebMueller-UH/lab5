@@ -4,7 +4,9 @@ color.c
 
 #include "color.h"
 
-void colorPrint(enum color c, const char *format, ...) {
+const int NUM_COLORS = BOLD_GREY + 1;
+
+void colorPrint(color c, const char *format, ...) {
   va_list args;
   va_start(args, format);
 

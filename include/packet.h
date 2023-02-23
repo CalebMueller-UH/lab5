@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "color.h"
 #include "host.h"
 #include "main.h"
 #include "net.h"

@@ -7,7 +7,7 @@ color.h
 #include <stdarg.h>
 #include <stdio.h>
 
-enum color {
+typedef enum {
   RED,
   BOLD_RED,
   ORANGE,
@@ -26,6 +26,8 @@ enum color {
   BOLD_PURPLE,
   GREY,
   BOLD_GREY
-};
+} color;
 
-void colorPrint(enum color c, const char *format, ...);
+extern const int NUM_COLORS;
+
+void colorPrint(color c, const char *format, ...);

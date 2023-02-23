@@ -37,7 +37,7 @@ void main(int argc, char **argv) {
   for (p_node = node_list; p_node != NULL; p_node = p_node->next) {
     pid = fork();
     if (pid == -1) {
-      printf("Error:  the fork() failed\n");
+      fprintf(stderr, "Error: main.c: node_list fork() failed\n");
       return;
     } else if (pid == 0) { /* The child process, which is a node  */
       if (p_node->type == HOST) {

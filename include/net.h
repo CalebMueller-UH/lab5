@@ -16,6 +16,7 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 
+#include "color.h"
 #include "socket.h"
 
 int net_init();

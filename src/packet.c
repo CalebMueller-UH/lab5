@@ -26,9 +26,7 @@ void packet_send(struct net_port *port, struct packet *p) {
   }
 
 #ifdef DEBUG
-  printf("\033[35mPACKETSEND: ");
   printPacket(p);
-  printf("\033[0m");
 #endif
 }
 
@@ -53,9 +51,7 @@ int packet_recv(struct net_port *port, struct packet *p) {
       p->payload[i] = msg[i + 4];
     }
 
-    printf("\033[35mPACKETRECV: ");
     printPacket(p);
-    printf("\033[0m");
 #endif
   }
   return (bytesRead);
@@ -83,6 +79,7 @@ char *get_packet_type_literal(int pktType) {
 }
 
 void printPacket(struct packet *p) {
-  printf("Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n", p->src,
-         p->dst, get_packet_type_literal(p->type), p->length, p->payload);
+  colorPrint(
+      ORANGE, "Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n",
+      p->src, p->dst, get_packet_type_literal(p->type), p->length, p->payload);
 }

@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "color.h"
 #include "job.h"
 #include "main.h"
 #include "net.h"

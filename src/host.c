@@ -110,10 +110,9 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   char reply_msg[MAX_MSG_LENGTH];
 
   if (dir_valid == 1) {
-    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\x1b[32;1m%s %d\x1b[0m", dir,
-                 host_id);
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "%s %d", dir, host_id);
   } else {
-    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\x1b[32;1mNone %d\x1b[0m",
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\033[1;31mNone %d\033[0m",
                  host_id);
   }
 
@@ -228,10 +227,10 @@ void host_main(int host_id) {
             memcpy(dir, man_msg, len);
             dir[len] = '\0';  // add null character
             dir_valid = 1;
-            printf("\x1b[32mhost%d's main directory set to %s\x1b[0m\n",
-                   host_id, dir);
+            colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
+                       host_id, man_msg);
           } else {
-            printf("\x1b[31m%s is not a valid directory\x1b[0m\n", man_msg);
+            colorPrint(BOLD_RED, "%s is not a valid directory\n", man_msg);
           }
           break;
 
@@ -291,12 +290,11 @@ void host_main(int host_id) {
       n = packet_recv(node_port_array[k], in_packet);
       if ((n > 0) && ((int)in_packet->dst == host_id)) {
 #ifdef DEBUG
-        printf(
-            "\033[0;33m"  // yellow text
-            "DEBUG: id:%d host_main: Host %d received packet of type %s\n"
-            "\033[0m",  // regular text
-            host_id, (int)in_packet->dst,
-            get_packet_type_literal(in_packet->type));
+        colorPrint(YELLOW,
+                   "DEBUG: id:%d host_main: Host %d received packet of type "
+                   "%s\n",
+                   host_id, (int)in_packet->dst,
+                   get_packet_type_literal(in_packet->type));
 #endif
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
         new_job->in_port_index = k;
@@ -535,7 +533,7 @@ void host_main(int host_id) {
               }
               fclose(fp);
             }
-            printf("Host%d: File Transfer Done\n", host_id);
+            colorPrint(BOLD_GREEN, "Host%d: File Transfer Done\n", host_id);
           }
           break;
 
@@ -554,7 +552,7 @@ void host_main(int host_id) {
           break;
 
         case DISPLAY_REQUEST_RESPONSE:
-          printf("%s\n", new_job->packet->payload);
+          colorPrint(BOLD_YELLOW, "%s\n", new_job->packet->payload);
           free(new_job->packet);
           free(new_job);
           new_job = NULL;
@@ -562,7 +560,8 @@ void host_main(int host_id) {
 
         default:
 #ifdef DEBUG
-          printf(
+          colorPrint(
+              YELLOW,
               "DEBUG: id:%d host_main: job_handler defaulted with job type: "
               "%s\n",
               host_id, get_job_type_literal(new_job->type));

@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "color.h"
+
 struct job_queue {
   struct job_struct *head;
   struct job_struct *tail;

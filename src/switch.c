@@ -96,11 +96,10 @@ void switch_main(int switch_id) {
 
       if (n > 0) {
 #ifdef DEBUG
-        printf(
-            "\033[0;33m"  // yellow text
+        colorPrint(
+            YELLOW,
             "DEBUG: id:%d switch_main: Switch received packet on port:%d "
-            "src:%d dst:%d\n"
-            "\033[0m",  // regular text
+            "src:%d dst:%d\n",
             switch_id, i, in_packet->src, in_packet->dst);
 #endif
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));

@@ -12,6 +12,8 @@ socket.h
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "color.h"
+
 #define MAX_DOMAIN_NAME_LENGTH 100
 
 int sock_server_init(const char* localDomain, const int localPort);

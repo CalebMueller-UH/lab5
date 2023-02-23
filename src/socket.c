@@ -75,14 +75,14 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
       return -1;
     } else {
 #ifdef DEBUG
-      printf("\x1b[1;30mSOCK_RECV: accepted connection from %s:%d\x1b[0m\n",
-             inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
+      colorPrint(MAGENTA, "SOCK_RECV: accepted connection from %s:%d\n",
+                 inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
 #endif
     }
 
     // Check if the remote address and port match the desired address
     if (strcmp(remoteDomain, inet_ntoa(remote_addr.sin_addr))) {
-      printf("Connection not from desired remote address\n");
+      colorPrint(BOLD_MAGENTA, "Connection not from desired remote address\n");
       close(client_fd);
       continue;  // Connection not from desired remote address and port,
                  // continue waiting
@@ -103,9 +103,8 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
   }
 
 #ifdef DEBUG
-  printf("\x1b[1;30mSOCK_RECV: received %d bytes from %s:%d\x1b[0m\n",
-         bytesRead, inet_ntoa(remote_addr.sin_addr),
-         ntohs(remote_addr.sin_port));
+  colorPrint(MAGENTA, "SOCK_RECV: received %d bytes from %s:%d\n", bytesRead,
+             inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
 #endif
 
   return bytesRead;
@@ -165,10 +164,9 @@ int sock_send(const char* localDomain, const char* remoteDomain,
   close(sock_fd);
 
 #ifdef DEBUG
-  printf(
-      "\x1b[1;30mSOCK_SEND: sent %d bytes to %s:%d from local port "
-      "%d\x1b[0m\n",
-      bytesSent, remoteDomain, remotePort, ntohs(local_addr_assigned.sin_port));
+  colorPrint(MAGENTA, "SOCK_SEND: sent %d bytes to %s:%d from local port\n",
+             bytesSent, remoteDomain, remotePort,
+             ntohs(local_addr_assigned.sin_port));
 #endif
 
   return bytesSent;
