@@ -11,6 +11,7 @@
 #include "job.h"
 #include "main.h"
 #include "net.h"
+#include "semaphore.h"
 
 #define MAX_NUM_ROUTES 100
 

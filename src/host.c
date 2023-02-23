@@ -282,6 +282,7 @@ void host_main(int host_id) {
 
         default:;
       }
+      sem_signal(&console_print_access);
     }
 
     /////// Receive In-Coming packet and translate it to job //////

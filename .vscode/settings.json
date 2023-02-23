@@ -10,6 +10,7 @@
         "net.h": "c",
         "packet.h": "c",
         "job.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "semaphore.h": "c"
     }
 }

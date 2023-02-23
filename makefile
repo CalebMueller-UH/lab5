@@ -1,6 +1,9 @@
 # Uncomment the following line to turn on debug messages
 DEBUG = -DDEBUG
 
+# Select the configuration file to use as default for 'run' 
+DEFAULT_CONFIG = p2p.config
+
 # Define compiler and flags
 CC = gcc
 CFLAGS = -g
@@ -50,4 +53,8 @@ clean:
 		$(if $(filter $(notdir $(file)), $(TD1_FILES)), , rm -f $(file)))
 
 # Rule to regenerate object files and executable
-regen: clean $(EXECUTABLE)
+regen: clean $(EXECUTABLE) run
+
+# Rule to run the executable with the default configuration
+run: $(EXECUTABLE)
+	./$(EXECUTABLE) $(DEFAULT_CONFIG)

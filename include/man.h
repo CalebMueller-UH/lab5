@@ -15,6 +15,7 @@
 #include "host.h"
 #include "main.h"
 #include "net.h"
+#include "semaphore.h"
 
 #define MAXBUFFER 1000
 #define MAN_MSG_LENGTH 1000

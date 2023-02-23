@@ -5,7 +5,7 @@
 #include "man.h"
 
 void man_print_command_prompt(int curr_host) {
-  usleep(75000);
+  // usleep(200000);
   /* Display command options */
   colorPrint(BOLD_CYAN, "\nCommands (Current host ID = %d):\n", curr_host);
   colorPrint(CYAN, "   (s) Display host's state\n");
@@ -226,6 +226,7 @@ void man_main() {
   char cmd; /* Command entered by user */
 
   while (1) {
+    sem_wait(&console_print_access);
     man_print_command_prompt(curr_host->host_id);
 
     /* Get a command from the user */

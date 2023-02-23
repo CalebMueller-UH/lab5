@@ -19,6 +19,7 @@
 #include "man.h"
 #include "net.h"
 #include "packet.h"
+#include "semaphore.h"
 
 #define MAX_FILE_BUFFER 1000
 #define MAX_MSG_LENGTH 100
