@@ -25,6 +25,8 @@ char *get_job_type_literal(enum job_type t) {
       return "JOB_PING_REPLY";
     case JOB_WAIT_FOR_RESPONSE:
       return "JOB_WAIT_FOR_RESPONSE";
+    case JOB_FILE_UPLOAD_REQ:
+      return "JOB_FILE_UPLOAD_REQ";
     case JOB_FILE_UPLOAD_SEND:
       return "JOB_FILE_UPLOAD_SEND";
     case JOB_FILE_RECV_START:

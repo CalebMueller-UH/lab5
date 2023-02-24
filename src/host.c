@@ -22,6 +22,73 @@
 #include "packet.h"
 #include "semaphore.h"
 
+///////////////////////////////////////////////
+////////////// RESPONSE STUFF /////////////////
+// An issued request is contingent on a response
+// Multiple requests may be issued simultaneously
+// Must track all requests that have been made, and their status
+struct Response {
+  int id;
+  int req_type;
+  int timeToLive;
+  struct Response *next;
+};
+
+struct Response *createResponse(int id, int req_type, int ttl) {
+  struct Response *r = (struct Response *)malloc(sizeof(struct Response));
+  r->id = id;
+  r->req_type = req_type;
+  r->timeToLive = ttl;
+  r->next = NULL;
+  return r;
+}
+
+// Add a new Response node to the end of the linked list
+void addResList(struct Response *list, struct Response *add) {
+  // Traverse to the end of the list
+  struct Response *last = list;
+  while (last->next != NULL) {
+    last = last->next;
+  }
+  // Add the new node to the end of the list
+  last->next = add;
+  add->next = NULL;
+}
+
+// Remove the first Response node from the linked list and return it
+struct Response popResList(struct Response *list, struct Response *pop) {
+  // Store the first node in a separate pointer
+  struct Response *first = list->next;
+  if (first == NULL) {
+    // The list is empty, return a NULL node
+    return (struct Response){0, 0, 0, NULL};
+  }
+  // Update the head of the list to point to the second node
+  list->next = first->next;
+  // Clear the next pointer of the popped node
+  first->next = NULL;
+  // Return the popped node
+  return *first;
+}
+
+// Find the first Response node in the linked list with a matching id
+struct Response *findResList(struct Response *list, int id) {
+  // Traverse the list and search for a node with matching src_id
+  struct Response *curr = list->next;
+  while (curr != NULL) {
+    if (curr->id == id) {
+      return curr;
+    }
+    curr = curr->next;
+  }
+
+  // No node with matching src_id was found, return NULL
+  return NULL;
+}
+
+////////////// RESPONSE STUFF /////////////////
+///////////////////////////////////////////////
+
 //////////////////////////////
 ////// FILEBUFFER STUFF //////
 
@@ -191,8 +258,6 @@ void host_main(int host_id) {
   // Flag for communicating upload is due to a download request
   int downloadRequestFlag = 0;
 
-  int i, k, n;
-  int dst;
   char string[PKT_PAYLOAD_MAX + 1];
 
   FILE *fp;
@@ -207,10 +272,7 @@ void host_main(int host_id) {
   file_buf_init(&f_buf_upload);
   file_buf_init(&f_buf_download);
 
-  /*
-   * Initialize pipes
-   * Get link port to the manager
-   */
+  /* Initialize pipes, Get link port to the manager */
   man_port = net_get_host_port(host_id);
 
   /*
@@ -230,7 +292,7 @@ void host_main(int host_id) {
 
   /* Load ports into the array */
   p = node_port_list;
-  for (k = 0; k < node_port_array_size; k++) {
+  for (int k = 0; k < node_port_array_size; k++) {
     node_port_array[k] = p;
     p = p->next;
   }
@@ -238,11 +300,16 @@ void host_main(int host_id) {
   /* Initialize the job queue */
   job_queue_init(&host_q);
 
+  /* Initialize response list */
+  struct Response *responseList = NULL;
+  int responseIdNum = 0;
+
+  //////////// WORKING LOOP ////////////
   while (1) {
     /* Execute command from manager, if any */
-    /* Get command from manager */
-    n = get_man_command(man_port, man_msg, &man_cmd);
 
+    //////////// COMMAND HANDLER ////////////
+    int n = get_man_command(man_port, man_msg, &man_cmd);
     /* Execute command */
     if (n > 0) {
       sem_wait(&console_print_access);
@@ -268,16 +335,17 @@ void host_main(int host_id) {
 
         case 'p':
           // Send ping request
+          int dst;
           sscanf(man_msg, "%d", &dst);
-          struct Packet *new_packet = createBlankPacket();
-          new_packet->src = (char)host_id;
-          new_packet->dst = (char)dst;
-          new_packet->type = (char)PKT_PING_REQ;
-          new_packet->length = 0;
-          struct Job *sendPingJob = createBlankJob();
-          sendPingJob->packet = new_packet;
-          sendPingJob->type = JOB_BROADCAST_PKT;
-          job_enqueue(host_id, &host_q, sendPingJob);
+          struct Packet *pingReqPkt = createBlankPacket();
+          pingReqPkt->src = (char)host_id;
+          pingReqPkt->dst = (char)dst;
+          pingReqPkt->type = (char)PKT_PING_REQ;
+          pingReqPkt->length = 0;
+          struct Job *pingReqJob = createBlankJob();
+          pingReqJob->packet = pingReqPkt;
+          pingReqJob->type = JOB_BROADCAST_PKT;
+          job_enqueue(host_id, &host_q, pingReqJob);
 
           struct Packet *waitPacket = createBlankPacket();
           waitPacket->dst = (char)dst;
@@ -289,7 +357,41 @@ void host_main(int host_id) {
           waitJob->packet = waitPacket;
           job_enqueue(host_id, &host_q, waitJob);
           ping_reply_received = 0;
+
+          struct Response *r =
+              createResponse(responseIdNum++, PKT_PING_REQ, 10);
+          addResList(responseList, r);
           break;
+
+          // case 'u': /* Upload a file to a host */
+          //   // Check to see if hostDirectory is valid
+          //   if (!isValidDirectory(hostDirectory)) {
+          //     colorPrint(BOLD_RED, "Host%d does not have a valid directory
+          //     set\n",
+          //                host_id);
+          //     break;
+          //   }
+          //   char filePath[MAX_FILENAME_LENGTH] = {0};
+          //   sscanf(man_msg, "%d %s", &dst, filePath);
+          //   int filePathLen = strnlen(filePath, MAX_FILENAME_LENGTH);
+          //   // Concatenate hostDirectory and filePath with a slash in between
+          //   char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
+          //   snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s",
+          //   hostDirectory,
+          //            filePath);
+          //   // Check to see if fullPath points to a valid file
+          //   if (!isValidFile(fullPath)) {
+          //     colorPrint(BOLD_RED, "This file does not exist\n", host_id);
+          //     break;
+          //   }
+          //   // User input is valid, enqueue File upload job
+          //   struct Job *fileUploadJob = createBlankJob();
+          //   fileUploadJob->type = JOB_FILE_UPLOAD_SEND;
+          //   fileUploadJob->file_upload_dst = dst;
+          //   strncpy(fileUploadJob->fname_upload, filePath, filePathLen);
+          //   fileUploadJob->fname_upload[filePathLen] = '\0';
+          //   job_enqueue(host_id, &host_q, fileUploadJob);
+          //   break;
 
         case 'u': /* Upload a file to a host */
           // Check to see if hostDirectory is valid
@@ -310,13 +412,13 @@ void host_main(int host_id) {
             colorPrint(BOLD_RED, "This file does not exist\n", host_id);
             break;
           }
-          // User input is valid, enqueue File upload job
-          struct Job *fileUploadJob = createBlankJob();
-          fileUploadJob->type = JOB_FILE_UPLOAD_SEND;
-          fileUploadJob->file_upload_dst = dst;
-          strncpy(fileUploadJob->fname_upload, filePath, filePathLen);
-          fileUploadJob->fname_upload[filePathLen] = '\0';
-          job_enqueue(host_id, &host_q, fileUploadJob);
+          // User input is valid, enqueue upload request to verify destination
+          struct Job *fileUploadReqJob = createBlankJob();
+          fileUploadReqJob->type = JOB_FILE_UPLOAD_REQ;
+          fileUploadReqJob->file_upload_dst = dst;
+          strncpy(fileUploadReqJob->fname_upload, filePath, filePathLen);
+          fileUploadReqJob->fname_upload[filePathLen] = '\0';
+          job_enqueue(host_id, &host_q, fileUploadReqJob);
           break;
 
         case 'd': /* Download a file to host */
@@ -340,7 +442,7 @@ void host_main(int host_id) {
     }
 
     /////// Receive In-Coming packet and translate it to job //////
-    for (k = 0; k < node_port_array_size; k++) {
+    for (int k = 0; k < node_port_array_size; k++) {
       struct Packet *received_packet = createBlankPacket();
       n = packet_recv(node_port_array[k], received_packet);
 
@@ -363,7 +465,7 @@ void host_main(int host_id) {
             job_enqueue(host_id, &host_q, new_job);
             break;
 
-          case (char)PKT_PING_REPLY:
+          case (char)PKT_PING_RESPONSE:
             ping_reply_received = 1;
             free(received_packet);
             free(new_job);
@@ -437,7 +539,7 @@ void host_main(int host_id) {
       //////////// EXECUTE FETCHED JOB ////////////
       switch (job_from_queue->type) {
         case JOB_BROADCAST_PKT:
-          for (k = 0; k < node_port_array_size; k++) {
+          for (int k = 0; k < node_port_array_size; k++) {
             packet_send(node_port_array[k], job_from_queue->packet);
           }
           free(job_from_queue->packet);
@@ -450,7 +552,7 @@ void host_main(int host_id) {
           struct Packet *ping_reply_pkt = createBlankPacket();
           ping_reply_pkt->dst = job_from_queue->packet->src;
           ping_reply_pkt->src = (char)host_id;
-          ping_reply_pkt->type = PKT_PING_REPLY;
+          ping_reply_pkt->type = PKT_PING_RESPONSE;
           ping_reply_pkt->length = 0;
           /* Create job for the ping reply */
           struct Job *job_from_queue2 =
@@ -490,21 +592,23 @@ void host_main(int host_id) {
           switch (job_from_queue->packet->type) {
             case PKT_PING_REQ:
               if (ping_reply_received == 1) {
+                ping_reply_received = 0;
                 n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
                              "\x1b[32;1mPing acknowleged!\x1b[0m");
                 man_reply_msg[n] = '\0';
                 write(man_port->send_fd, man_reply_msg, n + 1);
+                free(job_from_queue->packet);
                 free(job_from_queue);
                 job_from_queue = NULL;
               } else if (job_from_queue->timeToLive > 1) {
                 job_from_queue->timeToLive--;
                 job_enqueue(host_id, &host_q, job_from_queue);
-              } else {
-                /* Time out */
+              } else { /* Time out */
                 n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
                              "\x1b[31;1mPing timed out!\x1b[0m");
                 man_reply_msg[n] = '\0';
                 write(man_port->send_fd, man_reply_msg, n + 1);
+                free(job_from_queue->packet);
                 free(job_from_queue);
                 job_from_queue = NULL;
               }
@@ -515,7 +619,16 @@ void host_main(int host_id) {
 
             case PKT_FILE_DOWNLOAD_REQ:
               break;
+
+            default:
+#ifdef DEBUG
+              fprintf(stderr,
+                      "Host%d, JOB HANDLER: JOB_WAIT_FOR_RESPONSE: "
+                      "Unidentified type\n",
+                      host_id);
+#endif
           }
+          break;
 
         case JOB_FILE_UPLOAD_REQ:
           struct Packet *reqPkt = createBlankPacket();
@@ -529,6 +642,18 @@ void host_main(int host_id) {
           struct Job *reqJob = createBlankJob();
           reqJob->type = JOB_BROADCAST_PKT;
           reqJob->packet = reqPkt;
+          job_enqueue(host_id, &host_q, reqJob);
+
+          struct Packet *waitPacket = createBlankPacket();
+          waitPacket->dst = job_from_queue->file_upload_dst;
+          waitPacket->src = host_id;
+          waitPacket->type = PKT_FILE_UPLOAD_REQ;
+          struct Job *waitJob = createBlankJob();
+          waitJob->type = JOB_WAIT_FOR_RESPONSE;
+          waitJob->timeToLive = TIMETOLIVE;
+          waitJob->packet = waitPacket;
+          job_enqueue(host_id, &host_q, waitJob);
+          ping_reply_received = 0;
           break;
 
         case JOB_FILE_UPLOAD_SEND:
@@ -561,7 +686,7 @@ void host_main(int host_id) {
             int fileLen = fread(string, sizeof(char), PKT_PAYLOAD_MAX, fp);
             fclose(fp);
             string[fileLen] = '\0';
-            for (i = 0; i < fileLen; i++) {
+            for (int i = 0; i < fileLen; i++) {
               secondPacket->payload[i] = string[i];
             }
             secondPacket->length = n;
@@ -576,7 +701,6 @@ void host_main(int host_id) {
           } else {
             /* Didn't open file */
           }
-
           break;
 
         case JOB_FILE_RECV_START:

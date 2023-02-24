@@ -8,7 +8,7 @@
 
 /* Types of packets */
 #define PKT_PING_REQ 0
-#define PKT_PING_REPLY 1
+#define PKT_PING_RESPONSE 1
 #define PKT_FILE_UPLOAD_REQ 2
 #define PKT_FILE_UPLOAD_START 3
 #define PKT_FILE_UPLOAD_CONTINUE 4

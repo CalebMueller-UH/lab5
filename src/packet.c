@@ -20,7 +20,7 @@
 
 /* Sends a network packet through a pipe or socket by parsing the packet into a
  * message buffer and then sending it. */
-void packet_send(struct  Net_port *port, struct  Packet *p) {
+void packet_send(struct Net_port *port, struct Packet *p) {
   char pkt[PKT_PAYLOAD_MAX + 4];
   int bytesSent = -1;
 
@@ -48,7 +48,7 @@ void packet_send(struct  Net_port *port, struct  Packet *p) {
 
 /* Receives a network packet through a pipe or socket by reading a message
  * buffer and then parsing it into a packet. */
-int packet_recv(struct  Net_port *port, struct  Packet *p) {
+int packet_recv(struct Net_port *port, struct Packet *p) {
   char pkt[PKT_PAYLOAD_MAX + 4];
   int bytesRead = 0;
 
@@ -76,9 +76,8 @@ int packet_recv(struct  Net_port *port, struct  Packet *p) {
 }
 
 /* Allocates memory for a new packet and initializes it to zeros. */
-struct  Packet *createBlankPacket() {
-  struct  Packet *p =
-      (struct  Packet *)malloc(sizeof(struct  Packet));
+struct Packet *createBlankPacket() {
+  struct Packet *p = (struct Packet *)malloc(sizeof(struct Packet));
   memset(&p->dst, 0, sizeof(p->dst));
   memset(&p->src, 0, sizeof(p->src));
   memset(&p->type, 0, sizeof(p->type));
@@ -92,8 +91,10 @@ char *get_packet_type_literal(int pktType) {
   switch (pktType) {
     case PKT_PING_REQ:
       return "PKT_PING_REQ ";
-    case PKT_PING_REPLY:
-      return "PKT_PING_REPLY ";
+    case PKT_PING_RESPONSE:
+      return "PKT_PING_RESPONSE ";
+    case PKT_FILE_UPLOAD_REQ:
+      return "PKT_FILE_UPLOAD_REQ";
     case PKT_FILE_UPLOAD_START:
       return "PKT_FILE_UPLOAD_START ";
     case PKT_FILE_UPLOAD_CONTINUE:
@@ -111,7 +112,7 @@ char *get_packet_type_literal(int pktType) {
 
 /* Prints the contents of a packet with its source, destination, type, length,
  * and payload. */
-void printPacket(struct  Packet *p) {
+void printPacket(struct Packet *p) {
   colorPrint(
       ORANGE, "Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n",
       p->src, p->dst, get_packet_type_literal(p->type), p->length, p->payload);
