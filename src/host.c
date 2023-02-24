@@ -341,23 +341,23 @@ void host_main(int host_id) {
 
     /////// Receive In-Coming packet and translate it to job //////
     for (k = 0; k < node_port_array_size; k++) {
-      struct Packet *in_packet = createBlankPacket();
-      n = packet_recv(node_port_array[k], in_packet);
+      struct Packet *received_packet = createBlankPacket();
+      n = packet_recv(node_port_array[k], received_packet);
 
-      if ((n > 0) && ((int)in_packet->dst == host_id)) {
+      if ((n > 0) && ((int)received_packet->dst == host_id)) {
 #ifdef DEBUG
         colorPrint(YELLOW,
                    "DEBUG: id:%d host_main: Host %d received packet of type "
                    "%s\n",
-                   host_id, (int)in_packet->dst,
-                   get_packet_type_literal(in_packet->type));
+                   host_id, (int)received_packet->dst,
+                   get_packet_type_literal(received_packet->type));
 #endif
 
         struct Job *new_job = createBlankJob();
         new_job->in_port_index = k;
-        new_job->packet = in_packet;
+        new_job->packet = received_packet;
 
-        switch (in_packet->type) {
+        switch (received_packet->type) {
           case (char)PKT_PING_REQ:
             new_job->type = JOB_PING_REPLY;
             job_enqueue(host_id, &host_q, new_job);
@@ -365,7 +365,7 @@ void host_main(int host_id) {
 
           case (char)PKT_PING_REPLY:
             ping_reply_received = 1;
-            free(in_packet);
+            free(received_packet);
             free(new_job);
             new_job = NULL;
             break;
@@ -381,20 +381,20 @@ void host_main(int host_id) {
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQ:
-            // Grab payload from in_packet
+            // Grab payload from received_packet
             char msg[PKT_PAYLOAD_MAX] = {0};
-            strncpy(msg, in_packet->payload, PKT_PAYLOAD_MAX);
+            strncpy(msg, received_packet->payload, PKT_PAYLOAD_MAX);
             // Sanitize msg to ensure it is null terminated
-            int endIndex = in_packet->length;
-            in_packet->payload[endIndex] = '\0';
+            int endIndex = received_packet->length;
+            received_packet->payload[endIndex] = '\0';
 
             // Check to see if file exists
             char filepath[MAX_FILENAME_LENGTH + PKT_PAYLOAD_MAX];
-            sprintf(filepath, "%s/%s", hostDirectory, in_packet->payload);
+            sprintf(filepath, "%s/%s", hostDirectory, received_packet->payload);
             if (!isValidFile(filepath)) {
               // File does not exist
               new_job->type = JOB_SEND_REQ_RESPONSE;
-              new_job->packet->dst = in_packet->src;
+              new_job->packet->dst = received_packet->src;
               new_job->packet->src = host_id;
               new_job->packet->type = PKT_REQUEST_RESPONSE;
               const char *response = "File does not exist\0";
@@ -404,10 +404,10 @@ void host_main(int host_id) {
             } else {
               // File exists, start file upload
               new_job->type = JOB_FILE_UPLOAD_SEND;
-              new_job->file_upload_dst = in_packet->src;
-              strncpy(new_job->fname_upload, in_packet->payload,
+              new_job->file_upload_dst = received_packet->src;
+              strncpy(new_job->fname_upload, received_packet->payload,
                       MAX_FILENAME_LENGTH);
-              new_job->fname_upload[strnlen(in_packet->payload,
+              new_job->fname_upload[strnlen(received_packet->payload,
                                             MAX_FILENAME_LENGTH)] = '\0';
               job_enqueue(host_id, &host_q, new_job);
             }
@@ -415,17 +415,17 @@ void host_main(int host_id) {
 
           case (char)PKT_REQUEST_RESPONSE:
             new_job->type = JOB_DISPLAY_REQ_RESPONSE;
-            new_job->packet = in_packet;
+            new_job->packet = received_packet;
             job_enqueue(host_id, &host_q, new_job);
             break;
 
           default:
-            free(in_packet);
+            free(received_packet);
             free(new_job);
             new_job = NULL;
         }
       } else {
-        free(in_packet);
+        free(received_packet);
       }
     }
 
