@@ -15,30 +15,30 @@
  * corresponding string representation. */
 char *get_job_type_literal(enum job_type t) {
   switch (t) {
-    case DEFAULT_JOB:
-      return "DEFAULT_JOB";
-    case BROADCAST_PKT_JOB:
-      return "BROADCAST_PKT_JOB";
-    case PING_REQ_JOB:
-      return "PING_REQ_JOB";
-    case PING_REPLY_JOB:
-      return "PING_REPLY_JOB";
-    case PING_WAIT_FOR_REPLY_JOB:
-      return "PING_WAIT_FOR_REPLY_JOB";
-    case FILE_SEND_JOB:
-      return "FILE_SEND_JOB";
-    case FILE_RECV_START_JOB:
-      return "FILE_RECV_START_JOB";
-    case FILE_RECV_END_JOB:
-      return "FILE_RECV_END_JOB";
-    case FILE_DOWNLOAD_REQUEST_JOB:
-      return "FILE_DOWNLOAD_REQUEST_JOB";
-    case SEND_REQ_RESPONSE_JOB:
-      return "SEND_REQ_RESPONSE_JOB";
-    case DISPLAY_REQ_RESPONSE_JOB:
-      return "DISPLAY_REQ_RESPONSE_JOB";
-    case FORWARD_PACKET_TO_PORT_JOB:
-      return "FORWARD_PACKET_TO_PORT_JOB";
+    case JOB_DEFAULT:
+      return "JOB_DEFAULT";
+    case JOB_BROADCAST_PKT:
+      return "JOB_BROADCAST_PKT";
+    case JOB_PING_REQ:
+      return "JOB_PING_REQ";
+    case JOB_PING_REPLY:
+      return "JOB_PING_REPLY";
+    case JOB_PING_WAIT_FOR_REPLY:
+      return "JOB_PING_WAIT_FOR_REPLY";
+    case JOB_FILE_UPLOAD_SEND:
+      return "JOB_FILE_UPLOAD_SEND";
+    case JOB_FILE_RECV_START:
+      return "JOB_FILE_RECV_START";
+    case JOB_FILE_RECV_END:
+      return "JOB_FILE_RECV_END";
+    case JOB_FILE_DOWNLOAD_REQUEST:
+      return "JOB_FILE_DOWNLOAD_REQUEST";
+    case JOB_SEND_REQ_RESPONSE:
+      return "JOB_SEND_REQ_RESPONSE";
+    case JOB_DISPLAY_REQ_RESPONSE:
+      return "JOB_DISPLAY_REQ_RESPONSE";
+    case JOB_FORWARD_PACKET_TO_PORT:
+      return "JOB_FORWARD_PACKET_TO_PORT";
   }
   return "UNKNOWN_JOB_TYPE";
 }
@@ -89,7 +89,7 @@ int job_queue_length(struct Job_queue *j_q) { return j_q->occ; }
 
 struct Job *createBlankJob() {
   struct Job *j = (struct Job *)malloc(sizeof(struct Job));
-  j->type = DEFAULT_JOB;
+  j->type = JOB_DEFAULT;
   j->packet = NULL;
   j->in_port_index = 0;
   j->out_port_index = 0;

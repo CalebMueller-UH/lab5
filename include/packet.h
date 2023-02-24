@@ -7,13 +7,14 @@
 #include "common.h"
 
 /* Types of packets */
-#define PING_REQ_PKT 0
-#define PING_REPLY_PKT 1
-#define FILE_UPLOAD_START_PKT 2
-#define FILE_UPLOAD_CONTINUE_PKT 3
-#define FILE_UPLOAD_END_PKT 4
-#define FILE_DOWNLOAD_REQUEST_PKT 5
-#define REQUEST_RESPONSE_PKT 6
+#define PKT_PING_REQ 0
+#define PKT_PING_REPLY 1
+#define PKT_FILE_UPLOAD_REQ 2
+#define PKT_FILE_UPLOAD_START 3
+#define PKT_FILE_UPLOAD_CONTINUE 4
+#define PKT_FILE_UPLOAD_END 5
+#define PKT_FILE_DOWNLOAD_REQ 6
+#define PKT_REQUEST_RESPONSE 7
 
 struct Packet { /* struct  for a packet */
   char src;

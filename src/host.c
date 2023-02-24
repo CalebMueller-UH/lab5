@@ -272,16 +272,16 @@ void host_main(int host_id) {
           struct Packet *new_packet = createBlankPacket();
           new_packet->src = (char)host_id;
           new_packet->dst = (char)dst;
-          new_packet->type = (char)PING_REQ_PKT;
+          new_packet->type = (char)PKT_PING_REQ;
           new_packet->length = 0;
           struct Job *sendPingJob = createBlankJob();
           sendPingJob->packet = new_packet;
-          sendPingJob->type = BROADCAST_PKT_JOB;
+          sendPingJob->type = JOB_BROADCAST_PKT;
           job_enqueue(host_id, &host_q, sendPingJob);
 
           struct Job *waitForPingResponseJob = createBlankJob();
           ping_reply_received = 0;
-          waitForPingResponseJob->type = PING_WAIT_FOR_REPLY_JOB;
+          waitForPingResponseJob->type = JOB_PING_WAIT_FOR_REPLY;
           waitForPingResponseJob->timeToLive = 10;
           job_enqueue(host_id, &host_q, waitForPingResponseJob);
           break;
@@ -297,8 +297,8 @@ void host_main(int host_id) {
           sscanf(man_msg, "%d %s", &dst, filePath);
           int filePathLen = strnlen(filePath, MAX_FILENAME_LENGTH);
           // Concatenate hostDirectory and filePath with a slash in between
-          char fullPath[MAX_FILENAME_LENGTH] = {0};
-          snprintf(fullPath, (MAX_FILENAME_LENGTH * 2), "%s/%s", hostDirectory,
+          char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
+          snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s", hostDirectory,
                    filePath);
           // Check to see if fullPath points to a valid file
           if (!isValidFile(fullPath)) {
@@ -307,7 +307,7 @@ void host_main(int host_id) {
           }
           // User input is valid, enqueue File upload job
           struct Job *fileUploadJob = createBlankJob();
-          fileUploadJob->type = FILE_SEND_JOB;
+          fileUploadJob->type = JOB_FILE_UPLOAD_SEND;
           fileUploadJob->file_upload_dst = dst;
           strncpy(fileUploadJob->fname_upload, filePath, filePathLen);
           fileUploadJob->fname_upload[filePathLen] = '\0';
@@ -319,12 +319,12 @@ void host_main(int host_id) {
           struct Packet *downloadRequestPkt = createBlankPacket();
           downloadRequestPkt->src = (char)host_id;
           downloadRequestPkt->dst = (char)dst;
-          downloadRequestPkt->type = (char)FILE_DOWNLOAD_REQUEST_PKT;
+          downloadRequestPkt->type = (char)PKT_FILE_DOWNLOAD_REQ;
           downloadRequestPkt->length = strnlen(filePath, MAX_FILENAME_LENGTH);
           strncpy(downloadRequestPkt->payload, filePath, MAX_FILENAME_LENGTH);
           struct Job *downloadRequestJob = createBlankJob();
           downloadRequestJob->packet = downloadRequestPkt;
-          downloadRequestJob->type = FILE_DOWNLOAD_REQUEST_JOB;
+          downloadRequestJob->type = JOB_FILE_DOWNLOAD_REQUEST;
           job_enqueue(host_id, &host_q, downloadRequestJob);
           break;
 
@@ -353,29 +353,29 @@ void host_main(int host_id) {
         new_job->packet = in_packet;
 
         switch (in_packet->type) {
-          case (char)PING_REQ_PKT:
-            new_job->type = PING_REPLY_JOB;
+          case (char)PKT_PING_REQ:
+            new_job->type = JOB_PING_REPLY;
             job_enqueue(host_id, &host_q, new_job);
             break;
 
-          case (char)PING_REPLY_PKT:
+          case (char)PKT_PING_REPLY:
             ping_reply_received = 1;
             free(in_packet);
             free(new_job);
             new_job = NULL;
             break;
 
-          case (char)FILE_UPLOAD_START_PKT:
-            new_job->type = FILE_RECV_START_JOB;
+          case (char)PKT_FILE_UPLOAD_START:
+            new_job->type = JOB_FILE_RECV_START;
             job_enqueue(host_id, &host_q, new_job);
             break;
 
-          case (char)FILE_UPLOAD_END_PKT:
-            new_job->type = FILE_RECV_END_JOB;
+          case (char)PKT_FILE_UPLOAD_END:
+            new_job->type = JOB_FILE_RECV_END;
             job_enqueue(host_id, &host_q, new_job);
             break;
 
-          case (char)FILE_DOWNLOAD_REQUEST_PKT:
+          case (char)PKT_FILE_DOWNLOAD_REQ:
             // Grab payload from in_packet
             char msg[PKT_PAYLOAD_MAX] = {0};
             strncpy(msg, in_packet->payload, PKT_PAYLOAD_MAX);
@@ -388,17 +388,17 @@ void host_main(int host_id) {
             sprintf(filepath, "%s/%s", hostDirectory, in_packet->payload);
             if (!isValidFile(filepath)) {
               // File does not exist
-              new_job->type = SEND_REQ_RESPONSE_JOB;
+              new_job->type = JOB_SEND_REQ_RESPONSE;
               new_job->packet->dst = in_packet->src;
               new_job->packet->src = host_id;
-              new_job->packet->type = REQUEST_RESPONSE_PKT;
+              new_job->packet->type = PKT_REQUEST_RESPONSE;
               const char *response = "File does not exist\0";
               new_job->packet->length = strlen(response);
               strncpy(new_job->packet->payload, response, strlen(response));
               job_enqueue(host_id, &host_q, new_job);
             } else {
               // File exists, start file upload
-              new_job->type = FILE_SEND_JOB;
+              new_job->type = JOB_FILE_UPLOAD_SEND;
               new_job->file_upload_dst = in_packet->src;
               strncpy(new_job->fname_upload, in_packet->payload,
                       MAX_FILENAME_LENGTH);
@@ -408,8 +408,8 @@ void host_main(int host_id) {
             }
             break;
 
-          case (char)REQUEST_RESPONSE_PKT:
-            new_job->type = DISPLAY_REQ_RESPONSE_JOB;
+          case (char)PKT_REQUEST_RESPONSE:
+            new_job->type = JOB_DISPLAY_REQ_RESPONSE;
             new_job->packet = in_packet;
             job_enqueue(host_id, &host_q, new_job);
             break;
@@ -431,7 +431,7 @@ void host_main(int host_id) {
 
       //////////// EXECUTE FETCHED JOB ////////////
       switch (new_job->type) {
-        case BROADCAST_PKT_JOB:
+        case JOB_BROADCAST_PKT:
           for (k = 0; k < node_port_array_size; k++) {
             packet_send(node_port_array[k], new_job->packet);
           }
@@ -440,17 +440,17 @@ void host_main(int host_id) {
           new_job = NULL;
           break;
 
-        case PING_REPLY_JOB:
+        case JOB_PING_REPLY:
           /* Create ping reply packet */
           struct Packet *ping_reply_pkt = createBlankPacket();
           ping_reply_pkt->dst = new_job->packet->src;
           ping_reply_pkt->src = (char)host_id;
-          ping_reply_pkt->type = PING_REPLY_PKT;
+          ping_reply_pkt->type = PKT_PING_REPLY;
           ping_reply_pkt->length = 0;
 
           /* Create job for the ping reply */
           struct Job *new_job2 = (struct Job *)malloc(sizeof(struct Job));
-          new_job2->type = BROADCAST_PKT_JOB;
+          new_job2->type = JOB_BROADCAST_PKT;
           new_job2->packet = ping_reply_pkt;
 
           /* Enter job in the job queue */
@@ -462,7 +462,7 @@ void host_main(int host_id) {
           new_job = NULL;
           break;
 
-        case PING_WAIT_FOR_REPLY_JOB:
+        case JOB_PING_WAIT_FOR_REPLY:
           if (ping_reply_received == 1) {
             n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
                          "\x1b[32;1mPing acknowleged!\x1b[0m");
@@ -483,7 +483,19 @@ void host_main(int host_id) {
           }
           break;
 
-        case FILE_SEND_JOB:
+        case JOB_FILE_UPLOAD_REQ:
+          struct Packet *reqPkt = createBlankPacket();
+          reqPkt->dst = new_job->file_upload_dst;
+          reqPkt->src = host_id;
+          reqPkt->type = PKT_FILE_UPLOAD_REQ;
+          reqPkt->length = strnlen(new_job->fname_upload, MAX_FILENAME_LENGTH);
+          strncpy(reqPkt->payload, new_job->fname_upload, MAX_FILENAME_LENGTH);
+          struct Job *reqJob = createBlankJob();
+          reqJob->type = JOB_BROADCAST_PKT;
+          reqJob->packet = reqPkt;
+          break;
+
+        case JOB_FILE_UPLOAD_SEND:
           char filePath[MAX_FILENAME_LENGTH] = {0};
           int filePathLen = snprintf(filePath, MAX_FILENAME_LENGTH, "./%s/%s",
                                      hostDirectory, new_job->fname_upload);
@@ -494,11 +506,11 @@ void host_main(int host_id) {
             struct Packet *firstPacket = createBlankPacket();
             firstPacket->dst = new_job->file_upload_dst;
             firstPacket->src = (char)host_id;
-            firstPacket->type = FILE_UPLOAD_START_PKT;
+            firstPacket->type = PKT_FILE_UPLOAD_START;
             firstPacket->length = filePathLen;
             /* Create a job to send the packet and put it in the job queue */
             struct Job *firstFileJob = createBlankJob();
-            firstFileJob->type = BROADCAST_PKT_JOB;
+            firstFileJob->type = JOB_BROADCAST_PKT;
             firstFileJob->packet = firstPacket;
             strncpy(firstFileJob->fname_upload, filePath, filePathLen);
             job_enqueue(host_id, &host_q, firstFileJob);
@@ -507,7 +519,7 @@ void host_main(int host_id) {
             struct Packet *secondPacket = createBlankPacket();
             secondPacket->dst = new_job->file_upload_dst;
             secondPacket->src = (char)host_id;
-            secondPacket->type = FILE_UPLOAD_END_PKT;
+            secondPacket->type = PKT_FILE_UPLOAD_END;
             int fileLen = fread(string, sizeof(char), PKT_PAYLOAD_MAX, fp);
             fclose(fp);
             string[fileLen] = '\0';
@@ -517,7 +529,7 @@ void host_main(int host_id) {
             secondPacket->length = n;
             /* Create a job to send the packet and enqueue */
             struct Job *secondFileJob = createBlankJob();
-            secondFileJob->type = BROADCAST_PKT_JOB;
+            secondFileJob->type = JOB_BROADCAST_PKT;
             secondFileJob->packet = secondPacket;
             job_enqueue(host_id, &host_q, secondFileJob);
 
@@ -529,7 +541,7 @@ void host_main(int host_id) {
 
           break;
 
-        case FILE_RECV_START_JOB:
+        case JOB_FILE_RECV_START:
           /* Initialize the file buffer data structure */
           file_buf_init(&f_buf_upload);
 
@@ -541,7 +553,7 @@ void host_main(int host_id) {
           new_job = NULL;
           break;
 
-        case FILE_RECV_END_JOB:
+        case JOB_FILE_RECV_END:
           file_buf_add(&f_buf_upload, new_job->packet->payload,
                        new_job->packet->length);
           free(new_job->packet);
@@ -574,21 +586,21 @@ void host_main(int host_id) {
           }
           break;
 
-        case FILE_DOWNLOAD_REQUEST_JOB:
+        case JOB_FILE_DOWNLOAD_REQUEST:
           sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
           free(new_job->packet);
           free(new_job);
           new_job = NULL;
           break;
 
-        case SEND_REQ_RESPONSE_JOB:
+        case JOB_SEND_REQ_RESPONSE:
           sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
           free(new_job->packet);
           free(new_job);
           new_job = NULL;
           break;
 
-        case DISPLAY_REQ_RESPONSE_JOB:
+        case JOB_DISPLAY_REQ_RESPONSE:
           colorPrint(BOLD_YELLOW, "%s\n", new_job->packet->payload);
           free(new_job->packet);
           free(new_job);

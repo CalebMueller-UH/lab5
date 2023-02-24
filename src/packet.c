@@ -90,20 +90,20 @@ struct  Packet *createBlankPacket() {
 /* Returns a string representation of the packet type. */
 char *get_packet_type_literal(int pktType) {
   switch (pktType) {
-    case PING_REQ_PKT:
-      return "PING_REQ_PKT ";
-    case PING_REPLY_PKT:
-      return "PING_REPLY_PKT ";
-    case FILE_UPLOAD_START_PKT:
-      return "FILE_UPLOAD_START_PKT ";
-    case FILE_UPLOAD_CONTINUE_PKT:
-      return "FILE_UPLOAD_CONTINUE_PKT ";
-    case FILE_UPLOAD_END_PKT:
-      return "FILE_UPLOAD_END_PKT ";
-    case FILE_DOWNLOAD_REQUEST_PKT:
-      return "FILE_DOWNLOAD_REQUEST_PKT ";
-    case REQUEST_RESPONSE_PKT:
-      return "REQUEST_RESPONSE_PKT";
+    case PKT_PING_REQ:
+      return "PKT_PING_REQ ";
+    case PKT_PING_REPLY:
+      return "PKT_PING_REPLY ";
+    case PKT_FILE_UPLOAD_START:
+      return "PKT_FILE_UPLOAD_START ";
+    case PKT_FILE_UPLOAD_CONTINUE:
+      return "PKT_FILE_UPLOAD_CONTINUE ";
+    case PKT_FILE_UPLOAD_END:
+      return "PKT_FILE_UPLOAD_END ";
+    case PKT_FILE_DOWNLOAD_REQ:
+      return "PKT_FILE_DOWNLOAD_REQ ";
+    case PKT_REQUEST_RESPONSE:
+      return "PKT_REQUEST_RESPONSE";
     default:
       return "Unknown Packet Type";
   }
