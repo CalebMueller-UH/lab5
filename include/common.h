@@ -20,4 +20,4 @@ common.h
 
 #define PKT_PAYLOAD_MAX 100
 
-#define STRINGIFY(x) #x
+#define TIMETOLIVE 10  // 10 * 10ms = 100ms

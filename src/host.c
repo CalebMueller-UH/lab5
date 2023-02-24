@@ -279,11 +279,16 @@ void host_main(int host_id) {
           sendPingJob->type = JOB_BROADCAST_PKT;
           job_enqueue(host_id, &host_q, sendPingJob);
 
-          struct Job *waitForPingResponseJob = createBlankJob();
+          struct Packet *waitPacket = createBlankPacket();
+          waitPacket->dst = (char)dst;
+          waitPacket->src = (char)host_id;
+          waitPacket->type = PKT_PING_REQ;
+          struct Job *waitJob = createBlankJob();
+          waitJob->type = JOB_WAIT_FOR_RESPONSE;
+          waitJob->timeToLive = TIMETOLIVE;
+          waitJob->packet = waitPacket;
+          job_enqueue(host_id, &host_q, waitJob);
           ping_reply_received = 0;
-          waitForPingResponseJob->type = JOB_PING_WAIT_FOR_REPLY;
-          waitForPingResponseJob->timeToLive = 10;
-          job_enqueue(host_id, &host_q, waitForPingResponseJob);
           break;
 
         case 'u': /* Upload a file to a host */
@@ -427,69 +432,100 @@ void host_main(int host_id) {
     //////////// FETCH JOB FROM QUEUE ////////////
     if (job_queue_length(&host_q) > 0) {
       /* Get a new job from the job queue */
-      struct Job *new_job = job_dequeue(host_id, &host_q);
+      struct Job *job_from_queue = job_dequeue(host_id, &host_q);
 
       //////////// EXECUTE FETCHED JOB ////////////
-      switch (new_job->type) {
+      switch (job_from_queue->type) {
         case JOB_BROADCAST_PKT:
           for (k = 0; k < node_port_array_size; k++) {
-            packet_send(node_port_array[k], new_job->packet);
+            packet_send(node_port_array[k], job_from_queue->packet);
           }
-          free(new_job->packet);
-          free(new_job);
-          new_job = NULL;
+          free(job_from_queue->packet);
+          free(job_from_queue);
+          job_from_queue = NULL;
           break;
 
         case JOB_PING_REPLY:
           /* Create ping reply packet */
           struct Packet *ping_reply_pkt = createBlankPacket();
-          ping_reply_pkt->dst = new_job->packet->src;
+          ping_reply_pkt->dst = job_from_queue->packet->src;
           ping_reply_pkt->src = (char)host_id;
           ping_reply_pkt->type = PKT_PING_REPLY;
           ping_reply_pkt->length = 0;
-
           /* Create job for the ping reply */
-          struct Job *new_job2 = (struct Job *)malloc(sizeof(struct Job));
-          new_job2->type = JOB_BROADCAST_PKT;
-          new_job2->packet = ping_reply_pkt;
-
+          struct Job *job_from_queue2 =
+              (struct Job *)malloc(sizeof(struct Job));
+          job_from_queue2->type = JOB_BROADCAST_PKT;
+          job_from_queue2->packet = ping_reply_pkt;
           /* Enter job in the job queue */
-          job_enqueue(host_id, &host_q, new_job2);
-
+          job_enqueue(host_id, &host_q, job_from_queue2);
           /* Free old packet and job memory space */
-          free(new_job->packet);
-          free(new_job);
-          new_job = NULL;
+          free(job_from_queue->packet);
+          free(job_from_queue);
+          job_from_queue = NULL;
           break;
 
-        case JOB_PING_WAIT_FOR_REPLY:
-          if (ping_reply_received == 1) {
-            n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
-                         "\x1b[32;1mPing acknowleged!\x1b[0m");
-            man_reply_msg[n] = '\0';
-            write(man_port->send_fd, man_reply_msg, n + 1);
-            free(new_job);
-            new_job = NULL;
-          } else if (new_job->timeToLive > 1) {
-            new_job->timeToLive--;
-            job_enqueue(host_id, &host_q, new_job);
-          } else { /* Time out */
-            n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
-                         "\x1b[31;1mPing timed out!\x1b[0m");
-            man_reply_msg[n] = '\0';
-            write(man_port->send_fd, man_reply_msg, n + 1);
-            free(new_job);
-            new_job = NULL;
+          // case JOB_PING_WAIT_FOR_REPLY:
+          //   if (ping_reply_received == 1) {
+          //     n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
+          //                  "\x1b[32;1mPing acknowleged!\x1b[0m");
+          //     man_reply_msg[n] = '\0';
+          //     write(man_port->send_fd, man_reply_msg, n + 1);
+          //     free(job_from_queue);
+          //     job_from_queue = NULL;
+          //   } else if (job_from_queue->timeToLive > 1) {
+          //     job_from_queue->timeToLive--;
+          //     job_enqueue(host_id, &host_q, job_from_queue);
+          //   } else { /* Time out */
+          //     n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
+          //                  "\x1b[31;1mPing timed out!\x1b[0m");
+          //     man_reply_msg[n] = '\0';
+          //     write(man_port->send_fd, man_reply_msg, n + 1);
+          //     free(job_from_queue);
+          //     job_from_queue = NULL;
+          //   }
+          //   break;
+
+        case JOB_WAIT_FOR_RESPONSE:
+          switch (job_from_queue->packet->type) {
+            case PKT_PING_REQ:
+              if (ping_reply_received == 1) {
+                n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
+                             "\x1b[32;1mPing acknowleged!\x1b[0m");
+                man_reply_msg[n] = '\0';
+                write(man_port->send_fd, man_reply_msg, n + 1);
+                free(job_from_queue);
+                job_from_queue = NULL;
+              } else if (job_from_queue->timeToLive > 1) {
+                job_from_queue->timeToLive--;
+                job_enqueue(host_id, &host_q, job_from_queue);
+              } else {
+                /* Time out */
+                n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
+                             "\x1b[31;1mPing timed out!\x1b[0m");
+                man_reply_msg[n] = '\0';
+                write(man_port->send_fd, man_reply_msg, n + 1);
+                free(job_from_queue);
+                job_from_queue = NULL;
+              }
+              break;
+
+            case PKT_FILE_UPLOAD_REQ:
+              break;
+
+            case PKT_FILE_DOWNLOAD_REQ:
+              break;
           }
-          break;
 
         case JOB_FILE_UPLOAD_REQ:
           struct Packet *reqPkt = createBlankPacket();
-          reqPkt->dst = new_job->file_upload_dst;
+          reqPkt->dst = job_from_queue->file_upload_dst;
           reqPkt->src = host_id;
           reqPkt->type = PKT_FILE_UPLOAD_REQ;
-          reqPkt->length = strnlen(new_job->fname_upload, MAX_FILENAME_LENGTH);
-          strncpy(reqPkt->payload, new_job->fname_upload, MAX_FILENAME_LENGTH);
+          reqPkt->length =
+              strnlen(job_from_queue->fname_upload, MAX_FILENAME_LENGTH);
+          strncpy(reqPkt->payload, job_from_queue->fname_upload,
+                  MAX_FILENAME_LENGTH);
           struct Job *reqJob = createBlankJob();
           reqJob->type = JOB_BROADCAST_PKT;
           reqJob->packet = reqPkt;
@@ -497,18 +533,20 @@ void host_main(int host_id) {
 
         case JOB_FILE_UPLOAD_SEND:
           char filePath[MAX_FILENAME_LENGTH] = {0};
-          int filePathLen = snprintf(filePath, MAX_FILENAME_LENGTH, "./%s/%s",
-                                     hostDirectory, new_job->fname_upload);
+          int filePathLen =
+              snprintf(filePath, MAX_FILENAME_LENGTH, "./%s/%s", hostDirectory,
+                       job_from_queue->fname_upload);
           filePath[filePathLen] = '\0';
           fp = fopen(filePath, "r");
           if (fp != NULL) {
             /* Create first packet which has the filePath */
             struct Packet *firstPacket = createBlankPacket();
-            firstPacket->dst = new_job->file_upload_dst;
+            firstPacket->dst = job_from_queue->file_upload_dst;
             firstPacket->src = (char)host_id;
             firstPacket->type = PKT_FILE_UPLOAD_START;
             firstPacket->length = filePathLen;
-            /* Create a job to send the packet and put it in the job queue */
+            /* Create a job to send the packet and put it in the job queue
+             */
             struct Job *firstFileJob = createBlankJob();
             firstFileJob->type = JOB_BROADCAST_PKT;
             firstFileJob->packet = firstPacket;
@@ -517,7 +555,7 @@ void host_main(int host_id) {
 
             /* Create the second packet which has the file contents */
             struct Packet *secondPacket = createBlankPacket();
-            secondPacket->dst = new_job->file_upload_dst;
+            secondPacket->dst = job_from_queue->file_upload_dst;
             secondPacket->src = (char)host_id;
             secondPacket->type = PKT_FILE_UPLOAD_END;
             int fileLen = fread(string, sizeof(char), PKT_PAYLOAD_MAX, fp);
@@ -533,8 +571,8 @@ void host_main(int host_id) {
             secondFileJob->packet = secondPacket;
             job_enqueue(host_id, &host_q, secondFileJob);
 
-            free(new_job);
-            new_job = NULL;
+            free(job_from_queue);
+            job_from_queue = NULL;
           } else {
             /* Didn't open file */
           }
@@ -545,20 +583,21 @@ void host_main(int host_id) {
           /* Initialize the file buffer data structure */
           file_buf_init(&f_buf_upload);
 
-          /* Transfer the filePath in the packet payload to the file buffer */
-          file_buf_put_name(&f_buf_upload, new_job->packet->payload,
-                            new_job->packet->length);
-          free(new_job->packet);
-          free(new_job);
-          new_job = NULL;
+          /* Transfer the filePath in the packet payload to the file
+           * buffer */
+          file_buf_put_name(&f_buf_upload, job_from_queue->packet->payload,
+                            job_from_queue->packet->length);
+          free(job_from_queue->packet);
+          free(job_from_queue);
+          job_from_queue = NULL;
           break;
 
         case JOB_FILE_RECV_END:
-          file_buf_add(&f_buf_upload, new_job->packet->payload,
-                       new_job->packet->length);
-          free(new_job->packet);
-          free(new_job);
-          new_job = NULL;
+          file_buf_add(&f_buf_upload, job_from_queue->packet->payload,
+                       job_from_queue->packet->length);
+          free(job_from_queue->packet);
+          free(job_from_queue);
+          job_from_queue = NULL;
           if (isValidDirectory) {
             /*
              * Get file filePath from the file buffer
@@ -587,33 +626,35 @@ void host_main(int host_id) {
           break;
 
         case JOB_FILE_DOWNLOAD_REQUEST:
-          sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
-          free(new_job->packet);
-          free(new_job);
-          new_job = NULL;
+          sendPacketTo(node_port_array, node_port_array_size,
+                       job_from_queue->packet);
+          free(job_from_queue->packet);
+          free(job_from_queue);
+          job_from_queue = NULL;
           break;
 
         case JOB_SEND_REQ_RESPONSE:
-          sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
-          free(new_job->packet);
-          free(new_job);
-          new_job = NULL;
+          sendPacketTo(node_port_array, node_port_array_size,
+                       job_from_queue->packet);
+          free(job_from_queue->packet);
+          free(job_from_queue);
+          job_from_queue = NULL;
           break;
 
         case JOB_DISPLAY_REQ_RESPONSE:
-          colorPrint(BOLD_YELLOW, "%s\n", new_job->packet->payload);
-          free(new_job->packet);
-          free(new_job);
-          new_job = NULL;
+          colorPrint(BOLD_YELLOW, "%s\n", job_from_queue->packet->payload);
+          free(job_from_queue->packet);
+          free(job_from_queue);
+          job_from_queue = NULL;
           break;
 
         default:
 #ifdef DEBUG
-          colorPrint(
-              YELLOW,
-              "DEBUG: id:%d host_main: job_handler defaulted with job type: "
-              "%s\n",
-              host_id, get_job_type_literal(new_job->type));
+          colorPrint(YELLOW,
+                     "DEBUG: id:%d host_main: job_handler defaulted with "
+                     "job type: "
+                     "%s\n",
+                     host_id, get_job_type_literal(job_from_queue->type));
 #endif
       }
     }

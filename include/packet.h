@@ -16,7 +16,7 @@
 #define PKT_FILE_DOWNLOAD_REQ 6
 #define PKT_REQUEST_RESPONSE 7
 
-struct Packet { /* struct  for a packet */
+struct Packet {
   char src;
   char dst;
   char type;
