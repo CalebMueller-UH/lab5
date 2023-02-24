@@ -162,7 +162,7 @@ adds a null terminator at the end of msg and returns n.
 int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
   int n;
   int i;
-  int k;
+  int portNum;
 
   n = read(port->recv_fd, msg,
            MAN_MAX_MSG_LENGTH); /* Get command from manager */
@@ -173,10 +173,10 @@ int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
     i++;
     for (; msg[i] == ' ' && i < n; i++)
       ;
-    for (k = 0; k + i < n; k++) {
-      msg[k] = msg[k + i];
+    for (portNum = 0; portNum + i < n; portNum++) {
+      msg[portNum] = msg[portNum + i];
     }
-    msg[k] = '\0';
+    msg[portNum] = '\0';
   }
   return n;
 }
@@ -292,8 +292,8 @@ void host_main(int host_id) {
 
   /* Load ports into the array */
   p = node_port_list;
-  for (int k = 0; k < node_port_array_size; k++) {
-    node_port_array[k] = p;
+  for (int portNum = 0; portNum < node_port_array_size; portNum++) {
+    node_port_array[portNum] = p;
     p = p->next;
   }
 
@@ -302,7 +302,7 @@ void host_main(int host_id) {
 
   /* Initialize response list */
   struct Response *responseList = NULL;
-  int responseIdNum = 0;
+  int responseListIdNum = 0;
 
   //////////// WORKING LOOP ////////////
   while (1) {
@@ -334,6 +334,14 @@ void host_main(int host_id) {
           break;
 
         case 'p':
+          // Set up a Response
+          int resId = responseListIdNum++;
+          struct Response *r = createResponse(resId, PKT_PING_REQ, TIMETOLIVE);
+          addResList(responseList, r);
+          char *resIdStr;
+          sprintf(resIdStr, "%d", resId);
+          int resIdStrLen = strnlen(resIdStr, 10);
+
           // Send ping request
           int dst;
           sscanf(man_msg, "%d", &dst);
@@ -341,7 +349,8 @@ void host_main(int host_id) {
           pingReqPkt->src = (char)host_id;
           pingReqPkt->dst = (char)dst;
           pingReqPkt->type = (char)PKT_PING_REQ;
-          pingReqPkt->length = 0;
+          pingReqPkt->length = resIdStrLen;
+          strncpy(pingReqPkt->payload, resIdStr, sizeof(resId));
           struct Job *pingReqJob = createBlankJob();
           pingReqJob->packet = pingReqPkt;
           pingReqJob->type = JOB_BROADCAST_PKT;
@@ -351,6 +360,8 @@ void host_main(int host_id) {
           waitPacket->dst = (char)dst;
           waitPacket->src = (char)host_id;
           waitPacket->type = PKT_PING_REQ;
+          pingReqPkt->length = resIdStrLen;
+          strncpy(pingReqPkt->payload, resIdStr, sizeof(resId));
           struct Job *waitJob = createBlankJob();
           waitJob->type = JOB_WAIT_FOR_RESPONSE;
           waitJob->timeToLive = TIMETOLIVE;
@@ -358,9 +369,6 @@ void host_main(int host_id) {
           job_enqueue(host_id, &host_q, waitJob);
           ping_reply_received = 0;
 
-          struct Response *r =
-              createResponse(responseIdNum++, PKT_PING_REQ, 10);
-          addResList(responseList, r);
           break;
 
           // case 'u': /* Upload a file to a host */
@@ -442,9 +450,9 @@ void host_main(int host_id) {
     }
 
     /////// Receive In-Coming packet and translate it to job //////
-    for (int k = 0; k < node_port_array_size; k++) {
+    for (int portNum = 0; portNum < node_port_array_size; portNum++) {
       struct Packet *received_packet = createBlankPacket();
-      n = packet_recv(node_port_array[k], received_packet);
+      n = packet_recv(node_port_array[portNum], received_packet);
 
       if ((n > 0) && ((int)received_packet->dst == host_id)) {
 #ifdef DEBUG
@@ -455,31 +463,31 @@ void host_main(int host_id) {
                    get_packet_type_literal(received_packet->type));
 #endif
 
-        struct Job *new_job = createBlankJob();
-        new_job->in_port_index = k;
-        new_job->packet = received_packet;
+        struct Job *job_from_pkt = createBlankJob();
+        job_from_pkt->in_port_index = portNum;
+        job_from_pkt->packet = received_packet;
 
         switch (received_packet->type) {
           case (char)PKT_PING_REQ:
-            new_job->type = JOB_PING_REPLY;
-            job_enqueue(host_id, &host_q, new_job);
+            job_from_pkt->type = JOB_PING_REPLY;
+            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           case (char)PKT_PING_RESPONSE:
             ping_reply_received = 1;
             free(received_packet);
-            free(new_job);
-            new_job = NULL;
+            free(job_from_pkt);
+            job_from_pkt = NULL;
             break;
 
           case (char)PKT_FILE_UPLOAD_START:
-            new_job->type = JOB_FILE_RECV_START;
-            job_enqueue(host_id, &host_q, new_job);
+            job_from_pkt->type = JOB_FILE_RECV_START;
+            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           case (char)PKT_FILE_UPLOAD_END:
-            new_job->type = JOB_FILE_RECV_END;
-            job_enqueue(host_id, &host_q, new_job);
+            job_from_pkt->type = JOB_FILE_RECV_END;
+            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQ:
@@ -495,36 +503,37 @@ void host_main(int host_id) {
             sprintf(filepath, "%s/%s", hostDirectory, received_packet->payload);
             if (!isValidFile(filepath)) {
               // File does not exist
-              new_job->type = JOB_SEND_REQ_RESPONSE;
-              new_job->packet->dst = received_packet->src;
-              new_job->packet->src = host_id;
-              new_job->packet->type = PKT_REQUEST_RESPONSE;
+              job_from_pkt->type = JOB_SEND_REQ_RESPONSE;
+              job_from_pkt->packet->dst = received_packet->src;
+              job_from_pkt->packet->src = host_id;
+              job_from_pkt->packet->type = PKT_REQUEST_RESPONSE;
               const char *response = "File does not exist\0";
-              new_job->packet->length = strlen(response);
-              strncpy(new_job->packet->payload, response, strlen(response));
-              job_enqueue(host_id, &host_q, new_job);
+              job_from_pkt->packet->length = strlen(response);
+              strncpy(job_from_pkt->packet->payload, response,
+                      strlen(response));
+              job_enqueue(host_id, &host_q, job_from_pkt);
             } else {
               // File exists, start file upload
-              new_job->type = JOB_FILE_UPLOAD_SEND;
-              new_job->file_upload_dst = received_packet->src;
-              strncpy(new_job->fname_upload, received_packet->payload,
+              job_from_pkt->type = JOB_FILE_UPLOAD_SEND;
+              job_from_pkt->file_upload_dst = received_packet->src;
+              strncpy(job_from_pkt->fname_upload, received_packet->payload,
                       MAX_FILENAME_LENGTH);
-              new_job->fname_upload[strnlen(received_packet->payload,
-                                            MAX_FILENAME_LENGTH)] = '\0';
-              job_enqueue(host_id, &host_q, new_job);
+              job_from_pkt->fname_upload[strnlen(received_packet->payload,
+                                                 MAX_FILENAME_LENGTH)] = '\0';
+              job_enqueue(host_id, &host_q, job_from_pkt);
             }
             break;
 
           case (char)PKT_REQUEST_RESPONSE:
-            new_job->type = JOB_DISPLAY_REQ_RESPONSE;
-            new_job->packet = received_packet;
-            job_enqueue(host_id, &host_q, new_job);
+            job_from_pkt->type = JOB_DISPLAY_REQ_RESPONSE;
+            job_from_pkt->packet = received_packet;
+            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           default:
             free(received_packet);
-            free(new_job);
-            new_job = NULL;
+            free(job_from_pkt);
+            job_from_pkt = NULL;
         }
       } else {
         free(received_packet);
@@ -539,8 +548,8 @@ void host_main(int host_id) {
       //////////// EXECUTE FETCHED JOB ////////////
       switch (job_from_queue->type) {
         case JOB_BROADCAST_PKT:
-          for (int k = 0; k < node_port_array_size; k++) {
-            packet_send(node_port_array[k], job_from_queue->packet);
+          for (int portNum = 0; portNum < node_port_array_size; portNum++) {
+            packet_send(node_port_array[portNum], job_from_queue->packet);
           }
           free(job_from_queue->packet);
           free(job_from_queue);
