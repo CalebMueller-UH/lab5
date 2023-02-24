@@ -126,10 +126,10 @@ int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
   return n;
 }
 
-int is_valid_directory(const char *path) {
-  DIR *dir = opendir(path);
-  if (dir) {
-    closedir(dir);
+int isValidDirectory(const char *path) {
+  DIR *hostDirectory = opendir(path);
+  if (hostDirectory) {
+    closedir(hostDirectory);
     return 1;
   } else {
     return 0;
@@ -137,13 +137,15 @@ int is_valid_directory(const char *path) {
 }
 
 /* Send back state of the host to the manager as a text message */
-void reply_display_host_state(struct Man_port_at_host *port, char dir[],
-                              int dir_valid, int host_id) {
+void reply_display_host_state(struct Man_port_at_host *port,
+                              char hostDirectory[], int dir_valid,
+                              int host_id) {
   int n;
   char reply_msg[HOST_MAX_MSG_LENGTH];
 
-  if (dir_valid == 1) {
-    n = snprintf(reply_msg, HOST_MAX_MSG_LENGTH, "%s %d", dir, host_id);
+  if (isValidDirectory(hostDirectory)) {
+    n = snprintf(reply_msg, HOST_MAX_MSG_LENGTH, "%s %d", hostDirectory,
+                 host_id);
   } else {
     n = snprintf(reply_msg, HOST_MAX_MSG_LENGTH, "\033[1;31mNone %d\033[0m",
                  host_id);
@@ -175,8 +177,7 @@ int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
 ////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
   /* Initialize State */
-  char dir[MAX_DIR_NAME_LENGTH];
-  int dir_valid = 0;
+  char hostDirectory[MAX_DIR_NAME_LENGTH];
 
   char man_msg[MAN_MAX_MSG_LENGTH];
   char man_reply_msg[MAN_MAX_MSG_LENGTH];
@@ -191,7 +192,6 @@ void host_main(int host_id) {
 
   int i, k, n;
   int dst;
-  char name[HOST_MAX_FILE_NAME_LENGTH];
   char string[PKT_PAYLOAD_MAX + 1];
 
   FILE *fp;
@@ -249,15 +249,15 @@ void host_main(int host_id) {
       switch (man_cmd) {
         case 's':
           // Display host state
-          reply_display_host_state(man_port, dir, dir_valid, host_id);
+          reply_display_host_state(man_port, hostDirectory,
+                                   isValidDirectory(hostDirectory), host_id);
           break;
 
         case 'm':
           size_t len = strnlen(man_msg, MAX_DIR_NAME_LENGTH - 1);
-          if (is_valid_directory(man_msg)) {
-            memcpy(dir, man_msg, len);
-            dir[len] = '\0';  // add null character
-            dir_valid = 1;
+          if (isValidDirectory(man_msg)) {
+            memcpy(hostDirectory, man_msg, len);
+            hostDirectory[len] = '\0';  // add null character
             colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
                        host_id, man_msg);
           } else {
@@ -286,25 +286,26 @@ void host_main(int host_id) {
           break;
 
         case 'u': /* Upload a file to a host */
-          sscanf(man_msg, "%d %s", &dst, name);
+          char filePath[HOST_MAX_FILE_NAME_LENGTH] = {0};
+          sscanf(man_msg, "%d %s", &dst, filePath);
           struct Job *fileUploadJob = (struct Job *)malloc(sizeof(struct Job));
           fileUploadJob->type = FILE_UPLOAD_SEND;
           fileUploadJob->file_upload_dst = dst;
-          for (i = 0; name[i] != '\0'; i++) {
-            fileUploadJob->fname_upload[i] = name[i];
+          for (i = 0; filePath[i] != '\0'; i++) {
+            fileUploadJob->fname_upload[i] = filePath[i];
           }
           fileUploadJob->fname_upload[i] = '\0';
           job_enqueue(host_id, &host_q, fileUploadJob);
           break;
 
         case 'd': /* Download a file to host */
-          sscanf(man_msg, "%d %s", &dst, name);
+          sscanf(man_msg, "%d %s", &dst, filePath);
           struct Packet *downloadRequestPkt = createBlankPacket();
           downloadRequestPkt->src = (char)host_id;
           downloadRequestPkt->dst = (char)dst;
           downloadRequestPkt->type = (char)PKT_FILE_DOWNLOAD_REQUEST;
-          downloadRequestPkt->length = strnlen(name, MAX_DIR_NAME_LENGTH);
-          strncpy(downloadRequestPkt->payload, name, MAX_DIR_NAME_LENGTH);
+          downloadRequestPkt->length = strnlen(filePath, MAX_DIR_NAME_LENGTH);
+          strncpy(downloadRequestPkt->payload, filePath, MAX_DIR_NAME_LENGTH);
           struct Job *downloadRequestJob = createBlankJob();
           downloadRequestJob->packet = downloadRequestPkt;
           downloadRequestJob->type = FILE_DOWNLOAD_REQUEST;
@@ -367,7 +368,7 @@ void host_main(int host_id) {
             in_packet->payload[endIndex] = '\0';
             // Check to see if file exists
             char filepath[MAX_DIR_NAME_LENGTH + PKT_PAYLOAD_MAX];
-            sprintf(filepath, "%s/%s", dir, in_packet->payload);
+            sprintf(filepath, "%s/%s", hostDirectory, in_packet->payload);
             FILE *file = fopen(filepath, "r");
             if (file == NULL) {
               // File does not exist
@@ -469,16 +470,16 @@ void host_main(int host_id) {
           /* The next three jobs deal with uploading a file */
           /* This job is for the sending host */
         case FILE_UPLOAD_SEND:
-          /* Open file */
-          if (dir_valid == 1) {
-            n = snprintf(name, HOST_MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
-                         new_job->fname_upload);
-            name[n] = '\0';
-            fp = fopen(name, "r");
+          if (isValidDirectory(hostDirectory)) {
+            char filePath[HOST_MAX_FILE_NAME_LENGTH] = {0};
+            n = snprintf(filePath, HOST_MAX_FILE_NAME_LENGTH, "./%s/%s",
+                         hostDirectory, new_job->fname_upload);
+            filePath[n] = '\0';
+            fp = fopen(filePath, "r");
             if (fp != NULL) {
               /*
                * Create first packet which
-               * has the file name
+               * has the file filePath
                */
               struct Packet *new_packet =
                   (struct Packet *)malloc(sizeof(struct Packet));
@@ -534,7 +535,7 @@ void host_main(int host_id) {
           /* Initialize the file buffer data structure */
           file_buf_init(&f_buf_upload);
           /*
-           * Transfer the file name in the packet payload
+           * Transfer the file filePath in the packet payload
            * to the file buffer data structure
            */
 
@@ -555,16 +556,17 @@ void host_main(int host_id) {
           free(new_job->packet);
           free(new_job);
           new_job = NULL;
-          if (dir_valid == 1) {
+          if (isValidDirectory) {
             /*
-             * Get file name from the file buffer
+             * Get file filePath from the file buffer
              * Then open the file
              */
             file_buf_get_name(&f_buf_upload, string);
-            n = snprintf(name, HOST_MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
-                         string);
-            name[n] = '\0';
-            fp = fopen(name, "w");
+            char filePath[HOST_MAX_FILE_NAME_LENGTH] = {0};
+            n = snprintf(filePath, HOST_MAX_FILE_NAME_LENGTH, "./%s/%s",
+                         hostDirectory, string);
+            filePath[n] = '\0';
+            fp = fopen(filePath, "w");
             if (fp != NULL) {
               /*
                * Write contents in the file

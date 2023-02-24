@@ -20,6 +20,6 @@ struct  File_buf {
   FILE *fd;
 };
 
-int is_valid_directory(const char *path);
+int isValidDirectory(const char *path);
 
 void host_main(int host_id);
