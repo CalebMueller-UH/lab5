@@ -4,8 +4,22 @@
 
 #include "packet.h"
 
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "color.h"
+#include "host.h"
+#include "main.h"
+#include "net.h"
+#include "socket.h"
+
 void packet_send(struct net_port *port, struct packet *p) {
-  char msg[PAYLOAD_MAX + 4];
+  char msg[PKT_PAYLOAD_MAX + 4];
   int bytesSent = -1;
 
   // Parse Packet
@@ -26,24 +40,20 @@ void packet_send(struct net_port *port, struct packet *p) {
   }
 
 #ifdef DEBUG
-  printf(
-      "\033[35mPACKETSEND, src=%d dst=%d type=%d len=%d p-src=%d "
-      "p-dst=%d\033[0m\n",
-      (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
-      (int)p->dst);
+  printPacket(p);
 #endif
 }
 
 int packet_recv(struct net_port *port, struct packet *p) {
-  char msg[PAYLOAD_MAX + 4];
+  char msg[PKT_PAYLOAD_MAX + 4];
   int bytesRead = 0;
 
   if (port->type == PIPE) {
     // Parse Packet
-    bytesRead = read(port->recv_fd, msg, PAYLOAD_MAX + 4);
+    bytesRead = read(port->recv_fd, msg, PKT_PAYLOAD_MAX + 4);
   } else if (port->type == SOCKET) {
     bytesRead =
-        sock_recv(port->send_fd, msg, PAYLOAD_MAX + 4, port->remoteDomain);
+        sock_recv(port->send_fd, msg, PKT_PAYLOAD_MAX + 4, port->remoteDomain);
   }
   if (bytesRead > 0) {
 #ifdef DEBUG
@@ -55,14 +65,20 @@ int packet_recv(struct net_port *port, struct packet *p) {
       p->payload[i] = msg[i + 4];
     }
 
-    printf(
-        "\033[35mPACKETRECV, src=%d dst=%d type=%d len=%d p-src=%d "
-        "p-dst=%d\033[0m\n",
-        (int)msg[0], (int)msg[1], (int)msg[2], (int)msg[3], (int)p->src,
-        (int)p->dst);
+    printPacket(p);
 #endif
   }
   return (bytesRead);
+}
+
+struct packet *createBlankPacket() {
+  struct packet *p = (struct packet *)malloc(sizeof(struct packet));
+  memset(&p->dst, 0, sizeof(p->dst));
+  memset(&p->src, 0, sizeof(p->src));
+  memset(&p->type, 0, sizeof(p->type));
+  memset(&p->length, 0, sizeof(p->length));
+  memset(&p->payload, 0, sizeof(p->payload));
+  return p;
 }
 
 char *get_packet_type_literal(int pktType) {
@@ -84,4 +100,10 @@ char *get_packet_type_literal(int pktType) {
     default:
       return "Unknown Packet Type";
   }
+}
+
+void printPacket(struct packet *p) {
+  colorPrint(
+      ORANGE, "Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n",
+      p->src, p->dst, get_packet_type_literal(p->type), p->length, p->payload);
 }

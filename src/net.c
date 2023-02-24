@@ -14,28 +14,27 @@
 
 #include "net.h"
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#define _GNU_SOURCE
+#include <fcntl.h>
+
+#include "color.h"
 #include "host.h"
 #include "main.h"
-#include "man.h"
+#include "manager.h"
 #include "packet.h"
-
-#define MAX_FILE_NAME_LENGTH 100
-#define PIPE_READ 0
-#define PIPE_WRITE 1
-
-/*
- * Struct used to store a link. It is used when the
- * network configuration file is loaded.
- */
-struct net_link {
-  enum NetLinkType type;
-  int node0;
-  int node1;
-  char socket_local_domain[MAX_DOMAIN_NAME_LENGTH];
-  int socket_local_port;
-  char socket_remote_domain[MAX_DOMAIN_NAME_LENGTH];
-  int socket_remote_port;
-};
+#include "socket.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////// PRIVATE GLOBAL VARIABLES FOR NET.C /////////////////////
@@ -177,7 +176,7 @@ void net_free_man_ports_at_man() {
 /* Initialize network ports and links */
 int net_init(char *confFile) {
   if (g_initialized == true) { /* Check if the network is already initialized */
-    printf("Network already loaded\n");
+    colorPrint(BOLD_RED, "Network already loaded\n");
     return (0);
     /* Load network configuration file */
   } else if (load_net_data_file(confFile) == -1) {
@@ -329,18 +328,18 @@ before closing the file.
 */
 int load_net_data_file(char *confFile) {
   FILE *fp;
-  char fname[MAX_FILE_NAME_LENGTH];
+  char fname[HOST_MAX_FILE_NAME_LENGTH];
   if (confFile == NULL) {
     /* Open network configuration file */
-    printf("Enter network data file: ");
+    colorPrint(PURPLE, "Enter network data file: ");
     fgets(fname, sizeof(fname), stdin);
     fname[strcspn(fname, "\n")] = '\0';  // strip the newline character
   } else {
-    strncpy(fname, confFile, MAX_FILE_NAME_LENGTH);
+    strncpy(fname, confFile, HOST_MAX_FILE_NAME_LENGTH);
   }
   fp = fopen(fname, "r");
   if (fp == NULL) {
-    printf("net.c: File did not open\n");
+    colorPrint(RED, "net.c: File did not open\n");
     return (-1);
   }
   int i;
@@ -348,10 +347,10 @@ int load_net_data_file(char *confFile) {
   char node_type;
   int node_id;
   fscanf(fp, "%d", &node_num);
-  printf("Number of Nodes = %d: \n", node_num);
+  colorPrint(PURPLE, "Number of Nodes = %d: \n", node_num);
   net_node_num = node_num;
   if (node_num < 1) {
-    printf("net.c: No nodes\n");
+    colorPrint(RED, "net.c: No nodes\n");
     fclose(fp);
     return (-1);
   } else {
@@ -368,10 +367,10 @@ int load_net_data_file(char *confFile) {
         net_node_list[i].type = SWITCH;
         net_node_list[i].id = node_id;
       } else {
-        printf(" net.c: Unidentified Node Type\n");
+        colorPrint(RED, " net.c: Unidentified Node Type\n");
       }
       if (i != node_id) {
-        printf(" net.c: Incorrect node id\n");
+        colorPrint(PURPLE, " net.c: Incorrect node id\n");
         fclose(fp);
         return (-1);
       }
@@ -381,10 +380,10 @@ int load_net_data_file(char *confFile) {
   char link_type;
   int node0, node1;
   fscanf(fp, " %d ", &link_num);
-  printf("Number of Links = %d\n", link_num);
+  colorPrint(PURPLE, "Number of Links = %d\n", link_num);
   net_link_num = link_num;
   if (link_num < 1) {
-    printf("net.c: No links\n");
+    colorPrint(RED, "net.c: No links\n");
     fclose(fp);
     return (-1);
   } else {
@@ -413,32 +412,32 @@ int load_net_data_file(char *confFile) {
                &net_link_list[i].socket_remote_port);
         net_link_list[i].node1 = -1;
       } else {
-        printf(" net.c: Unidentified link type\n");
+        colorPrint(PURPLE, " net.c: Unidentified link type\n");
       }
     }
   }
   /* Display the nodes and links of the network */
-  printf("Nodes:\n");
+  colorPrint(PURPLE, "Nodes:\n");
   for (i = 0; i < net_node_num; i++) {
     if (net_node_list[i].type == HOST) {
-      printf(" Node %d HOST\n", net_node_list[i].id);
+      colorPrint(PURPLE, " Node %d HOST\n", net_node_list[i].id);
     } else if (net_node_list[i].type == SWITCH) {
-      printf(" Node %d SWITCH\n", net_node_list[i].id);
+      colorPrint(PURPLE, " Node %d SWITCH\n", net_node_list[i].id);
     } else {
-      printf(" Unknown Type\n");
+      colorPrint(RED, " Unknown Type\n");
     }
   }
-  printf("Links:\n");
+  colorPrint(PURPLE, "Links:\n");
   for (i = 0; i < net_link_num; i++) {
     if (net_link_list[i].type == PIPE) {
-      printf(" Link (%d, %d) PIPE\n", net_link_list[i].node0,
-             net_link_list[i].node1);
+      colorPrint(PURPLE, " Link (%d, %d) PIPE\n", net_link_list[i].node0,
+                 net_link_list[i].node1);
     } else if (net_link_list[i].type == SOCKET) {
-      printf(" Link (%d, %s:%d, %s:%d) SOCKET\n", net_link_list[i].node0,
-             net_link_list[i].socket_local_domain,
-             net_link_list[i].socket_local_port,
-             net_link_list[i].socket_remote_domain,
-             net_link_list[i].socket_remote_port);
+      colorPrint(PURPLE, " Link (%d, %s:%d, %s:%d) SOCKET\n",
+                 net_link_list[i].node0, net_link_list[i].socket_local_domain,
+                 net_link_list[i].socket_local_port,
+                 net_link_list[i].socket_remote_domain,
+                 net_link_list[i].socket_remote_port);
     }
   }
   fclose(fp);

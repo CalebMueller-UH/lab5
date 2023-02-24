@@ -2,29 +2,60 @@
 
 #pragma once
 
-#include <arpa/inet.h>
-#include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-#define _GNU_SOURCE
-#include <fcntl.h>
+#include "common.h"
 
-#include "socket.h"
+#define HOST_MAX_FILE_NAME_LENGTH 100
+#define PIPE_READ 0
+#define PIPE_WRITE 1
 
-int net_init();
+enum NetNodeType { /* Types of network nodes */
+                   HOST,
+                   SWITCH
+};
+
+enum NetLinkType { /* Types of linkls */
+                   PIPE,
+                   SOCKET
+};
+
+struct net_node { /* Network node, e.g., host or switch */
+  enum NetNodeType type;
+  int id;
+  struct net_node *next;
+};
+
+/*
+ * Struct used to store a link. It is used when the
+ * network configuration file is loaded.
+ */
+struct net_link {
+  enum NetLinkType type;
+  int node0;
+  int node1;
+  char socket_local_domain[MAX_DOMAIN_NAME_LENGTH];
+  int socket_local_port;
+  char socket_remote_domain[MAX_DOMAIN_NAME_LENGTH];
+  int socket_remote_port;
+};
+
+struct net_port {
+  enum NetLinkType type;
+  int link_node_id;
+  int send_fd;
+  int recv_fd;
+  char localDomain[MAX_DOMAIN_NAME_LENGTH];
+  char remoteDomain[MAX_DOMAIN_NAME_LENGTH];
+  int remotePort;
+  struct net_port *next;
+};
 
 struct man_port_at_man *net_get_man_ports_at_man_list();
 struct man_port_at_host *net_get_host_port(int host_id);
 
 struct net_node *net_get_node_list();
 struct net_port *net_get_port_list(int host_id);
+
+int net_init();
 
 /*
  * Creates ports at the manager and ports at the hosts so that
@@ -34,10 +65,15 @@ struct net_port *net_get_port_list(int host_id);
  */
 void create_man_ports(struct man_port_at_man **p_m,
                       struct man_port_at_host **p_h);
+
 void net_close_man_ports_at_hosts();
+
 void net_close_man_ports_at_hosts_except(int host_id);
+
 void net_free_man_ports_at_hosts();
+
 void net_close_man_ports_at_man();
+
 void net_free_man_ports_at_man();
 
 /*

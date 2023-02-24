@@ -1,26 +1,10 @@
 /*
-  man.h
+  manager.h
 */
 
 #pragma once
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "host.h"
-#include "main.h"
-#include "net.h"
-
-#define MAXBUFFER 1000
-#define MAN_MSG_LENGTH 1000
-#define PIPE_WRITE 1
-#define PIPE_READ 0
-#define TENMILLISEC 10000
-#define DELAY_FOR_HOST_REPLY 10 /* Delay in ten of milliseconds */
+#include "common.h"
 
 /*
  *  The next two structs are ports used to transfer commands

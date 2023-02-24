@@ -4,16 +4,10 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-
-struct job_queue {
-  struct job_struct *head;
-  struct job_struct *tail;
-  int occ;
-};
+#include "common.h"
 
 enum job_type {
+  DEFAULT,
   SEND_PKT_ALL_PORTS,
   PING_SEND_REQ,
   PING_SEND_REPLY,
@@ -28,6 +22,12 @@ enum job_type {
   UNKNOWN_PORT_BROADCAST
 };
 
+struct job_queue {
+  struct job_struct *head;
+  struct job_struct *tail;
+  int occ;
+};
+
 struct job_struct {
   enum job_type type;
   struct packet *packet;
@@ -39,9 +39,6 @@ struct job_struct {
   int file_upload_dst;
   struct job_struct *next;
 };
-
-/////////////////////////////////////////////////////////
-/////////////// Job Related Functions ///////////////////
 
 char *get_job_type_literal(enum job_type t);
 
@@ -62,6 +59,3 @@ Returns:
 int - the number of jobs in the job queue
 */
 int job_queue_length(struct job_queue *j_q);
-
-/////////////// Job Related Functions ///////////////////
-/////////////////////////////////////////////////////////

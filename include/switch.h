@@ -5,16 +5,12 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stdlib.h>
-
-#include "job.h"
-#include "main.h"
-#include "net.h"
 
 #define MAX_NUM_ROUTES 100
 
-// Forward declaration
-struct netport;
+// Forward declarations
+struct net_port;
+struct job_struct;
 
 struct tableEntry {
   bool isValid;

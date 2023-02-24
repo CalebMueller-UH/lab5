@@ -4,8 +4,12 @@
 
 #include "job.h"
 
-/////////////////////////////////////////////////////////
-/////////////// Job Related Functions ///////////////////
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "color.h"
+#include "packet.h"
 
 /*
 This function takes in an enum job_type and returns a string literal that
@@ -31,6 +35,8 @@ char *get_job_type_literal(enum job_type t) {
       return "FILE_UPLOAD_RECV_END";
     case FILE_DOWNLOAD_REQUEST:
       return "FILE_DOWNLOAD_REQUEST";
+    case SEND_REQUEST_RESPONSE:
+      return "SEND_REQUEST_RESPONSE";
     case DISPLAY_REQUEST_RESPONSE:
       return "DISPLAY_REQUEST_RESPONSE";
     case FORWARD_PACKET_TO_PORT:
@@ -44,10 +50,8 @@ char *get_job_type_literal(enum job_type t) {
 /* Add a job to the job queue */
 void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j) {
 #ifdef DEBUG
-  printf("\033[0;32m");  // Set text color to green
-  printf("DEBUG: id:%d job_enqueue: job_struct.type: %s\n", id,
-         get_job_type_literal(j->type));
-  printf("\033[0m");  // Reset text color to default
+  colorPrint(GREEN, "DEBUG: id:%d job_enqueue: job_struct.type: %s\n", id,
+             get_job_type_literal(j->type));
 #endif
   if (j_q->head == NULL) {
     j_q->head = j;
@@ -68,11 +72,8 @@ struct job_struct *job_dequeue(int id, struct job_queue *j_q) {
   j = j_q->head;
 
 #ifdef DEBUG
-  printf(
-      "\x1b[31m"  // red text
-      "DEBUG: \tid:%d job_dequeue: job_struct.type: %s\n"
-      "\x1b[0m",  // reset text
-      id, get_job_type_literal(j->type));
+  colorPrint(RED, "DEBUG: id:%d job_dequeue: job_struct.type: %s\n", id,
+             get_job_type_literal(j->type));
 #endif
 
   j_q->head = (j_q->head)->next;
@@ -96,5 +97,16 @@ int - the number of jobs in the job queue
 */
 int job_queue_length(struct job_queue *j_q) { return j_q->occ; }
 
-/////////////// Job Related Functions ///////////////////
-/////////////////////////////////////////////////////////
+struct job_struct *createBlankJob() {
+  struct job_struct *j = (struct job_struct *)malloc(sizeof(struct job_struct));
+  j->type = DEFAULT;
+  j->packet = NULL;
+  j->in_port_index = 0;
+  j->out_port_index = 0;
+  memset(j->fname_download, 0, sizeof(j->fname_download));
+  memset(j->fname_upload, 0, sizeof(j->fname_upload));
+  j->timeToLive = 0;
+  j->file_upload_dst = 0;
+  j->next = NULL;
+  return j;
+}

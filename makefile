@@ -1,37 +1,60 @@
-CFLAGS = -g
-
 # Uncomment the following line to turn on debug messages
 DEBUG = -DDEBUG
 
-net367: main.o host.o switch.o man.o net.o packet.o job.o socket.o
-	gcc $(CFLAGS) $(DEBUG) -o net367 main.o host.o switch.o man.o net.o packet.o job.o socket.o
+# Select the configuration file to use as default for 'run' 
+DEFAULT_CONFIG = p2p.config
 
-main.o: main.c job.h net.h
-	gcc $(CFLAGS) $(DEBUG) -c main.c
+# Define compiler and flags
+CC = gcc
+CFLAGS = -g
 
-host.o: host.c job.h net.h
-	gcc $(CFLAGS) $(DEBUG) -c host.c 
+# Define source and header directories
+SRCDIR = src
+INCDIR = include
 
-switch.o: switch.c job.h net.h
-	gcc $(CFLAGS) $(DEBUG) -c switch.c
+# Define output directory
+OUTDIR = output
 
-man.o:  man.c job.h net.h
-	gcc $(CFLAGS) $(DEBUG) -c man.c
+# Define output executable
+EXECUTABLE = net367
 
-net.o:  net.c job.h net.h
-	gcc $(CFLAGS) $(DEBUG) -c net.c
+# Define source files
+SRCS = $(wildcard $(SRCDIR)/*.c)
 
-packet.o:  packet.c job.h net.h
-	gcc $(CFLAGS) $(DEBUG) -c packet.c
+# Define object files
+OBJS = $(patsubst $(SRCDIR)/%.c, $(OUTDIR)/%.o, $(SRCS))
 
-job.o: job.c job.h
-	gcc $(CFLAGS) $(DEBUG) -c job.c
+# Define include directories
+INCLUDES = -I$(INCDIR)
 
-socket.o: socket.c socket.h
-	gcc $(CFLAGS) $(DEBUG) -c socket.c
+# Define libraries
+LIBS =
 
+# Default rule to build executable
+$(EXECUTABLE): $(OBJS)
+	$(CC) $(CFLAGS) $(DEBUG) $(OBJS) $(LIBS) -o $@
+
+# Rule to build object files
+$(OUTDIR)/%.o: $(SRCDIR)/%.c
+	$(CC) $(CFLAGS) $(DEBUG) $(INCLUDES) -c $< -o $@
+
+# Define starting files for TestDir0
+TD0_FILES = testmsg0 testmsg00
+# Define starting files for TestDir1
+TD1_FILES = bigTest haha.txt testmsg1 testmsg1B 
+
+# Rule to clean object files
 clean:
-	rm *.o
+	rm -f $(OUTDIR)/*.o
+	rm -f ./$(EXECUTABLE)
+	$(foreach file, $(wildcard TestDir0/*), \
+		$(if $(filter $(notdir $(file)), $(TD0_FILES)), , rm -f $(file)))
+	$(foreach file, $(wildcard TestDir1/*), \
+		$(if $(filter $(notdir $(file)), $(TD1_FILES)), , rm -f $(file)))
 
-run:
-	./net367
+# Rule to regenerate object files and executable
+regen: clean $(EXECUTABLE) 
+
+# Rule to run the executable with the default configuration
+run: $(EXECUTABLE)
+	./$(EXECUTABLE) $(DEFAULT_CONFIG)

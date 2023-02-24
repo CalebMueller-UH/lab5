@@ -4,15 +4,7 @@ socket.h
 
 #pragma once
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#define MAX_DOMAIN_NAME_LENGTH 100
+#include "common.h"
 
 int sock_server_init(const char* localDomain, const int localPort);
 

@@ -4,11 +4,30 @@
 
 #include "host.h"
 
-/* File buffer operations */
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "color.h"
+#include "job.h"
+#include "main.h"
+#include "manager.h"
+#include "net.h"
+#include "packet.h"
+#include "semaphore.h"
+
+//////////////////////////////
+////// FILEBUFFER STUFF //////
+
 /* Initialize file buffer data structure */
 void file_buf_init(struct file_buf *f) {
   f->head = 0;
-  f->tail = MAX_FILE_BUFFER;
+  f->tail = HOST_MAX_FILE_BUFFER;
   f->occ = 0;
   f->name_length = 0;
 }
@@ -44,8 +63,8 @@ void file_buf_put_name(struct file_buf *f, char name[], int length) {
 int file_buf_add(struct file_buf *f, char string[], int length) {
   int i = 0;
 
-  while (i < length && f->occ < MAX_FILE_BUFFER) {
-    f->tail = (f->tail + 1) % (MAX_FILE_BUFFER + 1);
+  while (i < length && f->occ < HOST_MAX_FILE_BUFFER) {
+    f->tail = (f->tail + 1) % (HOST_MAX_FILE_BUFFER + 1);
     f->buffer[f->tail] = string[i];
     i++;
     f->occ++;
@@ -62,7 +81,7 @@ int file_buf_remove(struct file_buf *f, char string[], int length) {
 
   while (i < length && f->occ > 0) {
     string[i] = f->buffer[f->head];
-    f->head = (f->head + 1) % (MAX_FILE_BUFFER + 1);
+    f->head = (f->head + 1) % (HOST_MAX_FILE_BUFFER + 1);
     i++;
     f->occ--;
   }
@@ -70,17 +89,28 @@ int file_buf_remove(struct file_buf *f, char string[], int length) {
   return (i);
 }
 
-/*
- * Operations with the manager
- */
+////// FILEBUFFER STUFF //////
+//////////////////////////////
 
+/*
+This function reads a command from a manager port and removes the first
+character from the message. It takes in three parameters: a pointer to a struct
+man_port_at_host, an array of characters called msg, and a pointer to a
+character called c. The function first reads the command from the manager port
+using the read() function and stores it in the msg array. It then loops through
+the message until it finds a non-space character, which it stores in c. It then
+continues looping until it finds another non-space character, which is used to
+start copying the rest of the message into msg starting at index 0. Finally, it
+adds a null terminator at the end of msg and returns n.
+*/
 int get_man_command(struct man_port_at_host *port, char msg[], char *c) {
   int n;
   int i;
   int k;
 
-  n = read(port->recv_fd, msg, MAN_MSG_LENGTH); /* Get command from manager */
-  if (n > 0) { /* Remove the first char from "msg" */
+  n = read(port->recv_fd, msg,
+           MAN_MAX_MSG_LENGTH); /* Get command from manager */
+  if (n > 0) {                  /* Remove the first char from "msg" */
     for (i = 0; msg[i] == ' ' && i < n; i++)
       ;
     *c = msg[i];
@@ -107,33 +137,46 @@ int is_valid_directory(const char *path) {
 void reply_display_host_state(struct man_port_at_host *port, char dir[],
                               int dir_valid, int host_id) {
   int n;
-  char reply_msg[MAX_MSG_LENGTH];
+  char reply_msg[HOST_MAX_MSG_LENGTH];
 
   if (dir_valid == 1) {
-    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\x1b[32;1m%s %d\x1b[0m", dir,
-                 host_id);
+    n = snprintf(reply_msg, HOST_MAX_MSG_LENGTH, "%s %d", dir, host_id);
   } else {
-    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\x1b[32;1mNone %d\x1b[0m",
+    n = snprintf(reply_msg, HOST_MAX_MSG_LENGTH, "\033[1;31mNone %d\033[0m",
                  host_id);
   }
 
   write(port->send_fd, reply_msg, n);
 }
 
-void printPacket(struct packet *p) {
-  printf("Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n", p->src,
-         p->dst, get_packet_type_literal(p->type), p->length, p->payload);
+int sendPacketTo(struct net_port **arr, int arrSize, struct packet *p) {
+  // Find which net_port entry in net_port_array has desired destination
+  int destIndex = -1;
+  for (int i = 0; i < arrSize; i++) {
+    if (arr[i]->link_node_id == p->dst) {
+      destIndex = i;
+    }
+  }
+  // If node_port_array had the destination id, send to that node
+  if (destIndex >= 0) {
+    packet_send(arr[destIndex], p);
+  } else {
+    // Else, broadcast packet to all connected hosts
+    for (int i = 0; i < arrSize; i++) {
+      packet_send(arr[i], p);
+    }
+  }
 }
 
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
   /* Initialize State */
-  char dir[MAX_DIR_NAME];
+  char dir[MAX_DIR_NAME_LENGTH];
   int dir_valid = 0;
 
-  char man_msg[MAN_MSG_LENGTH];
-  char man_reply_msg[MAN_MSG_LENGTH];
+  char man_msg[MAN_MAX_MSG_LENGTH];
+  char man_reply_msg[MAN_MAX_MSG_LENGTH];
   char man_cmd;
   struct man_port_at_host *man_port;  // Port to the manager
 
@@ -145,7 +188,7 @@ void host_main(int host_id) {
 
   int i, k, n;
   int dst;
-  char name[MAX_FILE_NAME_LENGTH];
+  char name[HOST_MAX_FILE_NAME_LENGTH];
   char string[PKT_PAYLOAD_MAX + 1];
 
   FILE *fp;
@@ -203,21 +246,23 @@ void host_main(int host_id) {
 
     /* Execute command */
     if (n > 0) {
+      sem_wait(&console_print_access);
+
       switch (man_cmd) {
         case 's':
           reply_display_host_state(man_port, dir, dir_valid, host_id);
           break;
 
         case 'm':
-          size_t len = strnlen(man_msg, MAX_DIR_NAME - 1);
+          size_t len = strnlen(man_msg, MAX_DIR_NAME_LENGTH - 1);
           if (is_valid_directory(man_msg)) {
             memcpy(dir, man_msg, len);
             dir[len] = '\0';  // add null character
             dir_valid = 1;
-            printf("\x1b[32mhost%d's main directory set to %s\x1b[0m\n",
-                   host_id, dir);
+            colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
+                       host_id, man_msg);
           } else {
-            printf("\x1b[31m%s is not a valid directory\x1b[0m\n", man_msg);
+            colorPrint(BOLD_RED, "%s is not a valid directory\n", man_msg);
           }
           break;
 
@@ -259,8 +304,8 @@ void host_main(int host_id) {
           new_packet->src = (char)host_id;
           new_packet->dst = (char)dst;
           new_packet->type = (char)PKT_FILE_DOWNLOAD_REQUEST;
-          new_packet->length = strnlen(name, MAX_DIR_NAME);
-          strncpy(new_packet->payload, name, MAX_DIR_NAME);
+          new_packet->length = strnlen(name, MAX_DIR_NAME_LENGTH);
+          strncpy(new_packet->payload, name, MAX_DIR_NAME_LENGTH);
           new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job->packet = new_packet;
           new_job->type = FILE_DOWNLOAD_REQUEST;
@@ -269,6 +314,7 @@ void host_main(int host_id) {
 
         default:;
       }
+      sem_signal(&console_print_access);
     }
 
     /////// Receive In-Coming packet and translate it to job //////
@@ -277,12 +323,11 @@ void host_main(int host_id) {
       n = packet_recv(node_port_array[k], in_packet);
       if ((n > 0) && ((int)in_packet->dst == host_id)) {
 #ifdef DEBUG
-        printf(
-            "\033[0;33m"  // yellow text
-            "DEBUG: id:%d host_main: Host %d received packet of type %s\n"
-            "\033[0m",  // regular text
-            host_id, (int)in_packet->dst,
-            get_packet_type_literal(in_packet->type));
+        colorPrint(YELLOW,
+                   "DEBUG: id:%d host_main: Host %d received packet of type "
+                   "%s\n",
+                   host_id, (int)in_packet->dst,
+                   get_packet_type_literal(in_packet->type));
 #endif
         new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
         new_job->in_port_index = k;
@@ -298,6 +343,7 @@ void host_main(int host_id) {
             free(in_packet);
             ping_reply_received = 1;
             free(new_job);
+            new_job = NULL;
             break;
 
           case (char)PKT_FILE_UPLOAD_START:
@@ -311,10 +357,10 @@ void host_main(int host_id) {
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQUEST:
-            new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-
+            // Sanitize packet payload to ensure it's null terminated
+            in_packet->payload[in_packet->length] = '\0';
             // Check to see if file exists
-            char filepath[MAX_DIR_NAME + PAYLOAD_MAX];
+            char filepath[MAX_DIR_NAME_LENGTH + PKT_PAYLOAD_MAX];
             sprintf(filepath, "%s/%s", dir, in_packet->payload);
             FILE *file = fopen(filepath, "r");
             if (file == NULL) {
@@ -323,7 +369,7 @@ void host_main(int host_id) {
               new_job->packet->dst = in_packet->src;
               new_job->packet->src = host_id;
               new_job->packet->type = PKT_REQUEST_RESPONSE;
-              const char *response = "File does not exist";
+              const char *response = "File does not exist\0";
               new_job->packet->length = strlen(response);
               strncpy(new_job->packet->payload, response, strlen(response));
               job_enqueue(host_id, &host_q, new_job);
@@ -331,26 +377,24 @@ void host_main(int host_id) {
               // File exists, start file upload
               new_job->type = FILE_UPLOAD_SEND;
               new_job->file_upload_dst = in_packet->src;
-              strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
-              new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)] =
-                  '\0';
+              strncpy(new_job->fname_upload, in_packet->payload,
+                      MAX_DIR_NAME_LENGTH);
+              new_job->fname_upload[strnlen(in_packet->payload,
+                                            MAX_DIR_NAME_LENGTH)] = '\0';
               job_enqueue(host_id, &host_q, new_job);
             }
             break;
 
-            // new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-            // new_job->type = FILE_UPLOAD_SEND;
-            // new_job->file_upload_dst = in_packet->src;
-            // strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
-            // new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)]
-            // =
-            //     '\0';
-            // job_enqueue(host_id, &host_q, new_job);
-            // break;
+          case (char)PKT_REQUEST_RESPONSE:
+            new_job->type = DISPLAY_REQUEST_RESPONSE;
+            new_job->packet = in_packet;
+            job_enqueue(host_id, &host_q, new_job);
+            break;
 
           default:
             free(in_packet);
             free(new_job);
+            new_job = NULL;
         }
       } else {
         free(in_packet);
@@ -370,6 +414,7 @@ void host_main(int host_id) {
           }
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
 
         case PING_SEND_REPLY:
@@ -391,26 +436,28 @@ void host_main(int host_id) {
           /* Free old packet and job memory space */
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
 
         case PING_WAIT_FOR_REPLY:
           if (ping_reply_received == 1) {
-            n = snprintf(man_reply_msg, MAN_MSG_LENGTH,
+            n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
                          "\x1b[32;1mPing acknowleged!\x1b[0m");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
+            new_job = NULL;
           } else if (new_job->timeToLive > 1) {
             new_job->timeToLive--;
             job_enqueue(host_id, &host_q, new_job);
           } else { /* Time out */
-            n = snprintf(man_reply_msg, MAN_MSG_LENGTH,
+            n = snprintf(man_reply_msg, MAN_MAX_MSG_LENGTH,
                          "\x1b[31;1mPing timed out!\x1b[0m");
             man_reply_msg[n] = '\0';
             write(man_port->send_fd, man_reply_msg, n + 1);
             free(new_job);
+            new_job = NULL;
           }
-
           break;
 
           /* The next three jobs deal with uploading a file */
@@ -418,7 +465,7 @@ void host_main(int host_id) {
         case FILE_UPLOAD_SEND:
           /* Open file */
           if (dir_valid == 1) {
-            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
+            n = snprintf(name, HOST_MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
                          new_job->fname_upload);
             name[n] = '\0';
             fp = fopen(name, "r");
@@ -468,6 +515,7 @@ void host_main(int host_id) {
               new_job2->packet = new_packet;
               job_enqueue(host_id, &host_q, new_job2);
               free(new_job);
+              new_job = NULL;
             } else {
               /* Didn't open file */
             }
@@ -487,6 +535,7 @@ void host_main(int host_id) {
                             new_job->packet->length);
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
 
         case FILE_UPLOAD_RECV_END:
@@ -498,13 +547,15 @@ void host_main(int host_id) {
                        new_job->packet->length);
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           if (dir_valid == 1) {
             /*
              * Get file name from the file buffer
              * Then open the file
              */
             file_buf_get_name(&f_buf_upload, string);
-            n = snprintf(name, MAX_FILE_NAME_LENGTH, "./%s/%s", dir, string);
+            n = snprintf(name, HOST_MAX_FILE_NAME_LENGTH, "./%s/%s", dir,
+                         string);
             name[n] = '\0';
             fp = fopen(name, "w");
             if (fp != NULL) {
@@ -519,30 +570,39 @@ void host_main(int host_id) {
               }
               fclose(fp);
             }
+            colorPrint(BOLD_GREEN, "Host%d: File Transfer Done\n", host_id);
           }
           break;
 
         case FILE_DOWNLOAD_REQUEST:
-
-          // Find which net_port entry in net_port_array has desired destination
-          int destIndex = -1;
-          for (int i = 0; i < node_port_array_size; i++) {
-            if (node_port_array[i]->link_node_id == (int)new_job->packet->dst) {
-              destIndex = i;
-            }
-          }
-          // If node_port_array had the destination id, send to that node
-          if (destIndex >= 0) {
-            packet_send(node_port_array[destIndex], new_job->packet);
-          } else {
-            // Else, broadcast packet to all hosts
-            for (k = 0; k < node_port_array_size; k++) {
-              packet_send(node_port_array[k], new_job->packet);
-            }
-          }
+          sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
           free(new_job->packet);
           free(new_job);
+          new_job = NULL;
           break;
+
+        case SEND_REQUEST_RESPONSE:
+          sendPacketTo(node_port_array, node_port_array_size, new_job->packet);
+          free(new_job->packet);
+          free(new_job);
+          new_job = NULL;
+          break;
+
+        case DISPLAY_REQUEST_RESPONSE:
+          colorPrint(BOLD_YELLOW, "%s\n", new_job->packet->payload);
+          free(new_job->packet);
+          free(new_job);
+          new_job = NULL;
+          break;
+
+        default:
+#ifdef DEBUG
+          colorPrint(
+              YELLOW,
+              "DEBUG: id:%d host_main: job_handler defaulted with job type: "
+              "%s\n",
+              host_id, get_job_type_literal(new_job->type));
+#endif
       }
     }
 
