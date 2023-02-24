@@ -24,15 +24,15 @@ struct  Packet { /* struct  for a packet */
 };
 
 // Forward declaration, defined in net.h
-struct  net_port;
+struct  Net_port;
 
 /* Sends a network packet through a pipe or socket by parsing the packet into a
  * message buffer and then sending it. */
-int packet_recv(struct  net_port *port, struct  Packet *p);
+int packet_recv(struct  Net_port *port, struct  Packet *p);
 
 /* Receives a network packet through a pipe or socket by reading a message
  * buffer and then parsing it into a packet. */
-void packet_send(struct  net_port *port, struct  Packet *p);
+void packet_send(struct  Net_port *port, struct  Packet *p);
 
 /* Allocates memory for a new packet and initializes it to zeros. */
 struct  Packet *createBlankPacket();

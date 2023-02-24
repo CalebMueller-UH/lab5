@@ -20,7 +20,7 @@
 
 /* Sends a network packet through a pipe or socket by parsing the packet into a
  * message buffer and then sending it. */
-void packet_send(struct  net_port *port, struct  Packet *p) {
+void packet_send(struct  Net_port *port, struct  Packet *p) {
   char pkt[PKT_PAYLOAD_MAX + 4];
   int bytesSent = -1;
 
@@ -48,7 +48,7 @@ void packet_send(struct  net_port *port, struct  Packet *p) {
 
 /* Receives a network packet through a pipe or socket by reading a message
  * buffer and then parsing it into a packet. */
-int packet_recv(struct  net_port *port, struct  Packet *p) {
+int packet_recv(struct  Net_port *port, struct  Packet *p) {
   char pkt[PKT_PAYLOAD_MAX + 4];
   int bytesRead = 0;
 

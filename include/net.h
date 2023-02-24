@@ -18,17 +18,17 @@ enum NetLinkType { /* Types of linkls */
                    SOCKET
 };
 
-struct net_node { /* Network node, e.g., host or switch */
+struct Net_node { /* Network node, e.g., host or switch */
   enum NetNodeType type;
   int id;
-  struct net_node *next;
+  struct Net_node *next;
 };
 
 /*
  * struct  used to store a link. It is used when the
  * network configuration file is loaded.
  */
-struct net_link {
+struct Net_link {
   enum NetLinkType type;
   int node0;
   int node1;
@@ -38,7 +38,7 @@ struct net_link {
   int socket_remote_port;
 };
 
-struct net_port {
+struct Net_port {
   enum NetLinkType type;
   int link_node_id;
   int send_fd;
@@ -46,14 +46,16 @@ struct net_port {
   char localDomain[MAX_DOMAIN_NAME_LENGTH];
   char remoteDomain[MAX_DOMAIN_NAME_LENGTH];
   int remotePort;
-  struct net_port *next;
+  struct Net_port *next;
 };
 
-struct man_port_at_man *net_get_man_ports_at_man_list();
-struct man_port_at_host *net_get_host_port(int host_id);
+struct Man_port_at_man *net_get_man_ports_at_man_list();
 
-struct net_node *net_get_node_list();
-struct net_port *net_get_port_list(int host_id);
+struct Man_port_at_host *net_get_host_port(int host_id);
+
+struct Net_node *net_get_node_list();
+
+struct Net_port *net_get_port_list(int host_id);
 
 int net_init();
 
@@ -63,8 +65,8 @@ int net_init();
  * ports at the manager side is p_m.  The list of ports
  * at the host side is p_h.
  */
-void create_man_ports(struct man_port_at_man **p_m,
-                      struct man_port_at_host **p_h);
+void create_man_ports(struct Man_port_at_man **p_m,
+                      struct Man_port_at_host **p_h);
 
 void net_close_man_ports_at_hosts();
 
@@ -81,7 +83,7 @@ Function to retrieve a linked list of network ports that belong to a specified
 node. Takes in an ID of the node of interest as an argument. Returns a pointer
 to the head of the resulting linked list.
 */
-struct net_port *net_get_port_list(int host_id);
+struct Net_port *net_get_port_list(int host_id);
 
 /*
  * Loads network configuration file and creates data struct File_bufures

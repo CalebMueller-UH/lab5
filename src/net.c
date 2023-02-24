@@ -46,24 +46,24 @@ bool g_initialized = false; /* Network initialized? */
  * the network configuration file.
  * g_node_list is a linked list version of net_node_list[]
  */
-static struct  net_node *net_node_list;
+static struct Net_node *net_node_list;
 static int net_node_num;
-static struct  net_node *g_node_list = NULL;
+static struct Net_node *g_node_list = NULL;
 
 /*
  * net_link_list[] and net_link_num have link information from
  * the network configuration file
  */
-static struct  net_link *net_link_list;
+static struct Net_link *net_link_list;
 static int net_link_num;
 
 /*
  * Global private variables about ports of network node links
  * and ports of links to the manager
  */
-static struct  net_port *g_port_list = NULL;
-static struct  man_port_at_man *g_man_man_port_list = NULL;
-static struct  man_port_at_host *g_man_host_port_list = NULL;
+static struct Net_port *g_port_list = NULL;
+static struct Man_port_at_man *g_man_man_port_list = NULL;
+static struct Man_port_at_host *g_man_host_port_list = NULL;
 
 ////////////////////// PRIVATE GLOBAL VARIABLES FOR NET.C /////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -71,17 +71,17 @@ static struct  man_port_at_host *g_man_host_port_list = NULL;
 /*
  * Get the list of nodes
  */
-struct  net_node *net_get_node_list();
+struct Net_node *net_get_node_list();
 
 /*
 Function to retrieve a linked list of network ports that belong to a specified
 node. Takes in an ID of the node of interest as an argument. Returns a pointer
 to the head of the resulting linked list.
 */
-struct  net_port *net_get_port_list(int id_of_interest) {
-  struct  net_port **curr;
-  struct  net_port *result;
-  struct  net_port *temp;
+struct Net_port *net_get_port_list(int id_of_interest) {
+  struct Net_port **curr;
+  struct Net_port *result;
+  struct Net_port *temp;
   result = NULL;
   curr = &g_port_list;
   while (*curr != NULL) {
@@ -98,16 +98,16 @@ struct  net_port *net_get_port_list(int id_of_interest) {
 }
 
 /* Return the linked list of nodes */
-struct  net_node *net_get_node_list() { return g_node_list; }
+struct Net_node *net_get_node_list() { return g_node_list; }
 
 /* Return linked list of ports used by the manager to connect to hosts */
-struct  man_port_at_man *net_get_man_ports_at_man_list() {
+struct Man_port_at_man *net_get_man_ports_at_man_list() {
   return (g_man_man_port_list);
 }
 
 /* Return the port used by host to link with other nodes */
-struct  man_port_at_host *net_get_host_port(int host_id) {
-  struct  man_port_at_host *p;
+struct Man_port_at_host *net_get_host_port(int host_id) {
+  struct Man_port_at_host *p;
   for (p = g_man_host_port_list; p != NULL && p->host_id != host_id;
        p = p->next)
     ;
@@ -116,7 +116,7 @@ struct  man_port_at_host *net_get_host_port(int host_id) {
 
 /* Close all host ports not used by manager */
 void net_close_man_ports_at_hosts() {
-  struct  man_port_at_host *p_h;
+  struct Man_port_at_host *p_h;
   p_h = g_man_host_port_list;
   while (p_h != NULL) {
     close(p_h->send_fd);
@@ -127,7 +127,7 @@ void net_close_man_ports_at_hosts() {
 
 /* Close all host ports used by manager except to host_id */
 void net_close_man_ports_at_hosts_except(int host_id) {
-  struct  man_port_at_host *p_h;
+  struct Man_port_at_host *p_h;
   p_h = g_man_host_port_list;
   while (p_h != NULL) {
     if (p_h->host_id != host_id) {
@@ -140,8 +140,8 @@ void net_close_man_ports_at_hosts_except(int host_id) {
 
 /* Free all host ports to manager */
 void net_free_man_ports_at_hosts() {
-  struct  man_port_at_host *p_h;
-  struct  man_port_at_host *t_h;
+  struct Man_port_at_host *p_h;
+  struct Man_port_at_host *t_h;
   p_h = g_man_host_port_list;
   while (p_h != NULL) {
     t_h = p_h;
@@ -152,7 +152,7 @@ void net_free_man_ports_at_hosts() {
 
 /* Close all manager ports */
 void net_close_man_ports_at_man() {
-  struct  man_port_at_man *p_m;
+  struct Man_port_at_man *p_m;
   p_m = g_man_man_port_list;
   while (p_m != NULL) {
     close(p_m->send_fd);
@@ -163,8 +163,8 @@ void net_close_man_ports_at_man() {
 
 /* Free all manager ports */
 void net_free_man_ports_at_man() {
-  struct  man_port_at_man *p_m;
-  struct  man_port_at_man *t_m;
+  struct Man_port_at_man *p_m;
+  struct Man_port_at_man *t_m;
   p_m = g_man_man_port_list;
   while (p_m != NULL) {
     t_m = p_m;
@@ -197,21 +197,19 @@ int net_init(char *confFile) {
  *  p_host is a linked list of ports at the hosts.
  *  Note that the pipes are nonblocking.
  */
-void create_man_ports(struct  man_port_at_man **p_man,
-                      struct  man_port_at_host **p_host) {
-  struct  net_node *p;
+void create_man_ports(struct Man_port_at_man **p_man,
+                      struct Man_port_at_host **p_host) {
+  struct Net_node *p;
   int fd0[2];
   int fd1[2];
-  struct  man_port_at_man *p_m;
-  struct  man_port_at_host *p_h;
+  struct Man_port_at_man *p_m;
+  struct Man_port_at_host *p_h;
   int host;
   for (p = g_node_list; p != NULL; p = p->next) {
     if (p->type == HOST) {
-      p_m = (struct  man_port_at_man *)malloc(
-          sizeof(struct  man_port_at_man));
+      p_m = (struct Man_port_at_man *)malloc(sizeof(struct Man_port_at_man));
       p_m->host_id = p->id;
-      p_h = (struct  man_port_at_host *)malloc(
-          sizeof(struct  man_port_at_host));
+      p_h = (struct Man_port_at_host *)malloc(sizeof(struct Man_port_at_host));
       p_h->host_id = p->id;
       pipe(fd0); /* Create a pipe */
                  /* Make the pipe nonblocking at both ends */
@@ -246,11 +244,11 @@ net_node_list array. The newly created node is then set as the head of the
 linked list.
 */
 void create_node_list() {
-  struct  net_node *p;
+  struct Net_node *p;
   int i;
   g_node_list = NULL;
   for (i = 0; i < net_node_num; i++) {
-    p = (struct  net_node *)malloc(sizeof(struct  net_node));
+    p = (struct Net_node *)malloc(sizeof(struct Net_node));
     p->id = i;
     p->type = net_node_list[i].type;
     p->next = g_node_list;
@@ -263,10 +261,8 @@ void create_port_list() {
   int fd10[2];
   g_port_list = NULL;
   for (int i = 0; i < net_link_num; i++) {
-    struct  net_port *p0 =
-        (struct  net_port *)malloc(sizeof(struct  net_port));
-    struct  net_port *p1 =
-        (struct  net_port *)malloc(sizeof(struct  net_port));
+    struct Net_port *p0 = (struct Net_port *)malloc(sizeof(struct Net_port));
+    struct Net_port *p1 = (struct Net_port *)malloc(sizeof(struct Net_port));
     int node0 = net_link_list[i].node0;
     int node1 = net_link_list[i].node1;
     p0->link_node_id = node0;
@@ -358,8 +354,8 @@ int load_net_data_file(char *confFile) {
     fclose(fp);
     return (-1);
   } else {
-    net_node_list = (struct  net_node *)malloc(
-        sizeof(struct  net_node) * node_num);
+    net_node_list =
+        (struct Net_node *)malloc(sizeof(struct Net_node) * node_num);
     for (i = 0; i < node_num; i++) {
       fscanf(fp, " %c ", &node_type);
       if (node_type == 'H') {
@@ -391,8 +387,8 @@ int load_net_data_file(char *confFile) {
     fclose(fp);
     return (-1);
   } else {
-    net_link_list = (struct  net_link *)malloc(
-        sizeof(struct  net_link) * link_num);
+    net_link_list =
+        (struct Net_link *)malloc(sizeof(struct Net_link) * link_num);
     for (i = 0; i < link_num; i++) {
       fscanf(fp, " %c ", &link_type);
       if (link_type == 'P') {

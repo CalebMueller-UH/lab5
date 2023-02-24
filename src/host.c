@@ -4,6 +4,7 @@
 
 #include "host.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -95,7 +96,7 @@ int file_buf_remove(struct File_buf *f, char string[], int length) {
 /*
 This function reads a command from a manager port and removes the first
 character from the message. It takes in three parameters: a pointer to a struct
- man_port_at_host, an array of characters called msg, and a pointer to a
+ Man_port_at_host, an array of characters called msg, and a pointer to a
 character called c. The function first reads the command from the manager port
 using the read() function and stores it in the msg array. It then loops through
 the message until it finds a non-space character, which it stores in c. It then
@@ -103,7 +104,7 @@ continues looping until it finds another non-space character, which is used to
 start copying the rest of the message into msg starting at index 0. Finally, it
 adds a null terminator at the end of msg and returns n.
 */
-int get_man_command(struct man_port_at_host *port, char msg[], char *c) {
+int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
   int n;
   int i;
   int k;
@@ -126,15 +127,17 @@ int get_man_command(struct man_port_at_host *port, char msg[], char *c) {
 }
 
 int is_valid_directory(const char *path) {
-  struct stat sb;
-  if (stat(path, &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+  DIR *dir = opendir(path);
+  if (dir) {
+    closedir(dir);
+    return 1;
+  } else {
     return 0;
   }
-  return 1;
 }
 
 /* Send back state of the host to the manager as a text message */
-void reply_display_host_state(struct man_port_at_host *port, char dir[],
+void reply_display_host_state(struct Man_port_at_host *port, char dir[],
                               int dir_valid, int host_id) {
   int n;
   char reply_msg[HOST_MAX_MSG_LENGTH];
@@ -149,8 +152,8 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   write(port->send_fd, reply_msg, n);
 }
 
-int sendPacketTo(struct net_port **arr, int arrSize, struct Packet *p) {
-  // Find which net_port entry in net_port_array has desired destination
+int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
+  // Find which Net_port entry in net_port_array has desired destination
   int destIndex = -1;
   for (int i = 0; i < arrSize; i++) {
     if (arr[i]->link_node_id == p->dst) {
@@ -178,10 +181,10 @@ void host_main(int host_id) {
   char man_msg[MAN_MAX_MSG_LENGTH];
   char man_reply_msg[MAN_MAX_MSG_LENGTH];
   char man_cmd;
-  struct man_port_at_host *man_port;  // Port to the manager
+  struct Man_port_at_host *man_port;  // Port to the manager
 
-  struct net_port *node_port_list;
-  struct net_port **node_port_array;  // Array of pointers to node ports
+  struct Net_port *node_port_list;
+  struct Net_port **node_port_array;  // Array of pointers to node ports
   int node_port_array_size;           // Number of node ports
 
   int ping_reply_received;
@@ -193,7 +196,7 @@ void host_main(int host_id) {
 
   FILE *fp;
 
-  struct net_port *p;
+  struct Net_port *p;
 
   struct Job_queue host_q;
 
@@ -221,8 +224,8 @@ void host_main(int host_id) {
     node_port_array_size++;
   }
   /* Create memory space for the array */
-  node_port_array = (struct net_port **)malloc(node_port_array_size *
-                                               sizeof(struct net_port *));
+  node_port_array = (struct Net_port **)malloc(node_port_array_size *
+                                               sizeof(struct Net_port *));
 
   /* Load ports into the array */
   p = node_port_list;
