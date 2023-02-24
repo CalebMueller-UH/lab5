@@ -4,7 +4,7 @@
 
 #include "common.h"
 
-#define HOST_MAX_FILE_NAME_LENGTH 100
+#define MAX_FILENAME_LENGTH 100
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 

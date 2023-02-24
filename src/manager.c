@@ -103,7 +103,7 @@ void display_host(struct Man_port_at_man *list,
 void display_host_state(struct Man_port_at_man *curr_host) {
   char msg[MAN_MAX_MSG_LENGTH];
   char reply[MAN_MAX_MSG_LENGTH];
-  char dir[MAX_DIR_NAME_LENGTH];
+  char dir[MAX_FILENAME_LENGTH];
   int host_id;
   int n;
 
@@ -122,7 +122,7 @@ void display_host_state(struct Man_port_at_man *curr_host) {
 }
 
 void set_host_dir(struct Man_port_at_man *curr_host) {
-  char name[MAX_DIR_NAME_LENGTH];
+  char name[MAX_FILENAME_LENGTH];
   char msg[MAN_MAX_MSG_LENGTH];
   int n;
 
@@ -181,7 +181,7 @@ void ping(struct Man_port_at_man *curr_host) {
 int file_upload(struct Man_port_at_man *curr_host) {
   int n;
   int host_id;
-  char name[MAX_DIR_NAME_LENGTH];
+  char name[MAX_FILENAME_LENGTH];
   char msg[MAN_MAX_MSG_LENGTH];
 
   colorPrint(CYAN, "Enter file name to upload: ");
@@ -211,7 +211,7 @@ int file_upload(struct Man_port_at_man *curr_host) {
 int file_download(struct Man_port_at_man *curr_host) {
   int n;
   int host_id;
-  char name[MAX_DIR_NAME_LENGTH];
+  char name[MAX_FILENAME_LENGTH];
   char msg[MAN_MAX_MSG_LENGTH];
 
   colorPrint(CYAN, "Enter file name to download: ");

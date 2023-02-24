@@ -133,15 +133,15 @@ void switch_main(int switch_id) {
         if (dstIndex < 0) {
           /*
        if routingTable does not have a valid matching entry for incoming
-       packet destination enque an UNKNOWN_PORT_BROADCAST job to broadcast the
+       packet destination, enque a BROADCAST_PKT_JOB job to broadcast the
        current packet to all ports except the current port
        */
-          new_job->type = UNKNOWN_PORT_BROADCAST;
+          new_job->type = BROADCAST_PKT_JOB;
           job_enqueue(switch_id, &switch_q, new_job);
         } else {
-          // enqueue a FORWARD_PACKET_TO_PORT job forward the current in_packet
-          // to the associated port
-          new_job->type = FORWARD_PACKET_TO_PORT;
+          // enqueue a FORWARD_PACKET_TO_PORT_JOB job forward the current
+          // in_packet to the associated port
+          new_job->type = FORWARD_PACKET_TO_PORT_JOB;
           new_job->out_port_index = dstIndex;
           job_enqueue(switch_id, &switch_q, new_job);
         }
@@ -157,11 +157,11 @@ void switch_main(int switch_id) {
 
       //////////// EXECUTE FETCHED JOB ////////////
       switch (new_job->type) {
-        case UNKNOWN_PORT_BROADCAST:
+        case BROADCAST_PKT_JOB:
           broadcastToAllButSender(new_job, routingTable, node_port_array,
                                   node_port_array_size);
           break;
-        case FORWARD_PACKET_TO_PORT:
+        case FORWARD_PACKET_TO_PORT_JOB:
           packet_send(node_port_array[new_job->out_port_index],
                       new_job->packet);
           break;

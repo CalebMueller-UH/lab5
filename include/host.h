@@ -11,7 +11,7 @@
 #define TENMILLISEC 10000 /* 10 millisecond sleep */
 
 struct  File_buf {
-  char name[HOST_MAX_FILE_NAME_LENGTH];
+  char name[MAX_FILENAME_LENGTH];
   int name_length;
   char buffer[HOST_MAX_FILE_BUFFER + 1];
   int head;

@@ -328,14 +328,14 @@ before closing the file.
 */
 int load_net_data_file(char *confFile) {
   FILE *fp;
-  char fname[HOST_MAX_FILE_NAME_LENGTH];
+  char fname[MAX_FILENAME_LENGTH];
   if (confFile == NULL) {
     /* Open network configuration file */
     colorPrint(PURPLE, "Enter network data file: ");
     fgets(fname, sizeof(fname), stdin);
     fname[strcspn(fname, "\n")] = '\0';  // strip the newline character
   } else {
-    strncpy(fname, confFile, HOST_MAX_FILE_NAME_LENGTH);
+    strncpy(fname, confFile, MAX_FILENAME_LENGTH);
   }
   fp = fopen(fname, "r");
   if (fp == NULL) {
