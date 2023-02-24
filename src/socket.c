@@ -23,12 +23,12 @@ int sock_server_init(const char* localDomain, const int localPort) {
   }
 
   // bind to local domain and port
-  struct sockaddr_in server_addr;
+  struct  sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = inet_addr(localDomain);
   server_addr.sin_port = htons(localPort);
-  int bind_result =
-      bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+  int bind_result = bind(sock_fd, (struct  sockaddr*)&server_addr,
+                         sizeof(server_addr));
   if (bind_result < 0) {
     fprintf(stderr, "\nError: sock_server_init: failed to bind %s:%d\n",
             localDomain, localPort);
@@ -54,7 +54,7 @@ int sock_server_init(const char* localDomain, const int localPort) {
 
 int sock_recv(const int sockfd, char* buffer, const int bufferMax,
               const char* remoteDomain) {
-  struct sockaddr_in remote_addr;
+  struct  sockaddr_in remote_addr;
   socklen_t addr_len = sizeof(remote_addr);
   int bytesRead = 0;
 
@@ -62,7 +62,7 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
   FD_ZERO(&read_fds);
   FD_SET(sockfd, &read_fds);
 
-  struct timeval timeout;
+  struct  timeval timeout;
   timeout.tv_sec = 0;
   timeout.tv_usec = 6500;
 
@@ -79,7 +79,8 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
     }
 
     // Incoming data available, accept the incoming connection and read data
-    int client_fd = accept(sockfd, (struct sockaddr*)&remote_addr, &addr_len);
+    int client_fd =
+        accept(sockfd, (struct  sockaddr*)&remote_addr, &addr_len);
     if (client_fd < 0) {
       fprintf(stderr, "\nError: sock_recv: failed to accept connection\n");
       perror("\t");
@@ -131,12 +132,12 @@ int sock_send(const char* localDomain, const char* remoteDomain,
   }
 
   // Bind to local port
-  struct sockaddr_in local_addr;
+  struct  sockaddr_in local_addr;
   local_addr.sin_family = AF_INET;
   local_addr.sin_addr.s_addr = inet_addr(localDomain);
   local_addr.sin_port = htons(0);
   int bind_result =
-      bind(sock_fd, (struct sockaddr*)&local_addr, sizeof(local_addr));
+      bind(sock_fd, (struct  sockaddr*)&local_addr, sizeof(local_addr));
   if (bind_result < 0) {
     fprintf(stderr, "\nError: sock_send: failed to bind local port\n");
     perror("\t");
@@ -145,17 +146,18 @@ int sock_send(const char* localDomain, const char* remoteDomain,
   }
 
   // Get the local port assigned by the OS
-  struct sockaddr_in local_addr_assigned;
+  struct  sockaddr_in local_addr_assigned;
   socklen_t addr_len = sizeof(local_addr_assigned);
-  getsockname(sock_fd, (struct sockaddr*)&local_addr_assigned, &addr_len);
+  getsockname(sock_fd, (struct  sockaddr*)&local_addr_assigned,
+              &addr_len);
 
   // Connect to remote server
-  struct sockaddr_in server_addr;
+  struct  sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = inet_addr(remoteDomain);
   server_addr.sin_port = htons(remotePort);
-  int connect_result =
-      connect(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+  int connect_result = connect(sock_fd, (struct  sockaddr*)&server_addr,
+                               sizeof(server_addr));
   if (connect_result < 0) {
     fprintf(stderr, "\nError: sock_send: connect_result < 0\n");
     perror("\t");

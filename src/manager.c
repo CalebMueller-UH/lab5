@@ -59,8 +59,8 @@ char man_get_user_cmd(int curr_host) {
 }
 
 /* Change the current host */
-void change_host(struct man_port_at_man *list,
-                 struct man_port_at_man **curr_host) {
+void change_host(struct  man_port_at_man *list,
+                 struct  man_port_at_man **curr_host) {
   int new_host_id;
 
   // display_host(list, *curr_host);
@@ -69,7 +69,7 @@ void change_host(struct man_port_at_man *list,
   printf("\n");
 
   /* Find the port of the new host, and then set it as the curr_host */
-  struct man_port_at_man *p;
+  struct  man_port_at_man *p;
   for (p = list; p != NULL; p = p->next) {
     if (p->host_id == new_host_id) {
       *curr_host = p;
@@ -79,9 +79,9 @@ void change_host(struct man_port_at_man *list,
 }
 
 /* Display the hosts on the consosle */
-void display_host(struct man_port_at_man *list,
-                  struct man_port_at_man *curr_host) {
-  struct man_port_at_man *p;
+void display_host(struct  man_port_at_man *list,
+                  struct  man_port_at_man *curr_host) {
+  struct  man_port_at_man *p;
 
   colorPrint(CYAN, "\nHost list:\n");
   for (p = list; p != NULL; p = p->next) {
@@ -100,7 +100,7 @@ void display_host(struct man_port_at_man *list,
  * Wait for reply from host, which should be the host's state.
  * Then display on the console.
  */
-void display_host_state(struct man_port_at_man *curr_host) {
+void display_host_state(struct  man_port_at_man *curr_host) {
   char msg[MAN_MAX_MSG_LENGTH];
   char reply[MAN_MAX_MSG_LENGTH];
   char dir[MAX_DIR_NAME_LENGTH];
@@ -121,7 +121,7 @@ void display_host_state(struct man_port_at_man *curr_host) {
   colorPrint(CYAN, "    Directory = %s\n", dir);
 }
 
-void set_host_dir(struct man_port_at_man *curr_host) {
+void set_host_dir(struct  man_port_at_man *curr_host) {
   char name[MAX_DIR_NAME_LENGTH];
   char msg[MAN_MAX_MSG_LENGTH];
   int n;
@@ -144,7 +144,7 @@ void set_host_dir(struct man_port_at_man *curr_host) {
  * Wiat for a reply
  */
 
-void ping(struct man_port_at_man *curr_host) {
+void ping(struct  man_port_at_man *curr_host) {
   char msg[MAN_MAX_MSG_LENGTH];
   char reply[MAN_MAX_MSG_LENGTH];
   int host_to_ping;
@@ -178,7 +178,7 @@ void ping(struct man_port_at_man *curr_host) {
  *    -  id of the destination host
  *    -  name of file to transfer
  */
-int file_upload(struct man_port_at_man *curr_host) {
+int file_upload(struct  man_port_at_man *curr_host) {
   int n;
   int host_id;
   char name[MAX_DIR_NAME_LENGTH];
@@ -208,7 +208,7 @@ int file_upload(struct man_port_at_man *curr_host) {
  *    -  id of the destination host
  *    -  name of file to transfer
  */
-int file_download(struct man_port_at_man *curr_host) {
+int file_download(struct  man_port_at_man *curr_host) {
   int n;
   int host_id;
   char name[MAX_DIR_NAME_LENGTH];
@@ -230,8 +230,8 @@ int file_download(struct man_port_at_man *curr_host) {
  *****************************/
 void man_main() {
   // State
-  struct man_port_at_man *host_list;
-  struct man_port_at_man *curr_host = NULL;
+  struct  man_port_at_man *host_list;
+  struct  man_port_at_man *curr_host = NULL;
 
   host_list = net_get_man_ports_at_man_list();
   curr_host = host_list;

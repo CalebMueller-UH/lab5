@@ -22,40 +22,41 @@ enum job_type {
   UNKNOWN_PORT_BROADCAST
 };
 
-struct job_queue {
-  struct job_struct *head;
-  struct job_struct *tail;
+struct  Job_queue {
+  struct  Job *head;
+  struct  Job *tail;
   int occ;
 };
 
-struct job_struct {
+struct  Job {
   enum job_type type;
-  struct packet *packet;
+  struct  Packet *packet;
   int in_port_index;
   int out_port_index;
   char fname_download[100];
   char fname_upload[100];
   int timeToLive;
   int file_upload_dst;
-  struct job_struct *next;
+  struct  Job *next;
 };
 
+/* Takes an enumeration value representing a job type and returns the
+ * corresponding string representation.*/
 char *get_job_type_literal(enum job_type t);
 
-/* Add a job to the job queue */
-void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j);
+/* Adds a new job to the end of a job queue.*/
+void job_enqueue(int id, struct  Job_queue *j_q,
+                 struct  Job *j);
 
-/* Remove job from the job queue, and return pointer to the job*/
-struct job_struct *job_dequeue(int id, struct job_queue *j_q);
+/* Removes the first job from a job queue and returns it.*/
+struct  Job *job_dequeue(int id, struct  Job_queue *j_q);
 
-/* Initialize job queue */
-void job_queue_init(struct job_queue *j_q);
+/* Initializes a job queue.*/
+void job_queue_init(struct  Job_queue *j_q);
 
-/*
-This function returns the number of jobs in a job queue.
-Parameters:
-j_q - a pointer to a job queue structure
-Returns:
-int - the number of jobs in the job queue
-*/
-int job_queue_length(struct job_queue *j_q);
+/* Returns the number of jobs in a job queue.*/
+int job_queue_length(struct  Job_queue *j_q);
+
+/* Allocates memory for a new job, initializes its fields with default values,
+ * and returns a pointer to it.*/
+struct  Job *createBlankJob();

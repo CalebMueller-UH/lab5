@@ -18,16 +18,16 @@
 #define MAX_NUM_ROUTES 100
 #define TENMILLISEC 10000
 
-struct packet *in_packet; /* Incoming packet */
-struct packet *new_packet;
+struct Packet *in_packet; /* Incoming packet */
+struct Packet *new_packet;
 
 /*
 This function searches a routing table for a valid ID.
-The function takes in two parameters: a pointer to a struct tableEntry and an
-integer ID. It iterates through the maximum number of routes and checks if the
-ID matches the current entry's ID and if it is valid. If it finds a match, it
-returns the index of that entry in the routing table. Otherwise, it returns -1
-indicating that no valid entry was found.
+The function takes in two parameters: a pointer to a struct  tableEntry
+and an integer ID. It iterates through the maximum number of routes and checks
+if the ID matches the current entry's ID and if it is valid. If it finds a
+match, it returns the index of that entry in the routing table. Otherwise, it
+returns -1 indicating that no valid entry was found.
 */
 int searchRoutingTableForValidID(struct tableEntry *rt, int id) {
   for (int i = 0; i < MAX_NUM_ROUTES; i++) {
@@ -39,12 +39,12 @@ int searchRoutingTableForValidID(struct tableEntry *rt, int id) {
 }
 
 /*
-This function takes a job struct, a table entry, an array of net_port pointers
-and the size of the array as parameters. It then iterates through the port_array
-and sends the job's packet to each port in the array, except for the port that
-corresponds to the job's in_port_index.
+This function takes a job struct , a table entry, an array of net_port
+pointers and the size of the array as parameters. It then iterates through the
+port_array and sends the job's packet to each port in the array, except for the
+port that corresponds to the job's in_port_index.
 */
-void broadcastToAllButSender(struct job_struct *job, struct tableEntry *rt,
+void broadcastToAllButSender(struct Job *job, struct tableEntry *rt,
                              struct net_port **port_array,
                              int port_array_size) {
   for (int i = 0; i < port_array_size; i++) {
@@ -60,8 +60,8 @@ void switch_main(int switch_id) {
   struct net_port **node_port_array;
   int node_port_array_size;
   struct net_port *port;
-  struct job_struct *new_job;
-  struct job_queue switch_q;
+  struct Job *new_job;
+  struct Job_queue switch_q;
 
   ////// Initialize Router Table //////
   struct tableEntry *routingTable =
@@ -100,7 +100,7 @@ void switch_main(int switch_id) {
   while (1) {
     /////// Receive In-Coming packet and translate it to a job //////
     for (int i = 0; i < node_port_array_size; i++) {
-      struct packet *in_packet = (struct packet *)malloc(sizeof(struct packet));
+      struct Packet *in_packet = (struct Packet *)malloc(sizeof(struct Packet));
       int n = packet_recv(node_port_array[i], in_packet);
 
       if (n > 0) {
@@ -111,7 +111,7 @@ void switch_main(int switch_id) {
             "src:%d dst:%d\n",
             switch_id, i, in_packet->src, in_packet->dst);
 #endif
-        new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
+        new_job = (struct Job *)malloc(sizeof(struct Job));
         new_job->in_port_index = i;
         new_job->packet = in_packet;
 

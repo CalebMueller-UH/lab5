@@ -18,25 +18,27 @@
 #include "net.h"
 #include "socket.h"
 
-void packet_send(struct net_port *port, struct packet *p) {
-  char msg[PKT_PAYLOAD_MAX + 4];
+/* Sends a network packet through a pipe or socket by parsing the packet into a
+ * message buffer and then sending it. */
+void packet_send(struct  net_port *port, struct  Packet *p) {
+  char pkt[PKT_PAYLOAD_MAX + 4];
   int bytesSent = -1;
 
   // Parse Packet
-  msg[0] = (char)p->src;
-  msg[1] = (char)p->dst;
-  msg[2] = (char)p->type;
-  msg[3] = (char)p->length;
+  pkt[0] = (char)p->src;
+  pkt[1] = (char)p->dst;
+  pkt[2] = (char)p->type;
+  pkt[3] = (char)p->length;
   for (int i = 0; i < p->length; i++) {
-    msg[i + 4] = p->payload[i];
+    pkt[i + 4] = p->payload[i];
   }
 
   if (port->type == PIPE) {
-    bytesSent = write(port->send_fd, msg, p->length + 4);
+    bytesSent = write(port->send_fd, pkt, p->length + 4);
 
   } else if (port->type == SOCKET) {
     bytesSent = sock_send(port->localDomain, port->remoteDomain,
-                          port->remotePort, msg, p->length + 4);
+                          port->remotePort, pkt, p->length + 4);
   }
 
 #ifdef DEBUG
@@ -44,25 +46,27 @@ void packet_send(struct net_port *port, struct packet *p) {
 #endif
 }
 
-int packet_recv(struct net_port *port, struct packet *p) {
-  char msg[PKT_PAYLOAD_MAX + 4];
+/* Receives a network packet through a pipe or socket by reading a message
+ * buffer and then parsing it into a packet. */
+int packet_recv(struct  net_port *port, struct  Packet *p) {
+  char pkt[PKT_PAYLOAD_MAX + 4];
   int bytesRead = 0;
 
   if (port->type == PIPE) {
     // Parse Packet
-    bytesRead = read(port->recv_fd, msg, PKT_PAYLOAD_MAX + 4);
+    bytesRead = read(port->recv_fd, pkt, PKT_PAYLOAD_MAX + 4);
   } else if (port->type == SOCKET) {
     bytesRead =
-        sock_recv(port->send_fd, msg, PKT_PAYLOAD_MAX + 4, port->remoteDomain);
+        sock_recv(port->send_fd, pkt, PKT_PAYLOAD_MAX + 4, port->remoteDomain);
   }
   if (bytesRead > 0) {
 #ifdef DEBUG
-    p->src = (char)msg[0];
-    p->dst = (char)msg[1];
-    p->type = (char)msg[2];
-    p->length = (int)msg[3];
+    p->src = (char)pkt[0];
+    p->dst = (char)pkt[1];
+    p->type = (char)pkt[2];
+    p->length = (int)pkt[3];
     for (int i = 0; i < p->length; i++) {
-      p->payload[i] = msg[i + 4];
+      p->payload[i] = pkt[i + 4];
     }
 
     printPacket(p);
@@ -71,8 +75,10 @@ int packet_recv(struct net_port *port, struct packet *p) {
   return (bytesRead);
 }
 
-struct packet *createBlankPacket() {
-  struct packet *p = (struct packet *)malloc(sizeof(struct packet));
+/* Allocates memory for a new packet and initializes it to zeros. */
+struct  Packet *createBlankPacket() {
+  struct  Packet *p =
+      (struct  Packet *)malloc(sizeof(struct  Packet));
   memset(&p->dst, 0, sizeof(p->dst));
   memset(&p->src, 0, sizeof(p->src));
   memset(&p->type, 0, sizeof(p->type));
@@ -81,6 +87,7 @@ struct packet *createBlankPacket() {
   return p;
 }
 
+/* Returns a string representation of the packet type. */
 char *get_packet_type_literal(int pktType) {
   switch (pktType) {
     case PKT_PING_REQ:
@@ -102,7 +109,9 @@ char *get_packet_type_literal(int pktType) {
   }
 }
 
-void printPacket(struct packet *p) {
+/* Prints the contents of a packet with its source, destination, type, length,
+ * and payload. */
+void printPacket(struct  Packet *p) {
   colorPrint(
       ORANGE, "Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n",
       p->src, p->dst, get_packet_type_literal(p->type), p->length, p->payload);

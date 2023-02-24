@@ -25,7 +25,7 @@ struct net_node { /* Network node, e.g., host or switch */
 };
 
 /*
- * Struct used to store a link. It is used when the
+ * struct  used to store a link. It is used when the
  * network configuration file is loaded.
  */
 struct net_link {
@@ -84,7 +84,7 @@ to the head of the resulting linked list.
 struct net_port *net_get_port_list(int host_id);
 
 /*
- * Loads network configuration file and creates data structures
+ * Loads network configuration file and creates data struct File_bufures
  * for nodes and links.  The results are accessible through
  * the private global variables
  */

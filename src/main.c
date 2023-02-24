@@ -28,8 +28,8 @@ void main(int argc, char **argv) {
   pid_t pid; /* Process id */
   int k = 0;
   int status;
-  struct net_node *node_list;
-  struct net_node *p_node;
+  struct  net_node *node_list;
+  struct  net_node *p_node;
 
   // Create shared memory for the binary semaphore
   int shmid = create_shared_memory(sizeof(binary_semaphore));

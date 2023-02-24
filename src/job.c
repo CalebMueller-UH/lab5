@@ -11,12 +11,8 @@
 #include "color.h"
 #include "packet.h"
 
-/*
-This function takes in an enum job_type and returns a string literal that
-corresponds to the enum. It does this by using a switch statement to check the
-value of the enum and then returning the corresponding string literal. If the
-enum value is not found, it will return "UNKNOWN JOB TYPE".
-*/
+/* Takes an enumeration value representing a job type and returns the
+ * corresponding string representation. */
 char *get_job_type_literal(enum job_type t) {
   switch (t) {
     case SEND_PKT_ALL_PORTS:
@@ -47,10 +43,11 @@ char *get_job_type_literal(enum job_type t) {
   return "UNKNOWN JOB TYPE";
 }
 
-/* Add a job to the job queue */
-void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j) {
+/* Adds a new job to the end of a job queue. */
+void job_enqueue(int id, struct  Job_queue *j_q,
+                 struct  Job *j) {
 #ifdef DEBUG
-  colorPrint(GREEN, "DEBUG: id:%d job_enqueue: job_struct.type: %s\n", id,
+  colorPrint(GREEN, "DEBUG: id:%d job_enqueue: Job.type: %s\n", id,
              get_job_type_literal(j->type));
 #endif
   if (j_q->head == NULL) {
@@ -65,14 +62,14 @@ void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j) {
   }
 }
 
-/* Remove job from the job queue, and return pointer to the job*/
-struct job_struct *job_dequeue(int id, struct job_queue *j_q) {
-  struct job_struct *j;
+/* Removes the first job from a job queue and returns it. */
+struct  Job *job_dequeue(int id, struct  Job_queue *j_q) {
+  struct  Job *j;
   if (j_q->occ == 0) return (NULL);
   j = j_q->head;
 
 #ifdef DEBUG
-  colorPrint(RED, "DEBUG: id:%d job_dequeue: job_struct.type: %s\n", id,
+  colorPrint(RED, "DEBUG: id:%d job_dequeue: Job.type: %s\n", id,
              get_job_type_literal(j->type));
 #endif
 
@@ -81,24 +78,19 @@ struct job_struct *job_dequeue(int id, struct job_queue *j_q) {
   return (j);
 }
 
-/* Initialize job queue */
-void job_queue_init(struct job_queue *j_q) {
+/* Initializes a job queue. */
+void job_queue_init(struct  Job_queue *j_q) {
   j_q->occ = 0;
   j_q->head = NULL;
   j_q->tail = NULL;
 }
 
-/*
-This function returns the number of jobs in a job queue.
-Parameters:
-j_q - a pointer to a job queue structure
-Returns:
-int - the number of jobs in the job queue
-*/
-int job_queue_length(struct job_queue *j_q) { return j_q->occ; }
+/* Returns the number of jobs in a job queue. */
+int job_queue_length(struct  Job_queue *j_q) { return j_q->occ; }
 
-struct job_struct *createBlankJob() {
-  struct job_struct *j = (struct job_struct *)malloc(sizeof(struct job_struct));
+struct  Job *createBlankJob() {
+  struct  Job *j =
+      (struct  Job *)malloc(sizeof(struct  Job));
   j->type = DEFAULT;
   j->packet = NULL;
   j->in_port_index = 0;

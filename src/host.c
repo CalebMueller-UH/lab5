@@ -25,7 +25,7 @@
 ////// FILEBUFFER STUFF //////
 
 /* Initialize file buffer data structure */
-void file_buf_init(struct file_buf *f) {
+void file_buf_init(struct File_buf *f) {
   f->head = 0;
   f->tail = HOST_MAX_FILE_BUFFER;
   f->occ = 0;
@@ -35,7 +35,7 @@ void file_buf_init(struct file_buf *f) {
 /* Get the file name in the file buffer and store it in name
    Terminate the string in name with the null character
  */
-void file_buf_get_name(struct file_buf *f, char name[]) {
+void file_buf_get_name(struct File_buf *f, char name[]) {
   int i;
 
   for (i = 0; i < f->name_length; i++) {
@@ -48,7 +48,7 @@ void file_buf_get_name(struct file_buf *f, char name[]) {
  *  Put name[] into the file name in the file buffer
  *  length = the length of name[]
  */
-void file_buf_put_name(struct file_buf *f, char name[], int length) {
+void file_buf_put_name(struct File_buf *f, char name[], int length) {
   int i;
 
   for (i = 0; i < length; i++) {
@@ -60,7 +60,7 @@ void file_buf_put_name(struct file_buf *f, char name[], int length) {
 /*
  *  Add 'length' bytes n string[] to the file buffer
  */
-int file_buf_add(struct file_buf *f, char string[], int length) {
+int file_buf_add(struct File_buf *f, char string[], int length) {
   int i = 0;
 
   while (i < length && f->occ < HOST_MAX_FILE_BUFFER) {
@@ -76,7 +76,7 @@ int file_buf_add(struct file_buf *f, char string[], int length) {
  *  Remove bytes from the file buffer and store it in string[]
  *  The number of bytes is length.
  */
-int file_buf_remove(struct file_buf *f, char string[], int length) {
+int file_buf_remove(struct File_buf *f, char string[], int length) {
   int i = 0;
 
   while (i < length && f->occ > 0) {
@@ -95,7 +95,7 @@ int file_buf_remove(struct file_buf *f, char string[], int length) {
 /*
 This function reads a command from a manager port and removes the first
 character from the message. It takes in three parameters: a pointer to a struct
-man_port_at_host, an array of characters called msg, and a pointer to a
+ man_port_at_host, an array of characters called msg, and a pointer to a
 character called c. The function first reads the command from the manager port
 using the read() function and stores it in the msg array. It then loops through
 the message until it finds a non-space character, which it stores in c. It then
@@ -149,7 +149,7 @@ void reply_display_host_state(struct man_port_at_host *port, char dir[],
   write(port->send_fd, reply_msg, n);
 }
 
-int sendPacketTo(struct net_port **arr, int arrSize, struct packet *p) {
+int sendPacketTo(struct net_port **arr, int arrSize, struct Packet *p) {
   // Find which net_port entry in net_port_array has desired destination
   int destIndex = -1;
   for (int i = 0; i < arrSize; i++) {
@@ -193,17 +193,12 @@ void host_main(int host_id) {
 
   FILE *fp;
 
-  struct packet *in_packet; /* Incoming packet */
-  struct packet *new_packet;
-
   struct net_port *p;
-  struct job_struct *new_job;
-  struct job_struct *new_job2;
 
-  struct job_queue host_q;
+  struct Job_queue host_q;
 
-  struct file_buf f_buf_upload;
-  struct file_buf f_buf_download;
+  struct File_buf f_buf_upload;
+  struct File_buf f_buf_download;
 
   file_buf_init(&f_buf_upload);
   file_buf_init(&f_buf_download);
@@ -250,6 +245,7 @@ void host_main(int host_id) {
 
       switch (man_cmd) {
         case 's':
+          // Display host state
           reply_display_host_state(man_port, dir, dir_valid, host_id);
           break;
 
@@ -266,61 +262,63 @@ void host_main(int host_id) {
           }
           break;
 
-        case 'p':  // Sending ping request
-          // Create new ping request packet
+        case 'p':
+          // Send ping request
           sscanf(man_msg, "%d", &dst);
-          new_packet = (struct packet *)malloc(sizeof(struct packet));
+          struct Packet *new_packet = createBlankPacket();
           new_packet->src = (char)host_id;
           new_packet->dst = (char)dst;
           new_packet->type = (char)PKT_PING_REQ;
           new_packet->length = 0;
-          new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-          new_job->packet = new_packet;
-          new_job->type = SEND_PKT_ALL_PORTS;
-          job_enqueue(host_id, &host_q, new_job);
+          struct Job *sendPingJob = createBlankJob();
+          sendPingJob->packet = new_packet;
+          sendPingJob->type = SEND_PKT_ALL_PORTS;
+          job_enqueue(host_id, &host_q, sendPingJob);
 
-          new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
+          struct Job *waitForPingResponseJob = createBlankJob();
           ping_reply_received = 0;
-          new_job2->type = PING_WAIT_FOR_REPLY;
-          new_job2->timeToLive = 10;
-          job_enqueue(host_id, &host_q, new_job2);
+          waitForPingResponseJob->type = PING_WAIT_FOR_REPLY;
+          waitForPingResponseJob->timeToLive = 10;
+          job_enqueue(host_id, &host_q, waitForPingResponseJob);
           break;
 
         case 'u': /* Upload a file to a host */
           sscanf(man_msg, "%d %s", &dst, name);
-          new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-          new_job->type = FILE_UPLOAD_SEND;
-          new_job->file_upload_dst = dst;
+          struct Job *fileUploadJob = (struct Job *)malloc(sizeof(struct Job));
+          fileUploadJob->type = FILE_UPLOAD_SEND;
+          fileUploadJob->file_upload_dst = dst;
           for (i = 0; name[i] != '\0'; i++) {
-            new_job->fname_upload[i] = name[i];
+            fileUploadJob->fname_upload[i] = name[i];
           }
-          new_job->fname_upload[i] = '\0';
-          job_enqueue(host_id, &host_q, new_job);
+          fileUploadJob->fname_upload[i] = '\0';
+          job_enqueue(host_id, &host_q, fileUploadJob);
           break;
 
         case 'd': /* Download a file to host */
           sscanf(man_msg, "%d %s", &dst, name);
-          new_packet = (struct packet *)malloc(sizeof(struct packet));
-          new_packet->src = (char)host_id;
-          new_packet->dst = (char)dst;
-          new_packet->type = (char)PKT_FILE_DOWNLOAD_REQUEST;
-          new_packet->length = strnlen(name, MAX_DIR_NAME_LENGTH);
-          strncpy(new_packet->payload, name, MAX_DIR_NAME_LENGTH);
-          new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-          new_job->packet = new_packet;
-          new_job->type = FILE_DOWNLOAD_REQUEST;
-          job_enqueue(host_id, &host_q, new_job);
+          struct Packet *downloadRequestPkt = createBlankPacket();
+          downloadRequestPkt->src = (char)host_id;
+          downloadRequestPkt->dst = (char)dst;
+          downloadRequestPkt->type = (char)PKT_FILE_DOWNLOAD_REQUEST;
+          downloadRequestPkt->length = strnlen(name, MAX_DIR_NAME_LENGTH);
+          strncpy(downloadRequestPkt->payload, name, MAX_DIR_NAME_LENGTH);
+          struct Job *downloadRequestJob = createBlankJob();
+          downloadRequestJob->packet = downloadRequestPkt;
+          downloadRequestJob->type = FILE_DOWNLOAD_REQUEST;
+          job_enqueue(host_id, &host_q, downloadRequestJob);
           break;
 
         default:;
       }
+      // Release semaphore console_print_access once commands have been executed
       sem_signal(&console_print_access);
     }
 
     /////// Receive In-Coming packet and translate it to job //////
     for (k = 0; k < node_port_array_size; k++) {
-      in_packet = (struct packet *)malloc(sizeof(struct packet));
+      struct Packet *in_packet = createBlankPacket();
       n = packet_recv(node_port_array[k], in_packet);
+
       if ((n > 0) && ((int)in_packet->dst == host_id)) {
 #ifdef DEBUG
         colorPrint(YELLOW,
@@ -329,7 +327,8 @@ void host_main(int host_id) {
                    host_id, (int)in_packet->dst,
                    get_packet_type_literal(in_packet->type));
 #endif
-        new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
+
+        struct Job *new_job = createBlankJob();
         new_job->in_port_index = k;
         new_job->packet = in_packet;
 
@@ -340,8 +339,8 @@ void host_main(int host_id) {
             break;
 
           case (char)PKT_PING_REPLY:
-            free(in_packet);
             ping_reply_received = 1;
+            free(in_packet);
             free(new_job);
             new_job = NULL;
             break;
@@ -357,8 +356,12 @@ void host_main(int host_id) {
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQUEST:
-            // Sanitize packet payload to ensure it's null terminated
-            in_packet->payload[in_packet->length] = '\0';
+            // Grab payload from in_packet
+            char msg[PKT_PAYLOAD_MAX] = {0};
+            strncpy(msg, in_packet->payload, PKT_PAYLOAD_MAX);
+            // Sanitize msg to ensure it's null terminated
+            int endIndex = in_packet->length;
+            in_packet->payload[endIndex] = '\0';
             // Check to see if file exists
             char filepath[MAX_DIR_NAME_LENGTH + PKT_PAYLOAD_MAX];
             sprintf(filepath, "%s/%s", dir, in_packet->payload);
@@ -404,7 +407,7 @@ void host_main(int host_id) {
     //////////// FETCH JOB FROM QUEUE ////////////
     if (job_queue_length(&host_q) > 0) {
       /* Get a new job from the job queue */
-      new_job = job_dequeue(host_id, &host_q);
+      struct Job *new_job = job_dequeue(host_id, &host_q);
 
       //////////// EXECUTE FETCHED JOB ////////////
       switch (new_job->type) {
@@ -419,16 +422,16 @@ void host_main(int host_id) {
 
         case PING_SEND_REPLY:
           /* Create ping reply packet */
-          new_packet = (struct packet *)malloc(sizeof(struct packet));
-          new_packet->dst = new_job->packet->src;
-          new_packet->src = (char)host_id;
-          new_packet->type = PKT_PING_REPLY;
-          new_packet->length = 0;
+          struct Packet *ping_reply_pkt = createBlankPacket();
+          ping_reply_pkt->dst = new_job->packet->src;
+          ping_reply_pkt->src = (char)host_id;
+          ping_reply_pkt->type = PKT_PING_REPLY;
+          ping_reply_pkt->length = 0;
 
           /* Create job for the ping reply */
-          new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
+          struct Job *new_job2 = (struct Job *)malloc(sizeof(struct Job));
           new_job2->type = SEND_PKT_ALL_PORTS;
-          new_job2->packet = new_packet;
+          new_job2->packet = ping_reply_pkt;
 
           /* Enter job in the job queue */
           job_enqueue(host_id, &host_q, new_job2);
@@ -474,7 +477,8 @@ void host_main(int host_id) {
                * Create first packet which
                * has the file name
                */
-              new_packet = (struct packet *)malloc(sizeof(struct packet));
+              struct Packet *new_packet =
+                  (struct Packet *)malloc(sizeof(struct Packet));
               new_packet->dst = new_job->file_upload_dst;
               new_packet->src = (char)host_id;
               new_packet->type = PKT_FILE_UPLOAD_START;
@@ -486,7 +490,7 @@ void host_main(int host_id) {
                * Create a job to send the packet
                * and put it in the job queue
                */
-              new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
+              new_job2 = (struct Job *)malloc(sizeof(struct Job));
               new_job2->type = SEND_PKT_ALL_PORTS;
               new_job2->packet = new_packet;
               job_enqueue(host_id, &host_q, new_job2);
@@ -494,7 +498,7 @@ void host_main(int host_id) {
                * Create the second packet which
                * has the file contents
                */
-              new_packet = (struct packet *)malloc(sizeof(struct packet));
+              new_packet = (struct Packet *)malloc(sizeof(struct Packet));
               new_packet->dst = new_job->file_upload_dst;
               new_packet->src = (char)host_id;
               new_packet->type = PKT_FILE_UPLOAD_END;
@@ -510,7 +514,7 @@ void host_main(int host_id) {
                * and put the job in the job queue
                */
 
-              new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
+              new_job2 = (struct Job *)malloc(sizeof(struct Job));
               new_job2->type = SEND_PKT_ALL_PORTS;
               new_job2->packet = new_packet;
               job_enqueue(host_id, &host_q, new_job2);

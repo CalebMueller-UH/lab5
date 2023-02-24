@@ -6,7 +6,7 @@ semaphore.h
 
 #include <stddef.h>
 
-typedef struct {
+typedef struct  {
   int value;
 } binary_semaphore;
 

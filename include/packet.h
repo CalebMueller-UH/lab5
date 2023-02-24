@@ -15,7 +15,7 @@
 #define PKT_FILE_DOWNLOAD_REQUEST 5
 #define PKT_REQUEST_RESPONSE 6
 
-struct packet { /* struct for a packet */
+struct  Packet { /* struct  for a packet */
   char src;
   char dst;
   char type;
@@ -24,16 +24,22 @@ struct packet { /* struct for a packet */
 };
 
 // Forward declaration, defined in net.h
-struct net_port;
+struct  net_port;
 
-// receive packet on port
-int packet_recv(struct net_port *port, struct packet *p);
+/* Sends a network packet through a pipe or socket by parsing the packet into a
+ * message buffer and then sending it. */
+int packet_recv(struct  net_port *port, struct  Packet *p);
 
-// send packet on port
-void packet_send(struct net_port *port, struct packet *p);
+/* Receives a network packet through a pipe or socket by reading a message
+ * buffer and then parsing it into a packet. */
+void packet_send(struct  net_port *port, struct  Packet *p);
 
-struct packet *createBlankPacket();
+/* Allocates memory for a new packet and initializes it to zeros. */
+struct  Packet *createBlankPacket();
 
+/* Returns a string representation of the packet type. */
 char *get_packet_type_literal(int pktType);
 
-void printPacket(struct packet *p);
+/* Prints the contents of a packet with its source, destination, type, length,
+ * and payload. */
+void printPacket(struct  Packet *p);
