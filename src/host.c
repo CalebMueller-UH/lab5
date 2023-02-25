@@ -22,56 +22,6 @@
 #include "packet.h"
 #include "semaphore.h"
 
-///////////////////////////////////////////////
-////////////// RESPONSE STUFF /////////////////
-// An issued request is contingent on a response
-// Multiple requests may be issued simultaneously
-// Must track all requests that have been made, and their status
-struct Response {
-  int id;
-  int req_type;
-  int timeToLive;
-  struct Response *next;
-};
-
-struct Response *createResponse(int id, int req_type, int ttl) {
-  struct Response *r = (struct Response *)malloc(sizeof(struct Response));
-  r->id = id;
-  r->req_type = req_type;
-  r->timeToLive = ttl;
-  r->next = NULL;
-  return r;
-}
-
-// Add a new Response node to the beginning of the linked list
-void addToResList(struct Response *list, struct Response *add) {
-  add->next = list;
-  list = add;
-}
-
-// Remove and free response in list with id matching idToDelete
-void deleteFromResList(struct Response **list, int idToDelete) {
-  struct Response *prev = NULL;
-  struct Response *curr = *list;
-  while (curr != NULL && curr->id != idToDelete) {
-    prev = curr;
-    curr = curr->next;
-  }
-  if (curr == NULL) {
-    return;  // element not found in list
-  }
-  if (prev == NULL) {
-    *list = curr->next;
-  } else {
-    prev->next = curr->next;
-  }
-  curr->next = NULL;
-  free(curr);
-}
-
-////////////// RESPONSE STUFF /////////////////
-///////////////////////////////////////////////
-
 //////////////////////////////
 ////// FILEBUFFER STUFF //////
 
