@@ -83,16 +83,18 @@ void job_queue_init(struct Job_queue *j_q) {
 /* Returns the number of jobs in a job queue. */
 int job_queue_length(struct Job_queue *j_q) { return j_q->occ; }
 
-struct Job *createBlankJob() {
+struct Job *createJob(enum job_type type, struct Packet *packet) {
+  struct Job *j = createEmptyJob();
+  j->type = type;
+  j->packet = packet;
+  return j;
+}
+
+struct Job *createEmptyJob() {
   struct Job *j = (struct Job *)malloc(sizeof(struct Job));
   j->type = JOB_DEFAULT;
   j->packet = NULL;
-  j->in_port_index = 0;
-  j->out_port_index = 0;
-  memset(j->fname_download, 0, sizeof(j->fname_download));
-  memset(j->fname_upload, 0, sizeof(j->fname_upload));
-  j->timeToLive = 0;
-  j->file_upload_dst = 0;
+  j->request = NULL;
   j->next = NULL;
   return j;
 }

@@ -75,8 +75,20 @@ int packet_recv(struct Net_port *port, struct Packet *p) {
   return (bytesRead);
 }
 
+// Creates a packet using passed in argument values
+struct Packet *createPacket(int src, int dst, int type, int length,
+                            char *payload) {
+  struct Packet *p = createEmptyPacket();
+  p->src = src;
+  p->dst = dst;
+  p->type = type;
+  p->length = length;
+  strncat(p->payload, payload, PACKET_PAYLOAD_MAX);
+  return p;
+}
+
 /* Allocates memory for a new packet and initializes it to zeros. */
-struct Packet *createBlankPacket() {
+struct Packet *createEmptyPacket() {
   struct Packet *p = (struct Packet *)malloc(sizeof(struct Packet));
   memset(&p->dst, 0, sizeof(p->dst));
   memset(&p->src, 0, sizeof(p->src));

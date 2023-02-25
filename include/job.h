@@ -25,15 +25,13 @@ struct Job_queue {
   int occ;
 };
 
+// Forward declaration
+struct Request;
+
 struct Job {
   enum job_type type;
   struct Packet *packet;
-  int in_port_index;
-  int out_port_index;
-  char fname_download[100];
-  char fname_upload[100];
-  int timeToLive;
-  int file_upload_dst;
+  struct Request *request;
   struct Job *next;
 };
 
@@ -53,6 +51,8 @@ void job_queue_init(struct Job_queue *j_q);
 /* Returns the number of jobs in a job queue.*/
 int job_queue_length(struct Job_queue *j_q);
 
-/* Allocates memory for a new job, initializes its fields with default values,
- * and returns a pointer to it.*/
-struct Job *createBlankJob();
+struct Job *createJob(enum job_type type, struct Packet *packet);
+
+/* Allocates memory for a new job, initializes its fields with default
+ * values, and returns a pointer to it.*/
+struct Job *createEmptyJob();

@@ -44,63 +44,46 @@ int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
-  /* Initialize State */
+  ////// Initialize state of host //////
   char hostDirectory[MAX_FILENAME_LENGTH];
-
   char man_msg[MAX_MSG_LENGTH];
   char man_reply_msg[MAX_MSG_LENGTH];
   char man_cmd;
-  struct Man_port_at_host *man_port;  // Port to the manager
 
-  struct Net_port *node_port_list;
-  struct Net_port **node_port_array;  // Array of pointers to node ports
-  int node_port_array_size;           // Number of node ports
-
-  int ping_reply_received;
-
-  // Flag for communicating upload is due to a download request
-  int downloadRequestFlag = 0;
-
-  char string[PACKET_PAYLOAD_MAX + 1];
-
-  FILE *fp;
-
-  struct Net_port *p;
-
-  struct Job_queue host_q;
-
+  // Initialize file buffer
   struct File_buf f_buf_upload;
   struct File_buf f_buf_download;
-
   file_buf_init(&f_buf_upload);
   file_buf_init(&f_buf_download);
 
   /* Initialize pipes, Get link port to the manager */
+  struct Man_port_at_host *man_port;  // Port to the manager
   man_port = net_get_host_port(host_id);
 
-  /*
-   * Create an array node_port_array[ ] to store the network link ports
-   * at the host.  The number of ports is node_port_array_size
-   */
+  // Initialize node_port_array
+  struct Net_port *node_port_list;
+  struct Net_port **node_port_array;  // Array of pointers to node ports
+  int node_port_array_size;           // Number of node ports
   node_port_list = net_get_port_list(host_id);
-
   /*  Count the number of network link ports */
   node_port_array_size = 0;
-  for (p = node_port_list; p != NULL; p = p->next) {
+  for (struct Net_port *p = node_port_list; p != NULL; p = p->next) {
     node_port_array_size++;
   }
   /* Create memory space for the array */
   node_port_array = (struct Net_port **)malloc(node_port_array_size *
                                                sizeof(struct Net_port *));
-
   /* Load ports into the array */
-  p = node_port_list;
-  for (int portNum = 0; portNum < node_port_array_size; portNum++) {
-    node_port_array[portNum] = p;
-    p = p->next;
+  {
+    struct Net_port *p = node_port_list;
+    for (int portNum = 0; portNum < node_port_array_size; portNum++) {
+      node_port_array[portNum] = p;
+      p = p->next;
+    }
   }
 
   /* Initialize the job queue */
+  struct Job_queue host_q;
   job_queue_init(&host_q);
 
   /* Initialize response list */
@@ -115,6 +98,8 @@ void host_main(int host_id) {
     /* Execute command */
     if (n > 0) {
       sem_wait(&console_print_access);
+
+      printf("man_msg: %s\n", man_msg);
 
       switch (man_cmd) {
         case 's':
@@ -135,7 +120,18 @@ void host_main(int host_id) {
           }
           break;
         case 'p':
-          // Have active Host ping another host
+          ////// Have active Host ping another host //////
+          // Get destination from man_msg
+          int dst;
+          sscanf(man_msg, "%d", &dst);
+          // Generate a ping request packet
+          char *payload = "PING";
+          int payloadLen = strlen(payload);
+          struct Packet *pingReqPkt =
+              createPacket(host_id, dst, PKT_REQ, payloadLen, payload);
+          // Generate a job and put ping request packet inside
+          struct Job *pingReqJob = createJob(JOB_SEND_PKT, pingReqPkt);
+          job_enqueue(host_id, &host_q, pingReqJob);
           break;
         case 'u':
           // Upload a file from active host to another host
@@ -156,7 +152,7 @@ void host_main(int host_id) {
     ////////////////////////////// PACKET HANDLER //////////////////////////////
     for (int portNum = 0; portNum < node_port_array_size; portNum++) {
       // Receive packets for all ports in node_port_array
-      struct Packet *received_packet = createBlankPacket();
+      struct Packet *received_packet = createEmptyPacket();
       n = packet_recv(node_port_array[portNum], received_packet);
 
       // if portNum has received a packet, translate the packet into a job
@@ -168,8 +164,7 @@ void host_main(int host_id) {
                    host_id, (int)received_packet->dst,
                    get_packet_type_literal(received_packet->type));
 #endif
-        struct Job *job_from_pkt = createBlankJob();
-        job_from_pkt->in_port_index = portNum;
+        struct Job *job_from_pkt = createEmptyJob();
         job_from_pkt->packet = received_packet;
 
         switch (received_packet->type) {
