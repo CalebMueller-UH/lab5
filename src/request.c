@@ -4,9 +4,11 @@ request.c
 
 #include "request.h"
 
-struct Request *createRequest(int id, int req_type, int ttl) {
+int CURRENT_REQUEST_TICKET = 0;
+
+struct Request *createRequest(int ticket, int req_type, int ttl) {
   struct Request *r = (struct Request *)malloc(sizeof(struct Request));
-  r->id = id;
+  r->ticket = ticket;
   r->req_type = req_type;
   r->timeToLive = ttl;
   r->next = NULL;
@@ -19,11 +21,11 @@ void addToReqList(struct Request *list, struct Request *add) {
   list = add;
 }
 
-// Remove and free response in list with id matching idToDelete
+// Remove and free response in list with ticket matching idToDelete
 void deleteFromReqList(struct Request **list, int idToDelete) {
   struct Request *prev = NULL;
   struct Request *curr = *list;
-  while (curr != NULL && curr->id != idToDelete) {
+  while (curr != NULL && curr->ticket != idToDelete) {
     prev = curr;
     curr = curr->next;
   }
