@@ -6,19 +6,9 @@
 
 #include <stdio.h>
 
-#include "common.h"
+#include "constants.h"
 
-#define TENMILLISEC 10000 /* 10 millisecond sleep */
-
-struct  File_buf {
-  char name[MAX_FILENAME_LENGTH];
-  int name_length;
-  char buffer[HOST_MAX_FILE_BUFFER + 1];
-  int head;
-  int tail;
-  int occ;
-  FILE *fd;
-};
+#define LOOP_SLEEP_TIME_MS 10000 /* 10 millisecond sleep */
 
 int isValidDirectory(const char *path);
 

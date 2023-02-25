@@ -16,7 +16,7 @@
 #include "semaphore.h"
 
 #define MAX_NUM_ROUTES 100
-#define TENMILLISEC 10000
+#define LOOP_SLEEP_TIME_MS 10000
 
 struct Packet *in_packet; /* Incoming packet */
 struct Packet *new_packet;
@@ -141,7 +141,7 @@ void switch_main(int switch_id) {
         } else {
           // enqueue a JOB_FORWARD_PACKET_TO_PORT job forward the current
           // in_packet to the associated port
-          new_job->type = JOB_FORWARD_PACKET_TO_PORT;
+          new_job->type = JOB_FORWARD_PKT;
           new_job->out_port_index = dstIndex;
           job_enqueue(switch_id, &switch_q, new_job);
         }
@@ -161,7 +161,7 @@ void switch_main(int switch_id) {
           broadcastToAllButSender(new_job, routingTable, node_port_array,
                                   node_port_array_size);
           break;
-        case JOB_FORWARD_PACKET_TO_PORT:
+        case JOB_FORWARD_PKT:
           packet_send(node_port_array[new_job->out_port_index],
                       new_job->packet);
           break;
@@ -171,7 +171,7 @@ void switch_main(int switch_id) {
       free(new_job);
     }
     /* The host goes to sleep for 10 ms */
-    usleep(TENMILLISEC);
+    usleep(LOOP_SLEEP_TIME_MS);
   } /* End of while loop */
 
   /* Free dynamically allocated memory */

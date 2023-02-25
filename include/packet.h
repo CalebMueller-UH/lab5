@@ -4,17 +4,19 @@
 
 #pragma once
 
-#include "common.h"
+#include "constants.h"
 
 /* Types of packets */
-#define PKT_PING_REQ 0
-#define PKT_PING_RESPONSE 1
-#define PKT_FILE_UPLOAD_REQ 2
-#define PKT_FILE_UPLOAD_START 3
-#define PKT_FILE_UPLOAD_CONTINUE 4
-#define PKT_FILE_UPLOAD_END 5
-#define PKT_FILE_DOWNLOAD_REQ 6
-#define PKT_REQUEST_RESPONSE 7
+typedef enum {
+  PKT_PING_REQ,
+  PKT_PING_RESPONSE,
+  PKT_FILE_UPLOAD_REQ,
+  PKT_FILE_UPLOAD_START,
+  PKT_FILE_UPLOAD_CONTINUE,
+  PKT_FILE_UPLOAD_END,
+  PKT_FILE_DOWNLOAD_REQ,
+  PKT_REQUEST_RESPONSE
+} packet_type;
 
 struct Packet {
   char src;

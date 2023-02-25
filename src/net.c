@@ -36,6 +36,9 @@
 #include "packet.h"
 #include "socket.h"
 
+#define PIPE_WRITE 1
+#define PIPE_READ 0
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////// PRIVATE GLOBAL VARIABLES FOR NET.C /////////////////////
 bool g_initialized = false; /* Network initialized? */

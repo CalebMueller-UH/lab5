@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "manager.h": "c",
-        "common.h": "c"
+        "constants.h": "c",
+        "dirent.h": "c",
+        "string.h": "c"
     }
 }

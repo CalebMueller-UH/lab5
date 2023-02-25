@@ -4,7 +4,7 @@ socket.h
 
 #pragma once
 
-#include "common.h"
+#include "constants.h"
 
 int sock_server_init(const char* localDomain, const int localPort);
 

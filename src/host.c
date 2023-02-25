@@ -15,71 +15,15 @@
 #include <unistd.h>
 
 #include "color.h"
+#include "filebuf.h"
 #include "job.h"
-#include "main.h"
 #include "manager.h"
 #include "net.h"
 #include "packet.h"
+#include "request.h"
 #include "semaphore.h"
 
-//////////////////////////////
-////// FILEBUFFER STUFF //////
-
-/* Initialize file buffer data structure */
-void file_buf_init(struct File_buf *f) {
-  f->head = 0;
-  f->tail = HOST_MAX_FILE_BUFFER;
-  f->occ = 0;
-  f->name_length = 0;
-}
-
-/* Get the file name in the file buffer and store it in name
-   Terminate the string in name with the null character
- */
-void file_buf_get_name(struct File_buf *f, char name[]) {
-  strncpy(name, f->name, f->name_length);
-  name[f->name_length] = '\0';
-}
-
-void file_buf_put_name(struct File_buf *f, char *name, int length) {
-  strncpy(f->name, name, length);
-  f->name_length = length;
-}
-
-/*
- *  Add 'length' bytes n string[] to the file buffer
- */
-int file_buf_add(struct File_buf *f, char string[], int length) {
-  int i = 0;
-
-  while (i < length && f->occ < HOST_MAX_FILE_BUFFER) {
-    f->tail = (f->tail + 1) % (HOST_MAX_FILE_BUFFER + 1);
-    f->buffer[f->tail] = string[i];
-    i++;
-    f->occ++;
-  }
-  return (i);
-}
-
-/*
- *  Remove bytes from the file buffer and store it in string[]
- *  The number of bytes is length.
- */
-int file_buf_remove(struct File_buf *f, char string[], int length) {
-  int i = 0;
-
-  while (i < length && f->occ > 0) {
-    string[i] = f->buffer[f->head];
-    f->head = (f->head + 1) % (HOST_MAX_FILE_BUFFER + 1);
-    i++;
-    f->occ--;
-  }
-
-  return (i);
-}
-
-////// FILEBUFFER STUFF //////
-//////////////////////////////
+#define MAX_MSG_LENGTH 100
 
 /*
 This function reads a command from a manager port and removes the first
@@ -97,9 +41,8 @@ int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
   int i;
   int portNum;
 
-  n = read(port->recv_fd, msg,
-           MAN_MAX_MSG_LENGTH); /* Get command from manager */
-  if (n > 0) {                  /* Remove the first char from "msg" */
+  n = read(port->recv_fd, msg, MAX_MSG_LENGTH); /* Get command from manager */
+  if (n > 0) { /* Remove the first char from "msg" */
     for (i = 0; msg[i] == ' ' && i < n; i++)
       ;
     *c = msg[i];
@@ -139,13 +82,12 @@ void reply_display_host_state(struct Man_port_at_host *port,
                               char hostDirectory[], int dir_valid,
                               int host_id) {
   int n;
-  char reply_msg[HOST_MAX_MSG_LENGTH];
+  char reply_msg[MAX_MSG_LENGTH];
 
   if (isValidDirectory(hostDirectory)) {
-    n = snprintf(reply_msg, HOST_MAX_MSG_LENGTH, "%s %d", hostDirectory,
-                 host_id);
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "%s %d", hostDirectory, host_id);
   } else {
-    n = snprintf(reply_msg, HOST_MAX_MSG_LENGTH, "\033[1;31mNone %d\033[0m",
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\033[1;31mNone %d\033[0m",
                  host_id);
   }
 
@@ -177,8 +119,8 @@ void host_main(int host_id) {
   /* Initialize State */
   char hostDirectory[MAX_FILENAME_LENGTH];
 
-  char man_msg[MAN_MAX_MSG_LENGTH];
-  char man_reply_msg[MAN_MAX_MSG_LENGTH];
+  char man_msg[MAX_MSG_LENGTH];
+  char man_reply_msg[MAX_MSG_LENGTH];
   char man_cmd;
   struct Man_port_at_host *man_port;  // Port to the manager
 
@@ -304,71 +246,24 @@ void host_main(int host_id) {
 
         switch (received_packet->type) {
           case (char)PKT_PING_REQ:
-            job_from_pkt->type = JOB_PING_REPLY;
-            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           case (char)PKT_PING_RESPONSE:
-            ping_reply_received = 1;
-            free(received_packet);
-            free(job_from_pkt);
-            job_from_pkt = NULL;
             break;
 
           case (char)PKT_FILE_UPLOAD_START:
-            job_from_pkt->type = JOB_FILE_RECV_START;
-            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           case (char)PKT_FILE_UPLOAD_END:
-            job_from_pkt->type = JOB_FILE_RECV_END;
-            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           case (char)PKT_FILE_DOWNLOAD_REQ:
-            // Grab payload from received_packet
-            char msg[PACKET_PAYLOAD_MAX] = {0};
-            strncpy(msg, received_packet->payload, PACKET_PAYLOAD_MAX);
-            // Sanitize msg to ensure it is null terminated
-            int endIndex = received_packet->length;
-            received_packet->payload[endIndex] = '\0';
-
-            // Check to see if file exists
-            char filepath[MAX_FILENAME_LENGTH + PACKET_PAYLOAD_MAX];
-            sprintf(filepath, "%s/%s", hostDirectory, received_packet->payload);
-            if (!isValidFile(filepath)) {
-              // File does not exist
-              job_from_pkt->type = JOB_SEND_REQ_RESPONSE;
-              job_from_pkt->packet->dst = received_packet->src;
-              job_from_pkt->packet->src = host_id;
-              job_from_pkt->packet->type = PKT_REQUEST_RESPONSE;
-              const char *response = "File does not exist\0";
-              job_from_pkt->packet->length = strlen(response);
-              strncpy(job_from_pkt->packet->payload, response,
-                      strlen(response));
-              job_enqueue(host_id, &host_q, job_from_pkt);
-            } else {
-              // File exists, start file upload
-              job_from_pkt->type = JOB_FILE_UPLOAD_SEND;
-              job_from_pkt->file_upload_dst = received_packet->src;
-              strncpy(job_from_pkt->fname_upload, received_packet->payload,
-                      MAX_FILENAME_LENGTH);
-              job_from_pkt->fname_upload[strnlen(received_packet->payload,
-                                                 MAX_FILENAME_LENGTH)] = '\0';
-              job_enqueue(host_id, &host_q, job_from_pkt);
-            }
             break;
 
           case (char)PKT_REQUEST_RESPONSE:
-            job_from_pkt->type = JOB_DISPLAY_REQ_RESPONSE;
-            job_from_pkt->packet = received_packet;
-            job_enqueue(host_id, &host_q, job_from_pkt);
             break;
 
           default:
-            free(received_packet);
-            free(job_from_pkt);
-            job_from_pkt = NULL;
         }
       } else {
         free(received_packet);
@@ -402,7 +297,7 @@ void host_main(int host_id) {
     ////////////////////////////////////////////////////////////////////////////
 
     /* The host goes to sleep for 10 ms */
-    usleep(TENMILLISEC);
+    usleep(LOOP_SLEEP_TIME_MS);
 
   } /* End of while loop */
 }

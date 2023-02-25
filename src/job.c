@@ -17,31 +17,25 @@ char *get_job_type_literal(enum job_type t) {
   switch (t) {
     case JOB_DEFAULT:
       return "JOB_DEFAULT";
+    case JOB_SEND_PKT:
+      return "JOB_SEND_PKT";
     case JOB_BROADCAST_PKT:
       return "JOB_BROADCAST_PKT";
-    case JOB_PING_REQ:
-      return "JOB_PING_REQ";
-    case JOB_PING_REPLY:
-      return "JOB_PING_REPLY";
+    case JOB_FORWARD_PKT:
+      return "JOB_FORWARD_PKT";
+    case JOB_SEND_REQUEST:
+      return "JOB_SEND_REQUEST";
+    case JOB_SEND_RESPONSE:
+      return "JOB_SEND_RESPONSE";
     case JOB_WAIT_FOR_RESPONSE:
       return "JOB_WAIT_FOR_RESPONSE";
-    case JOB_FILE_UPLOAD_REQ:
-      return "JOB_FILE_UPLOAD_REQ";
     case JOB_FILE_UPLOAD_SEND:
       return "JOB_FILE_UPLOAD_SEND";
     case JOB_FILE_RECV_START:
       return "JOB_FILE_RECV_START";
     case JOB_FILE_RECV_END:
       return "JOB_FILE_RECV_END";
-    case JOB_FILE_DOWNLOAD_REQUEST:
-      return "JOB_FILE_DOWNLOAD_REQUEST";
-    case JOB_SEND_REQ_RESPONSE:
-      return "JOB_SEND_REQ_RESPONSE";
-    case JOB_DISPLAY_REQ_RESPONSE:
-      return "JOB_DISPLAY_REQ_RESPONSE";
-    case JOB_FORWARD_PACKET_TO_PORT:
-      return "JOB_FORWARD_PACKET_TO_PORT";
-  }
+  };
   return "UNKNOWN_JOB_TYPE";
 }
 

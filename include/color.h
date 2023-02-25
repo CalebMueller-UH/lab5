@@ -4,7 +4,7 @@ color.h
 
 #pragma once
 
-#include "common.h"
+#include "constants.h"
 
 typedef enum {
   RED,

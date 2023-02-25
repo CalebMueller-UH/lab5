@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "constants.h"
 
 /*
  *  The next two structs are ports used to transfer commands

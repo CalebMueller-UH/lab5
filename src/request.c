@@ -4,11 +4,14 @@ request.c
 
 #include "request.h"
 
-int CURRENT_REQUEST_TICKET = 0;
+#include <stdlib.h>
+#include <time.h>
 
-struct Request *createRequest(int ticket, int req_type, int ttl) {
+struct Request *createRequest(int req_type, int ttl) {
   struct Request *r = (struct Request *)malloc(sizeof(struct Request));
-  r->ticket = ticket;
+  time_t t = time(NULL);  // Get Unix epoch time
+
+  r->ticket = ((int)t) % 10000;
   r->req_type = req_type;
   r->timeToLive = ttl;
   r->next = NULL;
@@ -39,4 +42,11 @@ void deleteFromReqList(struct Request **list, int idToDelete) {
   }
   curr->next = NULL;
   free(curr);
+}
+
+void tickRequestList(struct Request *list) {
+  struct Request *h;
+  for (h = list; h != NULL; h = h->next) {
+    h->timeToLive--;
+  }
 }

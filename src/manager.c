@@ -101,8 +101,8 @@ void display_host(struct Man_port_at_man *list,
  * Then display on the console.
  */
 void display_host_state(struct Man_port_at_man *curr_host) {
-  char msg[MAN_MAX_MSG_LENGTH];
-  char reply[MAN_MAX_MSG_LENGTH];
+  char msg[MAX_MSG_LENGTH];
+  char reply[MAX_MSG_LENGTH];
   char dir[MAX_FILENAME_LENGTH];
   int host_id;
   int n;
@@ -112,8 +112,8 @@ void display_host_state(struct Man_port_at_man *curr_host) {
 
   n = 0;
   while (n <= 0) {
-    usleep(TENMILLISEC);
-    n = read(curr_host->recv_fd, reply, MAN_MAX_MSG_LENGTH);
+    usleep(LOOP_SLEEP_TIME_MS);
+    n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
   reply[n] = '\0';
   sscanf(reply, "%s %d", dir, &host_id);
@@ -123,12 +123,12 @@ void display_host_state(struct Man_port_at_man *curr_host) {
 
 void set_host_dir(struct Man_port_at_man *curr_host) {
   char name[MAX_FILENAME_LENGTH];
-  char msg[MAN_MAX_MSG_LENGTH];
+  char msg[MAX_MSG_LENGTH];
   int n;
 
   colorPrint(CYAN, "Enter directory name: ");
   scanf("%s", name);
-  n = snprintf(msg, MAN_MAX_MSG_LENGTH, "m %s", name);
+  n = snprintf(msg, MAX_MSG_LENGTH, "m %s", name);
   write(curr_host->send_fd, msg, n);
 }
 
@@ -145,21 +145,21 @@ void set_host_dir(struct Man_port_at_man *curr_host) {
  */
 
 void ping(struct Man_port_at_man *curr_host) {
-  char msg[MAN_MAX_MSG_LENGTH];
-  char reply[MAN_MAX_MSG_LENGTH];
+  char msg[MAX_MSG_LENGTH];
+  char reply[MAX_MSG_LENGTH];
   int host_to_ping;
   int n;
 
   colorPrint(CYAN, "Enter id of host to ping: ");
   scanf("%d", &host_to_ping);
-  n = snprintf(msg, MAN_MAX_MSG_LENGTH, "p %d", host_to_ping);
+  n = snprintf(msg, MAX_MSG_LENGTH, "p %d", host_to_ping);
 
   write(curr_host->send_fd, msg, n);
 
   n = 0;
   while (n <= 0) {
-    usleep(TENMILLISEC);
-    n = read(curr_host->recv_fd, reply, MAN_MAX_MSG_LENGTH);
+    usleep(LOOP_SLEEP_TIME_MS);
+    n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
   reply[n] = '\0';
   colorPrint(CYAN, "%s\n", reply);
@@ -182,7 +182,7 @@ int file_upload(struct Man_port_at_man *curr_host) {
   int n;
   int host_id;
   char name[MAX_FILENAME_LENGTH];
-  char msg[MAN_MAX_MSG_LENGTH];
+  char msg[MAX_MSG_LENGTH];
 
   colorPrint(CYAN, "Enter file name to upload: ");
   scanf("%s", name);
@@ -190,9 +190,9 @@ int file_upload(struct Man_port_at_man *curr_host) {
   scanf("%d", &host_id);
   printf("\n");
 
-  n = snprintf(msg, MAN_MAX_MSG_LENGTH, "u %d %s", host_id, name);
+  n = snprintf(msg, MAX_MSG_LENGTH, "u %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
-  usleep(TENMILLISEC);
+  usleep(LOOP_SLEEP_TIME_MS);
 }
 
 /*
@@ -212,7 +212,7 @@ int file_download(struct Man_port_at_man *curr_host) {
   int n;
   int host_id;
   char name[MAX_FILENAME_LENGTH];
-  char msg[MAN_MAX_MSG_LENGTH];
+  char msg[MAX_MSG_LENGTH];
 
   colorPrint(CYAN, "Enter file name to download: ");
   scanf("%s", name);
@@ -220,9 +220,9 @@ int file_download(struct Man_port_at_man *curr_host) {
   scanf("%d", &host_id);
   printf("\n");
 
-  n = snprintf(msg, MAN_MAX_MSG_LENGTH, "d %d %s", host_id, name);
+  n = snprintf(msg, MAX_MSG_LENGTH, "d %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
-  usleep(TENMILLISEC);
+  usleep(LOOP_SLEEP_TIME_MS);
 }
 
 /*****************************
