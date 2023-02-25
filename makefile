@@ -52,8 +52,11 @@ clean:
 	$(foreach file, $(wildcard TestDir1/*), \
 		$(if $(filter $(notdir $(file)), $(TD1_FILES)), , rm -f $(file)))
 
+clear:
+	clear
+	
 # Rule to regenerate object files and executable
-regen: clean $(EXECUTABLE) 
+regen: clear clean $(EXECUTABLE) 
 
 # Rule to run the executable with the default configuration
 run: $(EXECUTABLE)

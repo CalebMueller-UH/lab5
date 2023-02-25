@@ -246,6 +246,49 @@ int isValidFile(const char *path) {
   }
 }
 
+/*
+Function reads a manager port command using read(), removes the 1st non-space
+character and stores it in c. The rest of the message is copied to msg, with a
+null terminator added at the end. The function returns the number of bytes read.
+*/
+int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
+  int n;
+  int i;
+  int portNum;
+
+  n = read(port->recv_fd, msg, MAX_MSG_LENGTH); /* Get command from manager */
+  if (n > 0) { /* Remove the first char from "msg" */
+    for (i = 0; msg[i] == ' ' && i < n; i++)
+      ;
+    *c = msg[i];
+    i++;
+    for (; msg[i] == ' ' && i < n; i++)
+      ;
+    for (portNum = 0; portNum + i < n; portNum++) {
+      msg[portNum] = msg[portNum + i];
+    }
+    msg[portNum] = '\0';
+  }
+  return n;
+}
+
+/* Send back state of the host to the manager as a text message */
+void reply_display_host_state(struct Man_port_at_host *port,
+                              char hostDirectory[], int dir_valid,
+                              int host_id) {
+  int n;
+  char reply_msg[MAX_MSG_LENGTH];
+
+  if (isValidDirectory(hostDirectory)) {
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "%s %d", hostDirectory, host_id);
+  } else {
+    n = snprintf(reply_msg, MAX_MSG_LENGTH, "\033[1;31mNone %d\033[0m",
+                 host_id);
+  }
+
+  write(port->send_fd, reply_msg, n);
+}
+
 /*****************************
  * Main loop of the manager  *
  *****************************/
