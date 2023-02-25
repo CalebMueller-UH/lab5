@@ -21,7 +21,7 @@ struct Packet {
   char dst;
   char type;
   int length;
-  char payload[PKT_PAYLOAD_MAX];
+  char payload[PACKET_PAYLOAD_MAX];
 };
 
 // Forward declaration, defined in net.h

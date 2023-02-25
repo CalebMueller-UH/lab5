@@ -21,7 +21,7 @@
 /* Sends a network packet through a pipe or socket by parsing the packet into a
  * message buffer and then sending it. */
 void packet_send(struct Net_port *port, struct Packet *p) {
-  char pkt[PKT_PAYLOAD_MAX + 4];
+  char pkt[PACKET_PAYLOAD_MAX + 4];
   int bytesSent = -1;
 
   // Parse Packet
@@ -49,15 +49,15 @@ void packet_send(struct Net_port *port, struct Packet *p) {
 /* Receives a network packet through a pipe or socket by reading a message
  * buffer and then parsing it into a packet. */
 int packet_recv(struct Net_port *port, struct Packet *p) {
-  char pkt[PKT_PAYLOAD_MAX + 4];
+  char pkt[PACKET_PAYLOAD_MAX + 4];
   int bytesRead = 0;
 
   if (port->type == PIPE) {
     // Parse Packet
-    bytesRead = read(port->recv_fd, pkt, PKT_PAYLOAD_MAX + 4);
+    bytesRead = read(port->recv_fd, pkt, PACKET_PAYLOAD_MAX + 4);
   } else if (port->type == SOCKET) {
-    bytesRead =
-        sock_recv(port->send_fd, pkt, PKT_PAYLOAD_MAX + 4, port->remoteDomain);
+    bytesRead = sock_recv(port->send_fd, pkt, PACKET_PAYLOAD_MAX + 4,
+                          port->remoteDomain);
   }
   if (bytesRead > 0) {
 #ifdef DEBUG
@@ -114,6 +114,6 @@ char *get_packet_type_literal(int pktType) {
  * and payload. */
 void printPacket(struct Packet *p) {
   colorPrint(
-      ORANGE, "Packet contents: src:%d dst:%d type:%s len:%d payload:%s\n",
+      ORANGE, "printPacket:\tsrc:%d dst:%d type: %s len:%d\n\t\tpayload:%s\n",
       p->src, p->dst, get_packet_type_literal(p->type), p->length, p->payload);
 }

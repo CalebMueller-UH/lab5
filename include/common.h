@@ -18,6 +18,6 @@ common.h
 #define TENMILLISEC 10000
 #define DELAY_FOR_HOST_REPLY 10 /* Delay in ten of milliseconds */
 
-#define PKT_PAYLOAD_MAX 100
+#define PACKET_PAYLOAD_MAX 100
 
 #define TIMETOLIVE 10  // 10 * 10ms = 100ms

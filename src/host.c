@@ -43,47 +43,30 @@ struct Response *createResponse(int id, int req_type, int ttl) {
   return r;
 }
 
-// Add a new Response node to the end of the linked list
-void addResList(struct Response *list, struct Response *add) {
-  // Traverse to the end of the list
-  struct Response *last = list;
-  while (last->next != NULL) {
-    last = last->next;
-  }
-  // Add the new node to the end of the list
-  last->next = add;
-  add->next = NULL;
+// Add a new Response node to the beginning of the linked list
+void addToResList(struct Response *list, struct Response *add) {
+  add->next = list;
+  list = add;
 }
 
-// Remove the first Response node from the linked list and return it
-struct Response popResList(struct Response *list, struct Response *pop) {
-  // Store the first node in a separate pointer
-  struct Response *first = list->next;
-  if (first == NULL) {
-    // The list is empty, return a NULL node
-    return (struct Response){0, 0, 0, NULL};
-  }
-  // Update the head of the list to point to the second node
-  list->next = first->next;
-  // Clear the next pointer of the popped node
-  first->next = NULL;
-  // Return the popped node
-  return *first;
-}
-
-// Find the first Response node in the linked list with a matching id
-struct Response *findResList(struct Response *list, int id) {
-  // Traverse the list and search for a node with matching src_id
-  struct Response *curr = list->next;
-  while (curr != NULL) {
-    if (curr->id == id) {
-      return curr;
-    }
+// Remove and free response in list with id matching idToDelete
+void deleteFromResList(struct Response **list, int idToDelete) {
+  struct Response *prev = NULL;
+  struct Response *curr = *list;
+  while (curr != NULL && curr->id != idToDelete) {
+    prev = curr;
     curr = curr->next;
   }
-
-  // No node with matching src_id was found, return NULL
-  return NULL;
+  if (curr == NULL) {
+    return;  // element not found in list
+  }
+  if (prev == NULL) {
+    *list = curr->next;
+  } else {
+    prev->next = curr->next;
+  }
+  curr->next = NULL;
+  free(curr);
 }
 
 ////////////// RESPONSE STUFF /////////////////
@@ -258,7 +241,7 @@ void host_main(int host_id) {
   // Flag for communicating upload is due to a download request
   int downloadRequestFlag = 0;
 
-  char string[PKT_PAYLOAD_MAX + 1];
+  char string[PACKET_PAYLOAD_MAX + 1];
 
   FILE *fp;
 
@@ -337,10 +320,10 @@ void host_main(int host_id) {
           // Set up a Response
           int resId = responseListIdNum++;
           struct Response *r = createResponse(resId, PKT_PING_REQ, TIMETOLIVE);
-          addResList(responseList, r);
-          char *resIdStr;
-          sprintf(resIdStr, "%d", resId);
-          int resIdStrLen = strnlen(resIdStr, 10);
+          addToResList(responseList, r);
+          char resIdStr[PACKET_PAYLOAD_MAX];
+          snprintf(resIdStr, PACKET_PAYLOAD_MAX, "rid:%d", resId);
+          int resIdStrLen = strnlen(resIdStr, PACKET_PAYLOAD_MAX);
 
           // Send ping request
           int dst;
@@ -350,7 +333,7 @@ void host_main(int host_id) {
           pingReqPkt->dst = (char)dst;
           pingReqPkt->type = (char)PKT_PING_REQ;
           pingReqPkt->length = resIdStrLen;
-          strncpy(pingReqPkt->payload, resIdStr, sizeof(resId));
+          strncpy(pingReqPkt->payload, resIdStr, PACKET_PAYLOAD_MAX);
           struct Job *pingReqJob = createBlankJob();
           pingReqJob->packet = pingReqPkt;
           pingReqJob->type = JOB_BROADCAST_PKT;
@@ -361,14 +344,13 @@ void host_main(int host_id) {
           waitPacket->src = (char)host_id;
           waitPacket->type = PKT_PING_REQ;
           pingReqPkt->length = resIdStrLen;
-          strncpy(pingReqPkt->payload, resIdStr, sizeof(resId));
+          strncpy(pingReqPkt->payload, resIdStr, PACKET_PAYLOAD_MAX);
           struct Job *waitJob = createBlankJob();
           waitJob->type = JOB_WAIT_FOR_RESPONSE;
           waitJob->timeToLive = TIMETOLIVE;
           waitJob->packet = waitPacket;
           job_enqueue(host_id, &host_q, waitJob);
           ping_reply_received = 0;
-
           break;
 
           // case 'u': /* Upload a file to a host */
@@ -492,14 +474,14 @@ void host_main(int host_id) {
 
           case (char)PKT_FILE_DOWNLOAD_REQ:
             // Grab payload from received_packet
-            char msg[PKT_PAYLOAD_MAX] = {0};
-            strncpy(msg, received_packet->payload, PKT_PAYLOAD_MAX);
+            char msg[PACKET_PAYLOAD_MAX] = {0};
+            strncpy(msg, received_packet->payload, PACKET_PAYLOAD_MAX);
             // Sanitize msg to ensure it is null terminated
             int endIndex = received_packet->length;
             received_packet->payload[endIndex] = '\0';
 
             // Check to see if file exists
-            char filepath[MAX_FILENAME_LENGTH + PKT_PAYLOAD_MAX];
+            char filepath[MAX_FILENAME_LENGTH + PACKET_PAYLOAD_MAX];
             sprintf(filepath, "%s/%s", hostDirectory, received_packet->payload);
             if (!isValidFile(filepath)) {
               // File does not exist
@@ -692,7 +674,7 @@ void host_main(int host_id) {
             secondPacket->dst = job_from_queue->file_upload_dst;
             secondPacket->src = (char)host_id;
             secondPacket->type = PKT_FILE_UPLOAD_END;
-            int fileLen = fread(string, sizeof(char), PKT_PAYLOAD_MAX, fp);
+            int fileLen = fread(string, sizeof(char), PACKET_PAYLOAD_MAX, fp);
             fclose(fp);
             string[fileLen] = '\0';
             for (int i = 0; i < fileLen; i++) {
@@ -748,7 +730,7 @@ void host_main(int host_id) {
                * buffer into file
                */
               while (f_buf_upload.occ > 0) {
-                n = file_buf_remove(&f_buf_upload, string, PKT_PAYLOAD_MAX);
+                n = file_buf_remove(&f_buf_upload, string, PACKET_PAYLOAD_MAX);
                 string[n] = '\0';
                 n = fwrite(string, sizeof(char), n, fp);
               }
