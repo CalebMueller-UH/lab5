@@ -5,11 +5,23 @@
 #pragma once
 
 #include "constants.h"
-
 /*
- *  The next two structs are ports used to transfer commands
- *  and replies between the manager and hosts
- */
+manager.c
+*/
+
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "color.h"
+#include "host.h"
+#include "main.h"
+#include "manager.h"
+#include "net.h"
+#include "semaphore.h"
 
 struct Man_port_at_host { /* Port located at the man */
   int host_id;
@@ -25,9 +37,12 @@ struct Man_port_at_man { /* Port located at the host */
   struct Man_port_at_man *next;
 };
 
-void display_host(struct Man_port_at_man *list,
-                  struct Man_port_at_man *curr_host);
+void man_print_command_prompt(int curr_host);
 
+/* Get the user command */
+char man_get_user_cmd(int curr_host);
+
+/* Change the current host */
 void change_host(struct Man_port_at_man *list,
                  struct Man_port_at_man **curr_host);
 
@@ -38,11 +53,15 @@ void display_host_state(struct Man_port_at_man *curr_host);
 
 void set_host_dir(struct Man_port_at_man *curr_host);
 
-void man_print_command_prompt(int curr_host);
+void ping(struct Man_port_at_man *curr_host);
 
-char man_get_user_cmd(int curr_host);
+int file_upload(struct Man_port_at_man *curr_host);
 
-/*
- * Main loop for the manager.
- */
+int file_download(struct Man_port_at_man *curr_host);
+
+int isValidDirectory(const char *path);
+
+int isValidFile(const char *path);
+
+// Main loop of the manager
 void man_main();

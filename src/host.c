@@ -4,7 +4,6 @@
 
 #include "host.h"
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -23,18 +22,10 @@
 #include "request.h"
 #include "semaphore.h"
 
-#define MAX_MSG_LENGTH 100
-
 /*
-This function reads a command from a manager port and removes the first
-character from the message. It takes in three parameters: a pointer to a struct
- Man_port_at_host, an array of characters called msg, and a pointer to a
-character called c. The function first reads the command from the manager port
-using the read() function and stores it in the msg array. It then loops through
-the message until it finds a non-space character, which it stores in c. It then
-continues looping until it finds another non-space character, which is used to
-start copying the rest of the message into msg starting at index 0. Finally, it
-adds a null terminator at the end of msg and returns n.
+Function reads a manager port command using read(), removes the 1st non-space
+character and stores it in c. The rest of the message is copied to msg, with a
+null terminator added at the end. The function returns the number of bytes read.
 */
 int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
   int n;
@@ -55,26 +46,6 @@ int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
     msg[portNum] = '\0';
   }
   return n;
-}
-
-int isValidDirectory(const char *path) {
-  DIR *hostDirectory = opendir(path);
-  if (hostDirectory) {
-    closedir(hostDirectory);
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-int isValidFile(const char *path) {
-  if (access(path, R_OK) != -1) {
-    // File exists and can be read
-    return 1;
-  } else {
-    // File does not exist or cannot be read
-    return 0;
-  }
 }
 
 /* Send back state of the host to the manager as a text message */

@@ -4,6 +4,7 @@ manager.c
 
 #include "manager.h"
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -223,6 +224,26 @@ int file_download(struct Man_port_at_man *curr_host) {
   n = snprintf(msg, MAX_MSG_LENGTH, "d %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
   usleep(LOOP_SLEEP_TIME_MS);
+}
+
+int isValidDirectory(const char *path) {
+  DIR *hostDirectory = opendir(path);
+  if (hostDirectory) {
+    closedir(hostDirectory);
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+int isValidFile(const char *path) {
+  if (access(path, R_OK) != -1) {
+    // File exists and can be read
+    return 1;
+  } else {
+    // File does not exist or cannot be read
+    return 0;
+  }
 }
 
 /*****************************
