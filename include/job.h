@@ -8,6 +8,8 @@
 
 enum job_type {
   JOB_DEFAULT,
+  JOB_REQUEST,
+  JOB_RESPONSE,
   JOB_SEND_PKT,
   JOB_BROADCAST_PKT,
   JOB_FORWARD_PKT,
@@ -31,6 +33,7 @@ struct Request;
 struct Job {
   enum job_type type;
   struct Packet *packet;
+  int timeToLive;
   struct Request *request;
   struct Job *next;
 };

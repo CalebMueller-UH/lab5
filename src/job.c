@@ -15,6 +15,8 @@
  * corresponding string representation. */
 char *get_job_type_literal(enum job_type t) {
   switch (t) {
+    case JOB_REQUEST:
+      return "JOB_REQUEST";
     case JOB_DEFAULT:
       return "JOB_DEFAULT";
     case JOB_SEND_PKT:

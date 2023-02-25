@@ -94,13 +94,6 @@ void display_host(struct Man_port_at_man *list,
   }
 }
 
-/*
- * Send command to the host for it's state.  The command
- * is a single character 's'
- *
- * Wait for reply from host, which should be the host's state.
- * Then display on the console.
- */
 void display_host_state(struct Man_port_at_man *curr_host) {
   char msg[MAX_MSG_LENGTH];
   char reply[MAX_MSG_LENGTH];
@@ -162,23 +155,11 @@ void ping(struct Man_port_at_man *curr_host) {
     usleep(LOOP_SLEEP_TIME_MS);
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
+  printf("sss3\n");
   reply[n] = '\0';
   colorPrint(CYAN, "%s\n", reply);
 }
 
-/*
- * Command host to send a file to another host.
- *
- * User is queried for the
- *    - name of the file to transfer;
- *        the file is in the current directory 'dir'
- *    - id of the host to ping.
- *
- * A command message is sent to the current host.
- *    The message starrts with 'u' followed by the
- *    -  id of the destination host
- *    -  name of file to transfer
- */
 int file_upload(struct Man_port_at_man *curr_host) {
   int n;
   int host_id;
@@ -196,19 +177,6 @@ int file_upload(struct Man_port_at_man *curr_host) {
   usleep(LOOP_SLEEP_TIME_MS);
 }
 
-/*
- * Command host to download a file to another host.
- *
- * User is queried for the
- *    - name of the file to transfer;
- *        the file is in the current directory 'dir'
- *    - id of the host to ping.
- *
- * A command message is sent to the current host.
- *    The message starrts with 'u' followed by the
- *    -  id of the destination host
- *    -  name of file to transfer
- */
 int file_download(struct Man_port_at_man *curr_host) {
   int n;
   int host_id;
@@ -246,11 +214,6 @@ int isValidFile(const char *path) {
   }
 }
 
-/*
-Function reads a manager port command using read(), removes the 1st non-space
-character and stores it in c. The rest of the message is copied to msg, with a
-null terminator added at the end. The function returns the number of bytes read.
-*/
 int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
   int n;
   int i;
@@ -303,9 +266,9 @@ void man_main() {
   char cmd; /* Command entered by user */
 
   while (1) {
-    sem_wait(&console_print_access);
+    // sem_wait(&console_print_access);
     man_print_command_prompt(curr_host->host_id);
-    sem_signal(&console_print_access);
+    // sem_signal(&console_print_access);
 
     /* Get a command from the user */
     cmd = man_get_user_cmd(curr_host->host_id);
@@ -326,6 +289,8 @@ void man_main() {
         break;
       case 'p': /* Ping a host from the current host */
         ping(curr_host);
+        printf("sss2\n");
+
         break;
       case 'u': /* Upload a file from the current host
                    to another host */
@@ -339,5 +304,6 @@ void man_main() {
       default:
         colorPrint(BOLD_RED, "\nInvalid, you entered %c\n\n", cmd);
     }
+    printf("sss1\n");
   }
 }
