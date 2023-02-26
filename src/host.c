@@ -155,36 +155,33 @@ void host_main(int host_id) {
       if ((n > 0) && ((int)received_packet->dst == host_id)) {
 #ifdef DEBUG
         colorPrint(YELLOW,
-                   "DEBUG: id:%d host_main: Host %d received packet of type "
+                   "DEBUG: id:%d host_main packet_handler Host %d received "
+                   "packet of type "
                    "%s\n",
                    host_id, (int)received_packet->dst,
                    get_packet_type_literal(received_packet->type));
+        printPacket(received_packet);
 #endif
         struct Job *job_from_pkt = createEmptyJob();
         job_from_pkt->packet = received_packet;
 
         switch (received_packet->type) {
           case PKT_PING_REQ:
-            printf("dst received:\n");
-            printPacket(received_packet);
-            struct Packet *resPkt =
-                createPacket(host_id, received_packet->src, PKT_PING_RESPONSE);
-            strncpy(resPkt->payload, received_packet->payload,
-                    PACKET_PAYLOAD_MAX);
+            struct Packet *resPkt = received_packet;
+            resPkt->dst = received_packet->src;
+            resPkt->src = host_id;
+            resPkt->type = PKT_PING_RESPONSE;
             struct Job *resJob = createJob(JOB_SEND_RESPONSE, resPkt);
             job_enqueue(host_id, &host_q, resJob);
             break;
 
           case PKT_PING_RESPONSE:
-            struct Request *resReq = findRequestByStringTicket(
+            struct Request *r = findRequestByStringTicket(
                 requestList, received_packet->payload);
-            if (resReq != NULL) {
-              resReq->state = COMPLETE;
-            } else {
-              // Response has timed out, or does not exist in requestList
-              // Discard and do nothing
-              free(received_packet);
+            if (r != NULL && r->state) {
+              r->state = COMPLETE;
             }
+            free(received_packet);
             break;
 
           default:
@@ -209,7 +206,8 @@ void host_main(int host_id) {
           // Generate a request
           struct Request *req = createRequest(PING_REQ, TIMETOLIVE);
           // Add request to requestList
-          addToReqList(requestList, req);
+          addToReqList(&requestList, req);
+
           // Include request ticket inside request packet
           int reqTicket = req->ticket;
           sprintf(job_from_queue->packet->payload, "%d", reqTicket);
@@ -230,19 +228,19 @@ void host_main(int host_id) {
           break;
 
         case JOB_SEND_PKT:
-          printPacket(job_from_queue->packet);
           sendPacketTo(node_port_array, node_port_array_size,
                        job_from_queue->packet);
-          printf("sending:\n");
-          printPacket(job_from_queue->packet);
           free(job_from_queue->packet);
           break;
 
         case JOB_WAIT_FOR_RESPONSE:
+          struct Request *r = job_from_queue->request;
+          printf("State: %s\n", r->state == 0 ? "PENDING" : "COMPLETE");
           if (job_from_queue->request->state == COMPLETE) {
+            printf("Complete\n");
             const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
             write(man_port->send_fd, repMsg, strlen(repMsg));
-            deleteFromReqList(&requestList, job_from_queue->request->ticket);
+            deleteFromReqList(requestList, job_from_queue->request->ticket);
           } else {
             if (job_from_queue->request->timeToLive > 0) {
               job_from_queue->request->timeToLive--;
@@ -250,12 +248,13 @@ void host_main(int host_id) {
               waitJob->request = job_from_queue->request;
               job_enqueue(host_id, &host_q, waitJob);
             } else {
+              printf("Timed out\n");
+
               const char *repMsg = "\x1b[31;1mPing timed out!\x1b[0m";
               write(man_port->send_fd, repMsg, strlen(repMsg));
-              deleteFromReqList(&requestList, job_from_queue->request->ticket);
+              deleteFromReqList(requestList, job_from_queue->request->ticket);
             }
           }
-
           break;
 
         default:

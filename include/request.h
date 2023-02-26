@@ -19,7 +19,7 @@ struct Request {
 struct Request *createRequest(int req_type, int ttl);
 
 // Add a new Request node to the beginning of the linked list
-void addToReqList(struct Request *list, struct Request *add);
+void addToReqList(struct Request **list, struct Request *add);
 
 // Find a request in the request list by ticket value
 struct Request *findRequestByTicket(struct Request *head, int ticket);
@@ -28,6 +28,8 @@ struct Request *findRequestByTicket(struct Request *head, int ticket);
 struct Request *findRequestByStringTicket(struct Request *head, char *ticket);
 
 // Remove and free response in list with id matching idToDelete
-void deleteFromReqList(struct Request **list, int idToDelete);
+int deleteFromReqList(struct Request *head, int t);
 
-void tickRequestList(struct Request *list);
+void printList(struct Request *head);
+
+void destroyList(struct Request *head);

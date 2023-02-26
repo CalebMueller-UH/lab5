@@ -122,7 +122,6 @@ char *get_packet_type_literal(int pktType) {
 /* Prints the contents of a packet with its source, destination, type, length,
  * and payload. */
 void printPacket(struct Packet *p) {
-  colorPrint(
-      ORANGE, "printPacket:\tsrc:%d dst:%d type: %s len:%d\n\t\tpayload:%s\n",
-      p->src, p->dst, get_packet_type_literal(p->type), p->length, p->payload);
+  colorPrint(ORANGE, "src:%d dst:%d type: %s len:%d payload:%s\n", p->src,
+             p->dst, get_packet_type_literal(p->type), p->length, p->payload);
 }

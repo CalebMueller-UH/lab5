@@ -4,6 +4,7 @@ request.c
 
 #include "request.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -19,9 +20,10 @@ struct Request *createRequest(int req_type, int ttl) {
 }
 
 // Add a new Request node to the beginning of the linked list
-void addToReqList(struct Request *list, struct Request *add) {
-  add->next = list;
-  list = add;
+void addToReqList(struct Request **head, struct Request *add) {
+  printf("added\n");
+  add->next = (*head);
+  (*head) = add;
 }
 
 // Find a request in the request list by ticket value
@@ -38,34 +40,43 @@ struct Request *findRequestByTicket(struct Request *head, int ticket) {
 
 // Find a request in the request list by string ticket value
 struct Request *findRequestByStringTicket(struct Request *head, char *ticket) {
-  int intTicket = atoi(ticket);  // Convert ticket to integer
+  char *endptr;
+  long intTicket = strtol(ticket, &endptr, 10);  // Convert ticket to integer
+
+  if (*endptr != '\0') {
+    // Conversion failed, handle error (e.g. invalid input)
+    return NULL;
+  }
+
   return findRequestByTicket(head,
                              intTicket);  // Call integer version of function
 }
 
 // Remove and free response in list with ticket matching idToDelete
-void deleteFromReqList(struct Request **list, int idToDelete) {
+int deleteFromReqList(struct Request *head, int t) {
   struct Request *prev = NULL;
-  struct Request *curr = *list;
-  while (curr != NULL && curr->ticket != idToDelete) {
+  struct Request *curr = head;
+  while (curr != NULL) {
+    if (curr->ticket == t) {
+      if (prev == NULL) {
+        head = curr->next;
+      } else {
+        prev->next = curr->next;
+      }
+      free(curr);
+      return 0;
+    }
     prev = curr;
     curr = curr->next;
   }
-  if (curr == NULL) {
-    return;  // element not found in list
-  }
-  if (prev == NULL) {
-    *list = curr->next;
-  } else {
-    prev->next = curr->next;
-  }
-  curr->next = NULL;
-  free(curr);
+  // Request with matching ticket value of t not found
+  return -1;
 }
 
-void tickRequestList(struct Request *list) {
-  struct Request *h;
-  for (h = list; h != NULL; h = h->next) {
-    h->timeToLive--;
+void printList(struct Request *head) {
+  struct Request *p = head;
+  while (p != NULL) {
+    printf("%d -> ", p->ticket);
+    p = p->next;
   }
 }
