@@ -42,7 +42,7 @@ void packet_send(struct Net_port *port, struct Packet *p) {
   }
 
 #ifdef DEBUG
-  printPacket(p);
+  // printPacket(p);
 #endif
 }
 
@@ -69,21 +69,18 @@ int packet_recv(struct Net_port *port, struct Packet *p) {
       p->payload[i] = pkt[i + 4];
     }
 
-    printPacket(p);
+    // printPacket(p);
 #endif
   }
   return (bytesRead);
 }
 
 // Creates a packet using passed in argument values
-struct Packet *createPacket(int src, int dst, int type, int length,
-                            char *payload) {
+struct Packet *createPacket(int src, int dst, int type) {
   struct Packet *p = createEmptyPacket();
   p->src = src;
   p->dst = dst;
   p->type = type;
-  p->length = length;
-  strncat(p->payload, payload, PACKET_PAYLOAD_MAX);
   return p;
 }
 
@@ -102,23 +99,23 @@ struct Packet *createEmptyPacket() {
 char *get_packet_type_literal(int pktType) {
   switch (pktType) {
     case PKT_PING_REQ:
-      return "PKT_PING_REQ ";
+      return "PKT_PING_REQ";
     case PKT_PING_RESPONSE:
-      return "PKT_PING_RESPONSE ";
-    case PKT_FILE_UPLOAD_REQ:
-      return "PKT_FILE_UPLOAD_REQ";
-    case PKT_FILE_UPLOAD_START:
-      return "PKT_FILE_UPLOAD_START ";
-    case PKT_FILE_UPLOAD_CONTINUE:
-      return "PKT_FILE_UPLOAD_CONTINUE ";
+      return "PKT_PING_RESPONSE";
+    case PKT_UPLOAD_REQ:
+      return "PKT_UPLOAD_REQ";
+    case PKT_UPLOAD_RESPONSE:
+      return "PKT_UPLOAD_RESPONSE";
+    case PKT_DOWNLOAD_REQ:
+      return "PKT_DOWNLOAD_REQ";
+    case PKT_DOWNLOAD_RESPONSE:
+      return "PKT_DOWNLOAD_RESPONSE";
+    case PKT_UPLOAD_START:
+      return "PKT_UPLOAD_START";
+    case PKT_UPLOAD_CONTINUE:
+      return "PKT_UPLOAD_CONTINUE";
     case PKT_FILE_UPLOAD_END:
-      return "PKT_FILE_UPLOAD_END ";
-    case PKT_FILE_DOWNLOAD_REQ:
-      return "PKT_FILE_DOWNLOAD_REQ ";
-    case PKT_REQUEST_RESPONSE:
-      return "PKT_REQUEST_RESPONSE";
-    default:
-      return "Unknown Packet Type";
+      return "PKT_FILE_UPLOAD_END";
   }
 }
 

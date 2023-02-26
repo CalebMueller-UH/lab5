@@ -47,7 +47,7 @@ void host_main(int host_id) {
   ////// Initialize state of host //////
   char hostDirectory[MAX_FILENAME_LENGTH];
   char man_msg[MAX_MSG_LENGTH];
-  char man_reply_msg[MAX_MSG_LENGTH];
+  // char man_reply_msg[MAX_MSG_LENGTH];
   char man_cmd;
 
   // Initialize file buffer
@@ -62,11 +62,10 @@ void host_main(int host_id) {
 
   // Initialize node_port_array
   struct Net_port *node_port_list;
-  struct Net_port **node_port_array;  // Array of pointers to node ports
-  int node_port_array_size;           // Number of node ports
   node_port_list = net_get_port_list(host_id);
   /*  Count the number of network link ports */
-  node_port_array_size = 0;
+  struct Net_port **node_port_array;  // Array of pointers to node ports
+  int node_port_array_size = 0;       // Number of node ports
   for (struct Net_port *p = node_port_list; p != NULL; p = p->next) {
     node_port_array_size++;
   }
@@ -86,9 +85,8 @@ void host_main(int host_id) {
   struct Job_queue host_q;
   job_queue_init(&host_q);
 
-  /* Initialize response list */
-  struct Response *responseList = NULL;
-  int responseListIdNum = 0;
+  /* Initialize request list */
+  struct Request *requestList = NULL;
 
   while (1) {
     ////////////////////////////////////////////////////////////////////////////
@@ -125,12 +123,9 @@ void host_main(int host_id) {
           int dst;
           sscanf(man_msg, "%d", &dst);
           // Generate a ping request packet
-          char *payload = "PING";
-          int payloadLen = strlen(payload);
-          struct Packet *pingReqPkt =
-              createPacket(host_id, dst, PKT_REQ, payloadLen, payload);
+          struct Packet *pingReqPkt = createPacket(host_id, dst, PKT_PING_REQ);
           // Generate a job and put ping request packet inside
-          struct Job *pingReqJob = createJob(JOB_SEND_PKT, pingReqPkt);
+          struct Job *pingReqJob = createJob(JOB_SEND_REQUEST, pingReqPkt);
           job_enqueue(host_id, &host_q, pingReqJob);
           break;
         case 'u':
@@ -150,6 +145,7 @@ void host_main(int host_id) {
     // -------------------------------------------------------------------------
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// PACKET HANDLER //////////////////////////////
+
     for (int portNum = 0; portNum < node_port_array_size; portNum++) {
       // Receive packets for all ports in node_port_array
       struct Packet *received_packet = createEmptyPacket();
@@ -168,28 +164,32 @@ void host_main(int host_id) {
         job_from_pkt->packet = received_packet;
 
         switch (received_packet->type) {
-          case (char)PKT_PING_REQ:
+          case PKT_PING_REQ:
+            printf("dst received:\n");
+            printPacket(received_packet);
+            struct Packet *resPkt =
+                createPacket(host_id, received_packet->src, PKT_PING_RESPONSE);
+            strncpy(resPkt->payload, received_packet->payload,
+                    PACKET_PAYLOAD_MAX);
+            struct Job *resJob = createJob(JOB_SEND_RESPONSE, resPkt);
+            job_enqueue(host_id, &host_q, resJob);
             break;
 
-          case (char)PKT_PING_RESPONSE:
-            break;
-
-          case (char)PKT_FILE_UPLOAD_START:
-            break;
-
-          case (char)PKT_FILE_UPLOAD_END:
-            break;
-
-          case (char)PKT_FILE_DOWNLOAD_REQ:
-            break;
-
-          case (char)PKT_REQUEST_RESPONSE:
+          case PKT_PING_RESPONSE:
+            struct Request *resReq = findRequestByStringTicket(
+                requestList, received_packet->payload);
+            if (resReq != NULL) {
+              resReq->state = COMPLETE;
+            } else {
+              // Response has timed out, or does not exist in requestList
+              // Discard and do nothing
+              free(received_packet);
+            }
             break;
 
           default:
         }
       } else {
-        free(received_packet);
       }
     }
 
@@ -205,6 +205,59 @@ void host_main(int host_id) {
 
       //////////// EXECUTE FETCHED JOB ////////////
       switch (job_from_queue->type) {
+        case JOB_SEND_REQUEST:
+          // Generate a request
+          struct Request *req = createRequest(PING_REQ, TIMETOLIVE);
+          // Add request to requestList
+          addToReqList(requestList, req);
+          // Include request ticket inside request packet
+          int reqTicket = req->ticket;
+          sprintf(job_from_queue->packet->payload, "%d", reqTicket);
+          job_from_queue->packet->length =
+              strlen(job_from_queue->packet->payload);
+          // Enqueue a JOB_SEND_PKT to send to destination
+          struct Job *sendJob = createJob(JOB_SEND_PKT, job_from_queue->packet);
+          job_enqueue(host_id, &host_q, sendJob);
+          // Enqueue a JOB_WAIT_FOR_RESPONSE with the Request
+          struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, NULL);
+          waitJob->request = req;
+          job_enqueue(host_id, &host_q, waitJob);
+          break;
+
+        case JOB_SEND_RESPONSE:
+          struct Job *res = createJob(JOB_SEND_PKT, job_from_queue->packet);
+          job_enqueue(host_id, &host_q, res);
+          break;
+
+        case JOB_SEND_PKT:
+          printPacket(job_from_queue->packet);
+          sendPacketTo(node_port_array, node_port_array_size,
+                       job_from_queue->packet);
+          printf("sending:\n");
+          printPacket(job_from_queue->packet);
+          free(job_from_queue->packet);
+          break;
+
+        case JOB_WAIT_FOR_RESPONSE:
+          if (job_from_queue->request->state == COMPLETE) {
+            const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
+            write(man_port->send_fd, repMsg, strlen(repMsg));
+            deleteFromReqList(&requestList, job_from_queue->request->ticket);
+          } else {
+            if (job_from_queue->request->timeToLive > 0) {
+              job_from_queue->request->timeToLive--;
+              struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, NULL);
+              waitJob->request = job_from_queue->request;
+              job_enqueue(host_id, &host_q, waitJob);
+            } else {
+              const char *repMsg = "\x1b[31;1mPing timed out!\x1b[0m";
+              write(man_port->send_fd, repMsg, strlen(repMsg));
+              deleteFromReqList(&requestList, job_from_queue->request->ticket);
+            }
+          }
+
+          break;
+
         default:
 #ifdef DEBUG
           colorPrint(YELLOW,
@@ -213,6 +266,10 @@ void host_main(int host_id) {
                      "%s\n",
                      host_id, get_job_type_literal(job_from_queue->type));
 #endif
+      }
+      if (job_from_queue != NULL) {
+        free(job_from_queue);
+        job_from_queue = NULL;
       }
     }
 

@@ -8,15 +8,16 @@
 
 /* Types of packets */
 typedef enum {
-  PKT_REQ,
   PKT_PING_REQ,
+  PKT_UPLOAD_REQ,
+  PKT_DOWNLOAD_REQ,
   PKT_PING_RESPONSE,
-  PKT_FILE_UPLOAD_REQ,
-  PKT_FILE_UPLOAD_START,
-  PKT_FILE_UPLOAD_CONTINUE,
+  PKT_UPLOAD_RESPONSE,
+  PKT_DOWNLOAD_RESPONSE,
+  PKT_UPLOAD_START,
+  PKT_UPLOAD_CONTINUE,
   PKT_FILE_UPLOAD_END,
-  PKT_FILE_DOWNLOAD_REQ,
-  PKT_REQUEST_RESPONSE
+  PKT_INVALID_TYPE
 } packet_type;
 
 struct Packet {
@@ -39,7 +40,7 @@ int packet_recv(struct Net_port *port, struct Packet *p);
 void packet_send(struct Net_port *port, struct Packet *p);
 
 // Creates a packet using passed in argument values
-struct Packet *createPacket(int src, int dst, int type, int len, char *payload);
+struct Packet *createPacket(int src, int dst, int type);
 
 /* Allocates memory for a new packet and initializes it to zeros. */
 struct Packet *createEmptyPacket();

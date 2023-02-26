@@ -162,6 +162,7 @@ void ping(struct Man_port_at_man *curr_host) {
     usleep(LOOP_SLEEP_TIME_MS);
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
+  printf("Here in man\n");
   reply[n] = '\0';
   colorPrint(CYAN, "%s\n", reply);
 }

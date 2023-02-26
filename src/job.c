@@ -15,8 +15,6 @@
  * corresponding string representation. */
 char *get_job_type_literal(enum job_type t) {
   switch (t) {
-    case JOB_DEFAULT:
-      return "JOB_DEFAULT";
     case JOB_SEND_PKT:
       return "JOB_SEND_PKT";
     case JOB_BROADCAST_PKT:
@@ -29,12 +27,14 @@ char *get_job_type_literal(enum job_type t) {
       return "JOB_SEND_RESPONSE";
     case JOB_WAIT_FOR_RESPONSE:
       return "JOB_WAIT_FOR_RESPONSE";
-    case JOB_FILE_UPLOAD_SEND:
-      return "JOB_FILE_UPLOAD_SEND";
-    case JOB_FILE_RECV_START:
-      return "JOB_FILE_RECV_START";
-    case JOB_FILE_RECV_END:
-      return "JOB_FILE_RECV_END";
+    case JOB_UPLOAD_SEND:
+      return "JOB_UPLOAD_SEND";
+    case JOB_RECV_START:
+      return "JOB_RECV_START";
+    case JOB_RECV_END:
+      return "JOB_RECV_END";
+    case JOB_INVALID_TYPE:
+      return "JOB_INVALID_TYPE";
   };
   return "UNKNOWN_JOB_TYPE";
 }
@@ -92,7 +92,7 @@ struct Job *createJob(enum job_type type, struct Packet *packet) {
 
 struct Job *createEmptyJob() {
   struct Job *j = (struct Job *)malloc(sizeof(struct Job));
-  j->type = JOB_DEFAULT;
+  j->type = JOB_INVALID_TYPE;
   j->packet = NULL;
   j->request = NULL;
   j->next = NULL;
