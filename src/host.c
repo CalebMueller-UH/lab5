@@ -105,6 +105,7 @@ void host_main(int host_id) {
           reply_display_host_state(man_port, hostDirectory,
                                    isValidDirectory(hostDirectory), host_id);
           break;
+          ////////////////
         case 'm':
           // Change Active Host's hostDirectory
           size_t len = strnlen(man_msg, MAX_FILENAME_LENGTH - 1);
@@ -117,6 +118,7 @@ void host_main(int host_id) {
             colorPrint(BOLD_RED, "%s is not a valid directory\n", man_msg);
           }
           break;
+          ////////////////
         case 'p':
           ////// Have active Host ping another host //////
           // Get destination from man_msg
@@ -128,12 +130,15 @@ void host_main(int host_id) {
           struct Job *pingReqJob = createJob(JOB_SEND_REQUEST, pingReqPkt);
           job_enqueue(host_id, &host_q, pingReqJob);
           break;
+          ////////////////
         case 'u':
           // Upload a file from active host to another host
           break;
+          ////////////////
         case 'd':
           // Download a file from another host to active host
           break;
+          ////////////////
         default:;
       }
       // Release console_print_access semaphore
@@ -150,7 +155,6 @@ void host_main(int host_id) {
       // Receive packets for all ports in node_port_array
       struct Packet *received_packet = createEmptyPacket();
       n = packet_recv(node_port_array[portNum], received_packet);
-
       // if portNum has received a packet, translate the packet into a job
       if ((n > 0) && ((int)received_packet->dst == host_id)) {
 #ifdef DEBUG
@@ -162,30 +166,35 @@ void host_main(int host_id) {
                    get_packet_type_literal(received_packet->type));
         printPacket(received_packet);
 #endif
-        struct Job *job_from_pkt = createEmptyJob();
-        job_from_pkt->packet = received_packet;
-
         switch (received_packet->type) {
           case PKT_PING_REQ:
-            struct Packet *resPkt = received_packet;
-            resPkt->dst = received_packet->src;
-            resPkt->src = host_id;
-            resPkt->type = PKT_PING_RESPONSE;
+            // Create a response packet addressed to return to sender with same
+            // response ticket in payload
+            struct Packet *resPkt =
+                createPacket(host_id, received_packet->src, PKT_PING_RESPONSE);
+            resPkt->length = received_packet->length;
+            memcpy(resPkt->payload, received_packet->payload,
+                   PACKET_PAYLOAD_MAX);
+            // Place response packet inside response job and enqueue
             struct Job *resJob = createJob(JOB_SEND_RESPONSE, resPkt);
             job_enqueue(host_id, &host_q, resJob);
             break;
 
+            ////////////////
           case PKT_PING_RESPONSE:
             struct Request *r = findRequestByStringTicket(
                 requestList, received_packet->payload);
-            if (r != NULL && r->state) {
+            if (r != NULL) {
               r->state = COMPLETE;
             }
-            free(received_packet);
             break;
 
+            ////////////////
           default:
         }
+        // ATTENTION! received_packet is freed every cycle
+        // DO NOT pass received_packet pointer reference to enqueued jobs!
+        free(received_packet);
       } else {
       }
     }
@@ -202,60 +211,74 @@ void host_main(int host_id) {
 
       //////////// EXECUTE FETCHED JOB ////////////
       switch (job_from_queue->type) {
+        ////////////////
         case JOB_SEND_REQUEST:
-          // Generate a request
+          // Generate a request and add it to requestList
           struct Request *req = createRequest(PING_REQ, TIMETOLIVE);
-          // Add request to requestList
           addToReqList(&requestList, req);
 
-          // Include request ticket inside request packet
+          // Create a packet for JOB_SEND_PKT
+          struct Packet *reqPkt = createEmptyPacket();
+          memcpy(reqPkt, job_from_queue->packet, sizeof(struct Packet));
+
+          // Include Request->ticket value inside packet payload
           int reqTicket = req->ticket;
-          sprintf(job_from_queue->packet->payload, "%d", reqTicket);
-          job_from_queue->packet->length =
-              strlen(job_from_queue->packet->payload);
+          sprintf(reqPkt->payload, "%d", reqTicket);
+          reqPkt->length = strlen(reqPkt->payload);
+
+          // Copy request packet to include it in the JOB_WAITING_FOR_RESPONSE
+          struct Packet *waitPkt = createEmptyPacket();
+          memcpy(waitPkt, reqPkt, sizeof(struct Packet));
+
           // Enqueue a JOB_SEND_PKT to send to destination
-          struct Job *sendJob = createJob(JOB_SEND_PKT, job_from_queue->packet);
+          struct Job *sendJob = createJob(JOB_SEND_PKT, reqPkt);
           job_enqueue(host_id, &host_q, sendJob);
-          // Enqueue a JOB_WAIT_FOR_RESPONSE with the Request
-          struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, NULL);
-          waitJob->request = req;
+
+          // Enqueue a JOB_WAIT_FOR_RESPONSE
+          struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, waitPkt);
           job_enqueue(host_id, &host_q, waitJob);
           break;
+          ////////////////
 
         case JOB_SEND_RESPONSE:
-          struct Job *res = createJob(JOB_SEND_PKT, job_from_queue->packet);
+          // Create a packet for JOB_SEND_PKT
+          struct Packet *sendPkt = createEmptyPacket();
+          memcpy(sendPkt, job_from_queue->packet, sizeof(struct Packet));
+          struct Job *res = createJob(JOB_SEND_PKT, sendPkt);
           job_enqueue(host_id, &host_q, res);
           break;
+          ////////////////
 
         case JOB_SEND_PKT:
           sendPacketTo(node_port_array, node_port_array_size,
                        job_from_queue->packet);
-          free(job_from_queue->packet);
           break;
+          ////////////////
 
         case JOB_WAIT_FOR_RESPONSE:
-          struct Request *r = job_from_queue->request;
-          printf("State: %s\n", r->state == 0 ? "PENDING" : "COMPLETE");
-          if (job_from_queue->request->state == COMPLETE) {
-            printf("Complete\n");
-            const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
-            write(man_port->send_fd, repMsg, strlen(repMsg));
-            deleteFromReqList(requestList, job_from_queue->request->ticket);
-          } else {
-            if (job_from_queue->request->timeToLive > 0) {
-              job_from_queue->request->timeToLive--;
-              struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, NULL);
-              waitJob->request = job_from_queue->request;
-              job_enqueue(host_id, &host_q, waitJob);
+          struct Request *r = findRequestByStringTicket(
+              requestList, job_from_queue->packet->payload);
+          if (r != NULL) {
+            if (r->state == COMPLETE) {
+              const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
+              write(man_port->send_fd, repMsg, strlen(repMsg));
+              deleteFromReqList(requestList, r->ticket);
+            } else if (r->timeToLive > 0) {
+              r->timeToLive--;
+              struct Packet *p = createEmptyPacket();
+              memcpy(p, job_from_queue->packet, sizeof(struct Packet));
+              struct Job *j = createJob(JOB_WAIT_FOR_RESPONSE, p);
+              job_enqueue(host_id, &host_q, j);
             } else {
-              printf("Timed out\n");
-
               const char *repMsg = "\x1b[31;1mPing timed out!\x1b[0m";
               write(man_port->send_fd, repMsg, strlen(repMsg));
-              deleteFromReqList(requestList, job_from_queue->request->ticket);
+              deleteFromReqList(requestList, r->ticket);
             }
+          } else {
+            printf("Request could not be found in list\n");
           }
           break;
+          ////////////////
 
         default:
 #ifdef DEBUG
@@ -265,6 +288,13 @@ void host_main(int host_id) {
                      "%s\n",
                      host_id, get_job_type_literal(job_from_queue->type));
 #endif
+      }
+      // ATTENTION!!
+      // job_from_queue->packet and job_from_queue are freed every cycle
+      // DO NOT pass pointer references of these!
+      if (job_from_queue->packet != NULL) {
+        free(job_from_queue->packet);
+        job_from_queue->packet = NULL;
       }
       if (job_from_queue != NULL) {
         free(job_from_queue);

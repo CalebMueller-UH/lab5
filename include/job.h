@@ -31,7 +31,6 @@ struct Request;
 struct Job {
   enum job_type type;
   struct Packet *packet;
-  struct Request *request;
   struct Job *next;
 };
 

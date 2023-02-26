@@ -21,19 +21,18 @@ struct Request *createRequest(int req_type, int ttl) {
 
 // Add a new Request node to the beginning of the linked list
 void addToReqList(struct Request **head, struct Request *add) {
-  printf("added\n");
   add->next = (*head);
   (*head) = add;
 }
 
 // Find a request in the request list by ticket value
 struct Request *findRequestByTicket(struct Request *head, int ticket) {
-  struct Request *current = head;
-  while (current != NULL) {
-    if (current->ticket == ticket) {
-      return current;
+  struct Request *curr = head;
+  while (curr != NULL) {
+    if (curr->ticket == ticket) {
+      return curr;
     }
-    current = current->next;
+    curr = curr->next;
   }
   return NULL;
 }

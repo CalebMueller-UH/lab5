@@ -94,7 +94,6 @@ struct Job *createEmptyJob() {
   struct Job *j = (struct Job *)malloc(sizeof(struct Job));
   j->type = JOB_INVALID_TYPE;
   j->packet = NULL;
-  j->request = NULL;
   j->next = NULL;
   return j;
 }
