@@ -8,7 +8,7 @@ request.c
 #include <stdlib.h>
 #include <time.h>
 
-struct Request *createRequest(int req_type, int ttl) {
+struct Request *createRequest(requestType req_type, int ttl) {
   struct Request *r = (struct Request *)malloc(sizeof(struct Request));
   time_t t = time(NULL);  // Get Unix epoch time
   r->ticket = ((int)t) % 10000;

@@ -49,6 +49,7 @@ void host_main(int host_id) {
   char man_msg[MAX_MSG_LENGTH];
   // char man_reply_msg[MAX_MSG_LENGTH];
   char man_cmd;
+  int dst;
 
   // Initialize file buffer
   struct File_buf f_buf_upload;
@@ -97,8 +98,6 @@ void host_main(int host_id) {
     if (n > 0) {
       sem_wait(&console_print_access);
 
-      printf("man_msg: %s\n", man_msg);
-
       switch (man_cmd) {
         case 's':
           // Display host state
@@ -106,6 +105,7 @@ void host_main(int host_id) {
                                    isValidDirectory(hostDirectory), host_id);
           break;
           ////////////////
+
         case 'm':
           // Change Active Host's hostDirectory
           size_t len = strnlen(man_msg, MAX_FILENAME_LENGTH - 1);
@@ -119,10 +119,10 @@ void host_main(int host_id) {
           }
           break;
           ////////////////
+
         case 'p':
           ////// Have active Host ping another host //////
           // Get destination from man_msg
-          int dst;
           sscanf(man_msg, "%d", &dst);
           // Generate a ping request packet
           struct Packet *pingReqPkt = createPacket(host_id, dst, PKT_PING_REQ);
@@ -131,14 +131,44 @@ void host_main(int host_id) {
           job_enqueue(host_id, &host_q, pingReqJob);
           break;
           ////////////////
+
         case 'u':
           // Upload a file from active host to another host
+          // Check to see if hostDirectory is valid
+          if (!isValidDirectory(hostDirectory)) {
+            colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
+                       host_id);
+            break;
+          }
+          char fname[MAX_FILENAME_LENGTH] = {0};
+          int dst;
+          sscanf(man_msg, "%d %s", &dst, fname);
+          int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
+          // Concatenate hostDirectory and filePath with a slash in between
+          char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
+          snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s", hostDirectory,
+                   fname);
+          // Check to see if fullPath points to a valid file
+          if (!isValidFile(fullPath)) {
+            colorPrint(BOLD_RED, "This file does not exist\n", host_id);
+            break;
+          }
+          // User input is valid, enqueue upload request to verify destination
+          struct Packet *upPkt = createPacket(host_id, dst, PKT_UPLOAD_REQ);
+          memcpy(upPkt, fname, fnameLen);
+          upPkt->length = fnameLen;
+          printf("upPkt: ");
+          printPacket(upPkt);
+          struct Job *upJob = createJob(JOB_SEND_REQUEST, upPkt);
+          job_enqueue(host_id, &host_q, upJob);
           break;
           ////////////////
+
         case 'd':
           // Download a file from another host to active host
           break;
           ////////////////
+
         default:;
       }
       // Release console_print_access semaphore
@@ -213,8 +243,24 @@ void host_main(int host_id) {
       switch (job_from_queue->type) {
         ////////////////
         case JOB_SEND_REQUEST:
+          // Determine request type from packet type
+          requestType rtype = INVALID;
+          switch (job_from_queue->packet->type) {
+            case PKT_PING_REQ:
+              rtype = PING_REQ;
+              break;
+            case PKT_UPLOAD_REQ:
+              rtype = UPLOAD_REQ;
+              break;
+            case PKT_DOWNLOAD_REQ:
+              rtype = DOWNLOAD_REQ;
+              break;
+            default:
+              rtype = INVALID;
+              break;
+          }
           // Generate a request and add it to requestList
-          struct Request *req = createRequest(PING_REQ, TIMETOLIVE);
+          struct Request *req = createRequest(rtype, TIMETOLIVE);
           addToReqList(&requestList, req);
 
           // Create a packet for JOB_SEND_PKT
@@ -226,9 +272,13 @@ void host_main(int host_id) {
           sprintf(reqPkt->payload, "%d", reqTicket);
           reqPkt->length = strlen(reqPkt->payload);
 
+          printPacket(reqPkt);
+
           // Copy request packet to include it in the JOB_WAITING_FOR_RESPONSE
           struct Packet *waitPkt = createEmptyPacket();
           memcpy(waitPkt, reqPkt, sizeof(struct Packet));
+
+          printPacket(waitPkt);
 
           // Enqueue a JOB_SEND_PKT to send to destination
           struct Job *sendJob = createJob(JOB_SEND_PKT, reqPkt);
@@ -237,6 +287,7 @@ void host_main(int host_id) {
           // Enqueue a JOB_WAIT_FOR_RESPONSE
           struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, waitPkt);
           job_enqueue(host_id, &host_q, waitJob);
+          printf("aaa1\n");
           break;
           ////////////////
 
@@ -250,29 +301,48 @@ void host_main(int host_id) {
           ////////////////
 
         case JOB_SEND_PKT:
+          printf("Here");
+          printPacket(job_from_queue->packet);
           sendPacketTo(node_port_array, node_port_array_size,
                        job_from_queue->packet);
           break;
           ////////////////
 
         case JOB_WAIT_FOR_RESPONSE:
+          printf("sss1\n");
+
           struct Request *r = findRequestByStringTicket(
               requestList, job_from_queue->packet->payload);
+          printf("sss2\n");
+
           if (r != NULL) {
-            if (r->state == COMPLETE) {
-              const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
-              write(man_port->send_fd, repMsg, strlen(repMsg));
-              deleteFromReqList(requestList, r->ticket);
-            } else if (r->timeToLive > 0) {
-              r->timeToLive--;
-              struct Packet *p = createEmptyPacket();
-              memcpy(p, job_from_queue->packet, sizeof(struct Packet));
-              struct Job *j = createJob(JOB_WAIT_FOR_RESPONSE, p);
-              job_enqueue(host_id, &host_q, j);
-            } else {
-              const char *repMsg = "\x1b[31;1mPing timed out!\x1b[0m";
-              write(man_port->send_fd, repMsg, strlen(repMsg));
-              deleteFromReqList(requestList, r->ticket);
+            switch (r->type) {
+              case PING_REQ:
+                if (r->state == COMPLETE) {
+                  const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
+                  write(man_port->send_fd, repMsg, strlen(repMsg));
+                  deleteFromReqList(requestList, r->ticket);
+                } else if (r->timeToLive > 0) {
+                  r->timeToLive--;
+                  struct Packet *p = createEmptyPacket();
+                  memcpy(p, job_from_queue->packet, sizeof(struct Packet));
+                  struct Job *j = createJob(JOB_WAIT_FOR_RESPONSE, p);
+                  job_enqueue(host_id, &host_q, j);
+                } else {
+                  const char *repMsg = "\x1b[31;1mPing timed out!\x1b[0m";
+                  write(man_port->send_fd, repMsg, strlen(repMsg));
+                  deleteFromReqList(requestList, r->ticket);
+                }
+                printf("sss3\n");
+
+                break;
+
+              case UPLOAD_REQ:
+                printf("sss4\n");
+                break;
+
+              case DOWNLOAD_REQ:
+                break;
             }
           } else {
             printf("Request could not be found in list\n");

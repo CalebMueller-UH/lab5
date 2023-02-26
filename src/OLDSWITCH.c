@@ -18,8 +18,8 @@
 // #define MAX_NUM_ROUTES 100
 // #define LOOP_SLEEP_TIME_MS 10000
 
-// struct Packet *in_packet; /* Incoming packet */
-// struct Packet *new_packet;
+// Packet *in_packet; /* Incoming packet */
+// Packet *new_packet;
 
 // /*
 // This function searches a routing table for a valid ID.
@@ -101,7 +101,7 @@
 //   while (1) {
 //     /////// Receive In-Coming packet and translate it to a job //////
 //     for (int i = 0; i < node_port_array_size; i++) {
-//       struct Packet *in_packet = (struct Packet *)malloc(sizeof(struct
+//       Packet *in_packet = (Packet *)malloc(sizeof(struct
 //       Packet)); int n = packet_recv(node_port_array[i], in_packet);
 
 //       if (n > 0) {

@@ -4,7 +4,7 @@ request.h
 
 #pragma once
 
-typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ } requestType;
+typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ, INVALID } requestType;
 typedef enum { PENDING, COMPLETE } requestState;
 
 /* Used to track multiple requests of different types*/
@@ -16,7 +16,7 @@ struct Request {
   struct Request *next;
 };
 
-struct Request *createRequest(int req_type, int ttl);
+struct Request *createRequest(requestType req_type, int ttl);
 
 // Add a new Request node to the beginning of the linked list
 void addToReqList(struct Request **list, struct Request *add);
