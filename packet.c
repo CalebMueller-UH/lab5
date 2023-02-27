@@ -13,15 +13,15 @@ void packet_send(struct net_port *port, struct packet *p) {
   // Casts msg to a pointer to a short type.  
   // Sets the first 2 bytes of the msg buffer to the total_payload.
   // Sets the next 2 bytes of the msg buffer to the payloag_offset. 
-  *((short*)(msg)) = (short)p->total_payload_length; 
+  *((short*)(msg)) = (short)p->total_payload; 
   *((short*)(msg + 2)) = (short)p->payload_offset;
   msg[4] = (char)p->src;
   msg[5] = (char)p->dst;
   msg[6] = (char)p->type;
   
   // Copy payload data
-  int payload_remaining = p->total_payload_length - p->payload_offset;
-  bytesToSend = payload_remaining > MAX_PAYLOAD_LENGTH ? MAX_PAYLOAD_LENGTH : payload_remaining;
+  int payload_remaining = p->total_payload - p->payload_offset;
+  bytesToSend = payload_remaining > PAYLOAD_MAX ? PAYLOAD_MAX : payload_remaining;
   memcpy(msg + 7, p->payload + p->payload_offset, bytesToSend);
 
   // Send Packet
@@ -45,13 +45,13 @@ void packet_send(struct net_port *port, struct packet *p) {
 }
 
 int packet_recv(struct net_port *port, struct packet *p) {
-  char msg[MAX_PAYLOAD_LENGTH + 7]; 
+  char msg[PAYLOAD_MAX + 7]; 
   int bytesRead = 0;
 
   if (port->type == PIPE) {
-    bytesRead = read(port->recv_fd, msg, MAX_PAYLOAD_LENGTH + 7);
+    bytesRead = read(port->recv_fd, msg, PAYLOAD_MAX + 7);
   } else if (port->type == SOCKET) {
-    bytesRead = sock_recv(port->send_fd, msg, MAX_PAYLOAD_LENGTH + 7, port->remoteDomain);
+    bytesRead = sock_recv(port->send_fd, msg, PAYLOAD_MAX + 7, port->remoteDomain);
   }
 
   if (bytesRead > 0) {

@@ -2,6 +2,7 @@
 socket.t
 */
 
+#include "packet.h"
 #include "socket.h"
 
 int sock_server_init(const char* localDomain, const int localPort) {
