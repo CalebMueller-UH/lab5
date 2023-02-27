@@ -22,8 +22,10 @@ struct packet { /* struct for a packet */
   char src;
   char dst;
   char type;
-  int length;
+  int  length;
   char payload[PAYLOAD_MAX];
+  int  total_payload;
+  int  payload_offset; 
 };
 
 /* Types of packets */
