@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "host.h": "c",
+        "man.h": "c",
+        "types.h": "c",
+        "cstdio": "c",
+        "netdb.h": "c",
+        "main.h": "c",
+        "net.h": "c",
+        "packet.h": "c",
+        "job.h": "c",
+        "unistd.h": "c"
+    }
+}

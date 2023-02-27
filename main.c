@@ -1,19 +1,10 @@
+/*
+  main.c
+*/
+
 #include "main.h"
 
-#include <fcntl.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-#include "host.h"
-#include "man.h"
-#include "net.h"
-
-void main() {
+void main(int argc, char **argv) {
   pid_t pid; /* Process id */
   int k = 0;
   int status;
@@ -25,22 +16,36 @@ void main() {
    *   - nodes, creates a list of nodes
    *   - links, creates/implements the links, e.g., using pipes or sockets
    */
-  net_init();
+
+  if (argc > 1) {
+    // ./net367 called with argument -> net_init with provided arg
+    if (net_init(argv[1]) != 0) {
+      fprintf(stderr, "Error initializing network at net_init(%s)\n", argv[1]);
+      return;
+    }
+  } else {
+    // ./net367 not called with argument -> net_init with NULL
+    if (net_init(NULL) != 0) {
+      fprintf(stderr, "Error initializing network at net_init(NULL)\n");
+      return;
+    }
+  }
+
   node_list = net_get_node_list(); /* Returns the list of nodes */
 
   /* Create nodes, which are child processes */
-
   for (p_node = node_list; p_node != NULL; p_node = p_node->next) {
     pid = fork();
-
     if (pid == -1) {
       printf("Error:  the fork() failed\n");
       return;
-    } else if (pid == 0) {        /* The child process, which is a node  */
-      if (p_node->type == HOST) { /* Execute host routine */
+    } else if (pid == 0) { /* The child process, which is a node  */
+      if (p_node->type == HOST) {
+        /* Execute host routine */
         host_main(p_node->id);
       } else if (p_node->type = SWITCH) {
-        /* Execute switch routine, which you have to write */
+        /* Execute switch routine */
+        switch_main(p_node->id);
       }
       return;
     }
