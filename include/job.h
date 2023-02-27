@@ -25,9 +25,6 @@ struct Job_queue {
   int occ;
 };
 
-// Forward declaration
-struct Request;
-
 struct Job {
   enum job_type type;
   struct Packet *packet;

@@ -4,6 +4,8 @@ request.h
 
 #pragma once
 
+#define TICKETLEN 4
+
 typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ, INVALID } requestType;
 typedef enum { PENDING, COMPLETE } requestState;
 

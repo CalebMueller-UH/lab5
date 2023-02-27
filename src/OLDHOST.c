@@ -175,7 +175,7 @@
 //   }
 // }
 
-// int isValidFile(const char *path) {
+// int fileExists(const char *path) {
 //   if (access(path, R_OK) != -1) {
 //     // File exists and can be read
 //     return 1;
@@ -372,7 +372,7 @@
 //           //   hostDirectory,
 //           //            filePath);
 //           //   // Check to see if fullPath points to a valid file
-//           //   if (!isValidFile(fullPath)) {
+//           //   if (!fileExists(fullPath)) {
 //           //     colorPrint(BOLD_RED, "This file does not exist\n", host_id);
 //           //     break;
 //           //   }
@@ -402,7 +402,7 @@
 //           hostDirectory,
 //                    filePath);
 //           // Check to see if fullPath points to a valid file
-//           if (!isValidFile(fullPath)) {
+//           if (!fileExists(fullPath)) {
 //             colorPrint(BOLD_RED, "This file does not exist\n", host_id);
 //             break;
 //           }
@@ -487,7 +487,7 @@
 //             // Check to see if file exists
 //             char filepath[MAX_FILENAME_LENGTH + PACKET_PAYLOAD_MAX];
 //             sprintf(filepath, "%s/%s", hostDirectory,
-//             received_packet->payload); if (!isValidFile(filepath)) {
+//             received_packet->payload); if (!fileExists(filepath)) {
 //               // File does not exist
 //               job_from_pkt->type = JOB_SEND_REQ_RESPONSE;
 //               job_from_pkt->packet->dst = received_packet->src;

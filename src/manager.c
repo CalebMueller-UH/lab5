@@ -236,7 +236,8 @@ int isValidDirectory(const char *path) {
   }
 }
 
-int isValidFile(const char *path) {
+// Checks to see if file at path is a valid
+int fileExists(const char *path) {
   if (access(path, R_OK) != -1) {
     // File exists and can be read
     return 1;

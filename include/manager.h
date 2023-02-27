@@ -61,7 +61,7 @@ int file_download(struct Man_port_at_man *curr_host);
 
 int isValidDirectory(const char *path);
 
-int isValidFile(const char *path);
+int fileExists(const char *path);
 
 /*
 Function reads a manager port command using read(), removes the 1st non-space

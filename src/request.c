@@ -11,7 +11,13 @@ request.c
 struct Request *createRequest(requestType req_type, int ttl) {
   struct Request *r = (struct Request *)malloc(sizeof(struct Request));
   time_t t = time(NULL);  // Get Unix epoch time
-  r->ticket = ((int)t) % 10000;
+  int keyMod = 1;
+  for (int i = 0; i < TICKETLEN; i++) {
+    keyMod *= 10;
+  }
+  int ticketMin = keyMod / 10;
+  int ticketMax = keyMod - 1;
+  r->ticket = (rand() % (ticketMax - ticketMin + 1)) + ticketMin;
   r->type = req_type;
   r->state = PENDING;
   r->timeToLive = ttl;
