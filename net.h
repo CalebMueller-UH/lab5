@@ -1,6 +1,7 @@
 // net.h
 
 #pragma once
+#include "socket.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -16,7 +17,6 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
 
-#include "socket.h"
 
 int net_init();
 

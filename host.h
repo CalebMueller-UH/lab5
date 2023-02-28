@@ -13,11 +13,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "packet.h"
 #include "job.h"
 #include "main.h"
 #include "man.h"
 #include "net.h"
-#include "packet.h"
+
 
 #define MAX_FILE_BUFFER 1000
 #define MAX_MSG_LENGTH 100

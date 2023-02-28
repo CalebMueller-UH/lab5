@@ -3,6 +3,8 @@
 */
 
 #include "switch.h"
+#include "socket.h"
+#include "net.h"
 
 #include <stdbool.h>
 

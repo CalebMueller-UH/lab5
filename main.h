@@ -12,14 +12,18 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "socket.h"
 #include "host.h"
 #include "man.h"
 #include "net.h"
+#include "packet.h"
 #include "switch.h"
 
 #define BCAST_ADDR 100
 #define STRING_MAX 100
 #define NAME_LENGTH 100
+
+
 
 enum NetNodeType { /* Types of network nodes */
                    HOST,

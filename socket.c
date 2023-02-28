@@ -1,8 +1,7 @@
 /*
-socket.t
+socket.c
 */
 
-#include "packet.h"
 #include "socket.h"
 
 int sock_server_init(const char* localDomain, const int localPort) {
@@ -89,15 +88,30 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
                  // continue waiting
     }
 
-    // Incoming data available, read it into the buffer
-    bytesRead = recv(client_fd, buffer, bufferMax, 0);
+    // Incoming data available, read packet header
+    char header[7];
+    bytesRead = recv(client_fd, header, 7, 0);
     if (bytesRead < 0) {
-      fprintf(stderr, "\nError: sock_recv: failed to read data\n");
+      fprintf(stderr, "\nError: sock_recv: failed to read packet header\n");
       perror("\t");
       close(client_fd);
       return -1;
     }
 
+    // Extract payload size and offset from packet header
+    short total_payload = *((short*)(header));
+    short payload_offset = *((short*)(header + 2));
+
+    // Read payload data
+    int payload_remaining = total_payload - payload_offset;
+    int bytesToRead = min(payload_remaining, PAYLOAD_MAX);
+    bytesRead = recv(client_fd, buffer, bytesToRead, 0);
+    if (bytesRead < 0) {
+      fprintf(stderr, "\nError: sock_recv: failed to read payload data\n");
+      perror("\t");
+      close(client_fd);
+      return -1;
+    }
     close(client_fd);
     break;  // Successfully read data from the desired remote address and port,
             // exit loop
@@ -111,6 +125,7 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
 
   return bytesRead;
 }
+
 
 int sock_send(const char* localDomain, const char* remoteDomain,
               const int remotePort, char* msg, int msgLen) {
@@ -154,13 +169,37 @@ int sock_send(const char* localDomain, const char* remoteDomain,
     return -1;
   }
 
-  // Send data to remote server
-  int bytesSent = send(sock_fd, msg, msgLen, 0);
-  if (bytesSent < 0) {
-    fprintf(stderr, "\nError: sock_send: bytesSent < 0\n");
-    perror("\t");
-    close(sock_fd);
-    return -1;
+  // Send data to remote server in packets
+  int bytesSent = 0;
+  int payload_offset = 0;
+  while (payload_offset < msgLen) {
+    struct packet p;
+    p.src = 0;
+    p.dst = 0;
+    p.type = PKT_FILE_UPLOAD_CONTINUE;
+    p.payload_offset = payload_offset;
+    p.total_payload = msgLen;
+    memcpy(p.payload, msg + payload_offset, PAYLOAD_MAX);
+
+    packet_send(&(struct net_port) {.type = SOCKET, .localDomain = localDomain, .remoteDomain = remoteDomain, .remotePort = remotePort, .send_fd = sock_fd}, &p);
+
+    bytesSent += PAYLOAD_MAX;
+    payload_offset += PAYLOAD_MAX;
+  }
+
+  // Send final packet with payload length < PAYLOAD_MAX
+  if (payload_offset < msgLen) {
+    struct packet p;
+    p.src = 0;
+    p.dst = 0;
+    p.type = PKT_FILE_UPLOAD_END;
+    p.payload_offset = payload_offset;
+    p.total_payload = msgLen;
+    memcpy(p.payload, msg + payload_offset, msgLen - payload_offset);
+
+    packet_send(&(struct net_port) {.type = SOCKET, .localDomain = localDomain, .remoteDomain = remoteDomain, .remotePort = remotePort, .send_fd = sock_fd}, &p);
+
+    bytesSent += msgLen - payload_offset;
   }
 
   close(sock_fd);

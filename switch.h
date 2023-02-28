@@ -7,9 +7,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "net.h"
 #include "job.h"
 #include "main.h"
-#include "net.h"
 
 #define MAX_NUM_ROUTES 100
 

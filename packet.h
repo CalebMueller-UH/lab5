@@ -11,12 +11,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "host.h"
-#include "main.h"
-#include "net.h"
 #include "socket.h"
+#include "host.h"
+#include "net.h"
+#include "main.h"
 
 #define PAYLOAD_MAX 100
+
+// min returns the smaller of its two arguments.
+// This is used in packet_send() to calculate the number of 
+// payload bytes to send in the current packet.
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 struct packet { /* struct for a packet */
   char src;
