@@ -104,14 +104,18 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
 
     // Read payload data
     int payload_remaining = total_payload - payload_offset;
-    int bytesToRead = min(payload_remaining, PAYLOAD_MAX);
-    bytesRead = recv(client_fd, buffer, bytesToRead, 0);
-    if (bytesRead < 0) {
-      fprintf(stderr, "\nError: sock_recv: failed to read payload data\n");
-      perror("\t");
-      close(client_fd);
-      return -1;
+    while (payload_remaining > 0) {
+      int bytesToRead = min(payload_remaining, PAYLOAD_MAX);
+      bytesRead = recv(client_fd, buffer + (total_payload - payload_remaining), bytesToRead, 0);
+      if (bytesRead < 0) {
+        fprintf(stderr, "\nError: sock_recv: failed to read payload data\n");
+        perror("\t");
+        close(client_fd);
+        return -1;
+      }
+      payload_remaining -= bytesRead;
     }
+    
     close(client_fd);
     break;  // Successfully read data from the desired remote address and port,
             // exit loop
@@ -169,7 +173,7 @@ int sock_send(const char* localDomain, const char* remoteDomain,
     return -1;
   }
 
-  // Send data to remote server in packets
+ // Send data to remote server in packets
   int bytesSent = 0;
   int payload_offset = 0;
   while (payload_offset < msgLen) {
@@ -179,13 +183,14 @@ int sock_send(const char* localDomain, const char* remoteDomain,
     p.type = PKT_FILE_UPLOAD_CONTINUE;
     p.payload_offset = payload_offset;
     p.total_payload = msgLen;
-    memcpy(p.payload, msg + payload_offset, PAYLOAD_MAX);
+    int bytesToSend = min(msgLen - payload_offset, PAYLOAD_MAX);
+    memcpy(p.payload, msg + payload_offset, bytesToSend);
 
     packet_send(&(struct net_port) {.type = SOCKET, .localDomain = localDomain, .remoteDomain = remoteDomain, .remotePort = remotePort, .send_fd = sock_fd}, &p);
 
-    bytesSent += PAYLOAD_MAX;
-    payload_offset += PAYLOAD_MAX;
-  }
+  bytesSent += bytesToSend;
+  payload_offset += bytesToSend;
+}
 
   // Send final packet with payload length < PAYLOAD_MAX
   if (payload_offset < msgLen) {
