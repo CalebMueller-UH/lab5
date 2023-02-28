@@ -49,6 +49,11 @@ void job_enqueue(int id, struct job_queue *j_q, struct job_struct *j) {
          get_job_type_literal(j->type));
   printf("\033[0m");  // Reset text color to default
 #endif
+
+  if (j->type == FILE_UPLOAD_SEND) {
+    // Calculate total number of packets required to send the file
+    j->total_payload_length = (j->file_size + 99) / 100;
+  }
   if (j_q->head == NULL) {
     j_q->head = j;
     j_q->tail = j;
@@ -77,6 +82,30 @@ struct job_struct *job_dequeue(int id, struct job_queue *j_q) {
 
   j_q->head = (j_q->head)->next;
   j_q->occ--;
+  
+  // Handle file downloads
+  if (j->type == FILE_DOWNLOAD_REQUEST) {
+    FILE *fp = fopen(j->payload.download.filename, "ab");
+    // Calculate the total number of packets needed to download the file
+    int num_packets = j->payload.download.total_payload_length / 100 + 1;
+    for (int i = 0; i < num_packets; i++) {
+      struct packet_struct *pkt = j->payload.download.payloads[i];
+      fwrite(pkt->payload, sizeof(char), pkt->payload_len, fp);
+      free(pkt->payload);
+      free(pkt);
+    }
+    fclose(fp);
+  }
+  
+  // Handle file uploads
+  if (j->type == FILE_UPLOAD_RECV_START) {
+    j->fp = fopen(j->fname_upload, "rb");
+    fseek(j->fp, j->payload_offset, SEEK_SET);
+    j->packets_remaining = j->total_payload_length;
+  }
+  if (j->type == FILE_UPLOAD_RECV_END) {
+    fclose(j->fp);
+  }
   return (j);
 }
 
