@@ -166,7 +166,8 @@ void host_main(int host_id) {
 
   while (1) {
     ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////// COMMAND HANDLER /////////////////////////////
+    //////////////////////////////////////////
+    //////////////////// COMMAND HANDLER
 
     int n = get_man_command(man_port, man_msg, &man_cmd);
     /* Execute command */
@@ -258,11 +259,13 @@ void host_main(int host_id) {
       sem_signal(&console_print_access);
     }
 
+    ///////////////////////// COMMAND HANDLER
+    ////////////// /////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////// COMMAND HANDLER /////////////////////////////
     // -------------------------------------------------------------------------
     ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////// PACKET HANDLER //////////////////////////////
+    ////////////////////////////////////
+    ////////////////// PACKET HANDLER
 
     for (int portNum = 0; portNum < node_port_array_size; portNum++) {
       // Receive packets for all ports in node_port_array
@@ -297,22 +300,22 @@ void host_main(int host_id) {
         }
       }
 
-      ////////////////////////////// PACKET HANDLER
+      //////////////// PACKET HANDLER
       /////////////////////////////////
       ////////////////////////////////////////////////////////////////////////////
       // -------------------------------------------------------------------------
       ////////////////////////////////////////////////////////////////////////////
-      //////////////////////////////// JOB HANDLER
       //////////////////////////////////
+      //////////////////// JOB HANDLER
 
       if (job_queue_length(&host_q) > 0) {
         /* Get a new job from the job queue */
         struct Job *job_from_queue = job_dequeue(host_id, &host_q);
 
-        //////////// EXECUTE FETCHED JOB ////////////
+        //////////////////// EXECUTE FETCHED JOB ////////////////////
         switch (job_from_queue->type) {
           ////////////////
-          case JOB_SEND_REQUEST:
+          case JOB_SEND_REQUEST: {
             // Determine request type from packet type
             requestType rtype = INVALID;
             switch (job_from_queue->packet->type) {
@@ -349,22 +352,25 @@ void host_main(int host_id) {
             // update packet length
             reqPkt->length = strlen(reqPkt->payload);
 
-            // Copy request packet to include it in the JOB_WAITING_FOR_RESPONSE
-            struct Packet *waitPkt = createEmptyPacket();
-            memcpy(waitPkt, reqPkt, sizeof(struct Packet));
-
             // Enqueue a JOB_SEND_PKT to send to destination
             struct Job *sendJob = createJob(JOB_SEND_PKT, reqPkt);
             job_enqueue(host_id, &host_q, sendJob);
 
-            // Enqueue a JOB_WAIT_FOR_RESPONSE
+            // Copy request packet to include it in the JOB_WAITING_FOR_RESPONSE
+            struct Packet *waitPkt = createEmptyPacket();
+            memcpy(waitPkt, reqPkt, sizeof(struct Packet));
+
+            // Create Job that will wait for request
             struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, waitPkt);
+            // Attach request to the job waiting for response
+            waitJob->request = req;
+
+            // Enqueue a JOB_WAIT_FOR_RESPONSE
             job_enqueue(host_id, &host_q, waitJob);
             break;
-            ////////////////
+          }  //////////////// End of JOB_SEND_REQUEST
 
-          case JOB_SEND_RESPONSE:
-
+          case JOB_SEND_RESPONSE: {
             switch (job_from_queue->packet->type) {
               case PKT_PING_RESPONSE:
                 job_from_queue->type = JOB_SEND_PKT;
@@ -425,16 +431,15 @@ void host_main(int host_id) {
               case PKT_DOWNLOAD_RESPONSE:
                 break;
             }
+          }  //////////////// End of case JOB_SEND_RESPONSE
 
-            ////////////////
-
-          case JOB_SEND_PKT:
+          case JOB_SEND_PKT: {
             sendPacketTo(node_port_array, node_port_array_size,
                          job_from_queue->packet);
             break;
-            ////////////////
+          }  ////////////////
 
-          case JOB_WAIT_FOR_RESPONSE:
+          case JOB_WAIT_FOR_RESPONSE: {
             char rTicket[TICKETLEN];
             parseString(job_from_queue->packet->payload, rTicket, NULL);
             struct Request *r = findRequestByStringTicket(requestList, rTicket);
@@ -468,7 +473,7 @@ void host_main(int host_id) {
               printf("Request could not be found in list\n");
             }
             break;
-            ////////////////
+          }  //////////////// End of case JOB_WAIT_FOR_RESPONSE
 
           default:
 #ifdef DEBUG
@@ -478,16 +483,16 @@ void host_main(int host_id) {
                        "%s\n",
                        host_id, get_job_type_literal(job_from_queue->type));
 #endif
-        }
-      }
+        }  // End of switch (job_from_queue->type)
+      }    // End of if (job_queue_length(&host_q) > 0)
 
-      //////////////////////////////// JOB HANDLER
-      //////////////////////////////////
-      ////////////////////////////////////////////////////////////////////////////
+      /////////////////// JOB HANDLER
+      ///////////////////////////////////
+      ///////////////////////////////////////////////////////////////////////
 
       /* The host goes to sleep for 10 ms */
       usleep(LOOP_SLEEP_TIME_MS);
-
-    } /* End of while loop */
-  }
-}
+    }  // End of for (int portNum = 0; portNum < node_port_array_size;
+       // portNum++)
+  }    // End of while(1)
+}  // End of host_main()
