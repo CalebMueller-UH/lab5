@@ -267,6 +267,14 @@ void host_main(int host_id) {
           ////// Have active Host ping another host //////
           // Get destination from man_msg
           sscanf(man_msg, "%d", &dst);
+
+          // Check to see if pinging self; issue warning
+          if (dst == host_id) {
+            colorPrint(BOLD_YELLOW, "Can not ping self\n");
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
           // Generate a ping request packet
           // Create a job containing that packet
           // And enqueue the job
