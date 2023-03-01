@@ -116,6 +116,73 @@ void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
   }
 }
 
+void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
+                            struct Job_queue *host_q,
+                            char hostDirectory[MAX_FILENAME_LENGTH]) {
+  switch (job_from_queue->packet->type) {
+    case PKT_PING_RESPONSE: {
+      job_from_queue->type = JOB_SEND_PKT;
+      job_enqueue(host_id, host_q, job_from_queue);
+      break;
+    }
+
+    case PKT_UPLOAD_RESPONSE: {
+      // Parse packet payload for ticket and fname
+      char ticket[TICKETLEN];
+      char fname[MAX_RESPONSE_LEN];
+      parseString(job_from_queue->packet->payload, ticket, fname);
+
+      char responseMsg[MAX_RESPONSE_LEN];
+
+      // Check to see if hostDirectory is valid
+      if (!isValidDirectory(hostDirectory)) {
+        snprintf(responseMsg, PACKET_PAYLOAD_MAX,
+                 "%s:Host%d does not have a valid directory set\n", ticket,
+                 host_id);
+
+      } else {
+        // Directory is set and valid
+        // Create fullpath from hostDirectory and fname
+        int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
+        fname[fnameLen] = '\0';
+        char fullPath[2 * MAX_FILENAME_LENGTH];
+        snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s", hostDirectory,
+                 fname);
+
+        // Check to see if fullPath points to a valid file
+        if (fileExists(fullPath)) {
+          snprintf(responseMsg, PACKET_PAYLOAD_MAX,
+                   "%s:This file already exists\n", ticket);
+        } else {
+          // directory is set and valid, and file does not already
+          // exist
+          snprintf(responseMsg, PACKET_PAYLOAD_MAX, "%s:Ready", ticket);
+        }
+      }
+      // struct Packet *responsePkt = createEmptyPacket();
+      // memcpy(responsePkt, job_from_queue->packet, sizeof(struct Packet));
+      // // Update responsePkt payload and length
+      // strncpy(responsePkt->payload, responseMsg, PACKET_PAYLOAD_MAX);
+      // int responseMsgLen = strnlen(responseMsg, PACKET_PAYLOAD_MAX);
+      // responsePkt->length = responseMsgLen;
+
+      struct Packet *responsePkt = job_from_queue->packet;
+      // Update responsePkt payload and length
+      strncpy(responsePkt->payload, responseMsg, PACKET_PAYLOAD_MAX);
+      int responseMsgLen = strnlen(responseMsg, PACKET_PAYLOAD_MAX);
+      responsePkt->length = responseMsgLen;
+
+      // Create and enqueue job
+      struct Job *res = createJob(JOB_SEND_PKT, responsePkt);
+      job_enqueue(host_id, host_q, res);
+      break;
+    }  // End of case PKT_UPLOAD_RESPONSE
+
+    case PKT_DOWNLOAD_RESPONSE:
+      break;
+  }
+}
+
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
@@ -165,9 +232,9 @@ void host_main(int host_id) {
   struct Request *requestList = NULL;
 
   while (1) {
-    ////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////
-    //////////////////// COMMAND HANDLER
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////////////
+    //////////////// COMMAND HANDLER
 
     int n = get_man_command(man_port, man_msg, &man_cmd);
     /* Execute command */
@@ -259,13 +326,13 @@ void host_main(int host_id) {
       sem_signal(&console_print_access);
     }
 
-    ///////////////////////// COMMAND HANDLER
-    ////////////// /////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    // -------------------------------------------------------------------------
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////
-    ////////////////// PACKET HANDLER
+    //////////////// COMMAND HANDLER
+    ////////////////////////////////
+    ////////////////////////////////////////////////////////////////
+    // -------------------------------------------------------------
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////////////
+    //////////////// PACKET HANDLER
 
     for (int portNum = 0; portNum < node_port_array_size; portNum++) {
       // Receive packets for all ports in node_port_array
@@ -301,12 +368,12 @@ void host_main(int host_id) {
       }
 
       //////////////// PACKET HANDLER
-      /////////////////////////////////
-      ////////////////////////////////////////////////////////////////////////////
-      // -------------------------------------------------------------------------
-      ////////////////////////////////////////////////////////////////////////////
-      //////////////////////////////////
-      //////////////////// JOB HANDLER
+      ////////////////////////////////
+      ////////////////////////////////////////////////////////////////
+      // -------------------------------------------------------------
+      ////////////////////////////////////////////////////////////////
+      ////////////////////////////////
+      //////////////// JOB HANDLER
 
       if (job_queue_length(&host_q) > 0) {
         /* Get a new job from the job queue */
@@ -371,66 +438,9 @@ void host_main(int host_id) {
           }  //////////////// End of JOB_SEND_REQUEST
 
           case JOB_SEND_RESPONSE: {
-            switch (job_from_queue->packet->type) {
-              case PKT_PING_RESPONSE:
-                job_from_queue->type = JOB_SEND_PKT;
-                job_enqueue(host_id, &host_q, job_from_queue);
-                break;
-
-              case PKT_UPLOAD_RESPONSE: {
-                // Parse packet payload for ticket and fname
-                char ticket[TICKETLEN];
-                char fname[MAX_RESPONSE_LEN];
-                parseString(job_from_queue->packet->payload, ticket, fname);
-
-                char responseMsg[MAX_RESPONSE_LEN];
-
-                // Check to see if hostDirectory is valid
-                if (!isValidDirectory(hostDirectory)) {
-                  snprintf(responseMsg, PACKET_PAYLOAD_MAX,
-                           "%s:Host%d does not have a valid directory set\n",
-                           ticket, host_id);
-
-                } else {
-                  // Directory is set and valid
-                  // Create fullpath from hostDirectory and fname
-                  int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
-                  fname[fnameLen] = '\0';
-                  char fullPath[2 * MAX_FILENAME_LENGTH];
-                  snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s",
-                           hostDirectory, fname);
-
-                  // Check to see if fullPath points to a valid file
-                  if (fileExists(fullPath)) {
-                    snprintf(responseMsg, PACKET_PAYLOAD_MAX,
-                             "%s:This file already exists\n", ticket);
-                  } else {
-                    // directory is set and valid, and file does not already
-                    // exist
-                    snprintf(responseMsg, PACKET_PAYLOAD_MAX, "%s:Ready",
-                             ticket);
-                  }
-                }
-
-                struct Packet *responsePkt = createEmptyPacket();
-                memcpy(responsePkt, job_from_queue->packet,
-                       sizeof(struct Packet));
-                // Update responsePkt payload and length
-                strncpy(responsePkt->payload, responseMsg, PACKET_PAYLOAD_MAX);
-                int responseMsgLen = strnlen(responseMsg, PACKET_PAYLOAD_MAX);
-                responsePkt->length = responseMsgLen;
-
-                // Create and enqueue job
-                struct Job *res = createJob(JOB_SEND_PKT, responsePkt);
-                job_enqueue(host_id, &host_q, res);
-                break;
-
-                break;
-              }
-
-              case PKT_DOWNLOAD_RESPONSE:
-                break;
-            }
+            jobSendResponseHandler(host_id, job_from_queue, &host_q,
+                                   hostDirectory);
+            break;
           }  //////////////// End of case JOB_SEND_RESPONSE
 
           case JOB_SEND_PKT: {
