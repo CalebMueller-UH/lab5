@@ -83,9 +83,9 @@ void job_queue_init(struct Job_queue *j_q) {
 /* Returns the number of jobs in a job queue. */
 int job_queue_length(struct Job_queue *j_q) { return j_q->occ; }
 
-struct Job *createJob(enum job_type type, struct Packet *packet) {
+struct Job *createJob(enum job_type jtype, struct Packet *packet) {
   struct Job *j = createEmptyJob();
-  j->type = type;
+  j->type = jtype;
   j->packet = packet;
   return j;
 }
@@ -94,6 +94,22 @@ struct Job *createEmptyJob() {
   struct Job *j = (struct Job *)malloc(sizeof(struct Job));
   j->type = JOB_INVALID_TYPE;
   j->packet = NULL;
+  j->request = NULL;
   j->next = NULL;
   return j;
+}
+
+void releaseJob(struct Packet *p, struct Request *r, struct Job *j) {
+  if (p) {
+    free(p);
+    p = NULL;
+  }
+  if (r) {
+    free(r);
+    r = NULL;
+  }
+  if (j) {
+    free(j);
+    j = NULL;
+  }
 }

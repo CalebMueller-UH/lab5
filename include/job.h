@@ -13,6 +13,7 @@ enum job_type {
   JOB_SEND_REQUEST,
   JOB_SEND_RESPONSE,
   JOB_WAIT_FOR_RESPONSE,
+  JOB_HANDLE_RESPONSE,
   JOB_UPLOAD_SEND,
   JOB_RECV_START,
   JOB_RECV_END,
@@ -28,6 +29,7 @@ struct Job_queue {
 struct Job {
   enum job_type type;
   struct Packet *packet;
+  struct Request *request;
   struct Job *next;
 };
 
@@ -52,3 +54,5 @@ struct Job *createJob(enum job_type type, struct Packet *packet);
 /* Allocates memory for a new job, initializes its fields with default
  * values, and returns a pointer to it.*/
 struct Job *createEmptyJob();
+
+void releaseJob(struct Packet *p, struct Request *r, struct Job *j);

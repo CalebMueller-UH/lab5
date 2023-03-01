@@ -43,7 +43,8 @@ struct Request *findRequestByTicket(struct Request *head, int ticket) {
   return NULL;
 }
 
-// Find a request in the request list by string ticket value
+// Find a request in the request list by string ticket value, returns NULL if
+// not found
 struct Request *findRequestByStringTicket(struct Request *head, char *ticket) {
   char *endptr;
   long intTicket = strtol(ticket, &endptr, 10);  // Convert ticket to integer
