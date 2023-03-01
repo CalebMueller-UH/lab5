@@ -116,9 +116,64 @@ void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
   }
 }
 
+void jobSendRequestHandler(int host_id, struct Job *job_from_queue,
+                           struct Job_queue *host_q, char *hostDirectory,
+                           struct Request *requestList) {
+  // Determine request type from packet type
+  requestType rtype = INVALID;
+  switch (job_from_queue->packet->type) {
+    case PKT_PING_REQ:
+      rtype = PING_REQ;
+      break;
+    case PKT_UPLOAD_REQ:
+      rtype = UPLOAD_REQ;
+      break;
+    case PKT_DOWNLOAD_REQ:
+      rtype = DOWNLOAD_REQ;
+      break;
+    default:
+      rtype = INVALID;
+      break;
+  }
+  // Generate a request and add it to requestList
+  struct Request *req = createRequest(rtype, TIMETOLIVE);
+  addToReqList(&requestList, req);
+
+  // Create a packet for JOB_SEND_PKT
+  struct Packet *reqPkt = createEmptyPacket();
+  memcpy(reqPkt, job_from_queue->packet, sizeof(struct Packet));
+
+  // Include Request->ticket value and filename inside packet payload
+  int reqTicket = req->ticket;
+  // buffer to hold the formatted string
+  char buf[PACKET_PAYLOAD_MAX];
+  // copy the formatted string back to packet->payload
+  snprintf(buf, PACKET_PAYLOAD_MAX, "%d:%.*s", reqTicket,
+           (int)(PACKET_PAYLOAD_MAX - sizeof(int) - 1), reqPkt->payload);
+  strcpy(reqPkt->payload, buf);
+  // update packet length
+  reqPkt->length = strlen(reqPkt->payload);
+
+  // Enqueue a JOB_SEND_PKT to send to destination
+  struct Job *sendJob = createJob(JOB_SEND_PKT, reqPkt);
+  job_enqueue(host_id, host_q, sendJob);
+
+  // Copy request packet to include it in the JOB_WAITING_FOR_RESPONSE
+  struct Packet *waitPkt = createEmptyPacket();
+  memcpy(waitPkt, reqPkt, sizeof(struct Packet));
+
+  // Create Job that will wait for request
+  struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, waitPkt);
+  // Attach request to the job waiting for response
+  waitJob->request = req;
+
+  // Enqueue a JOB_WAIT_FOR_RESPONSE
+  job_enqueue(host_id, host_q, waitJob);
+}
+
 void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
-                            struct Job_queue *host_q,
-                            char hostDirectory[MAX_FILENAME_LENGTH]) {
+                            struct Job_queue *host_q, char *hostDirectory,
+                            struct Request *reqList) {
   switch (job_from_queue->packet->type) {
     case PKT_PING_RESPONSE: {
       job_from_queue->type = JOB_SEND_PKT;
@@ -242,28 +297,28 @@ void host_main(int host_id) {
       sem_wait(&console_print_access);
 
       switch (man_cmd) {
-        case 's':
+        case 's': {
           // Display host state
           reply_display_host_state(man_port, hostDirectory,
                                    isValidDirectory(hostDirectory), host_id);
           break;
-          ////////////////
+            ////////////////
 
-        case 'm':
-          // Change Active Host's hostDirectory
-          size_t len = strnlen(man_msg, MAX_FILENAME_LENGTH - 1);
-          if (isValidDirectory(man_msg)) {
-            memcpy(hostDirectory, man_msg, len);
-            hostDirectory[len] = '\0';  // add null character
-            colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
-                       host_id, man_msg);
-          } else {
-            colorPrint(BOLD_RED, "%s is not a valid directory\n", man_msg);
-          }
-          break;
-          ////////////////
+          case 'm':
+            // Change Active Host's hostDirectory
+            size_t len = strnlen(man_msg, MAX_FILENAME_LENGTH - 1);
+            if (isValidDirectory(man_msg)) {
+              memcpy(hostDirectory, man_msg, len);
+              hostDirectory[len] = '\0';  // add null character
+              colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
+                         host_id, man_msg);
+            } else {
+              colorPrint(BOLD_RED, "%s is not a valid directory\n", man_msg);
+            }
+            break;
+        }  //////////////// End of case 's'
 
-        case 'p':
+        case 'p': {
           ////// Have active Host ping another host //////
           // Get destination from man_msg
           sscanf(man_msg, "%d", &dst);
@@ -282,9 +337,9 @@ void host_main(int host_id) {
                       createJob(JOB_SEND_REQUEST,
                                 createPacket(host_id, dst, PKT_PING_REQ)));
           break;
-          ////////////////
+        }  //////////////// End of case 'p'
 
-        case 'u':
+        case 'u': {
           // Upload a file from active host to another host
 
           // Check to see if hostDirectory is valid
@@ -324,9 +379,9 @@ void host_main(int host_id) {
                       createJob(JOB_SEND_REQUEST,
                                 createPacket(host_id, dst, PKT_UPLOAD_REQ)));
           break;
-          ////////////////
+        }  //////////////// End of case 'u'
 
-        case 'd':
+        case 'd': {
           // Download a file from another host to active host
 
           char fname[MAX_FILENAME_LENGTH] = {0};
@@ -349,7 +404,7 @@ void host_main(int host_id) {
                       createJob(JOB_SEND_REQUEST,
                                 createPacket(host_id, dst, PKT_DOWNLOAD_REQ)));
           break;
-          ////////////////
+        }  //////////////// End of case 'd'
 
         default:;
       }
@@ -414,63 +469,14 @@ void host_main(int host_id) {
         switch (job_from_queue->type) {
           ////////////////
           case JOB_SEND_REQUEST: {
-            // Determine request type from packet type
-            requestType rtype = INVALID;
-            switch (job_from_queue->packet->type) {
-              case PKT_PING_REQ:
-                rtype = PING_REQ;
-                break;
-              case PKT_UPLOAD_REQ:
-                rtype = UPLOAD_REQ;
-                break;
-              case PKT_DOWNLOAD_REQ:
-                rtype = DOWNLOAD_REQ;
-                break;
-              default:
-                rtype = INVALID;
-                break;
-            }
-            // Generate a request and add it to requestList
-            struct Request *req = createRequest(rtype, TIMETOLIVE);
-            addToReqList(&requestList, req);
-
-            // Create a packet for JOB_SEND_PKT
-            struct Packet *reqPkt = createEmptyPacket();
-            memcpy(reqPkt, job_from_queue->packet, sizeof(struct Packet));
-
-            // Include Request->ticket value and filename inside packet payload
-            int reqTicket = req->ticket;
-            // buffer to hold the formatted string
-            char buf[PACKET_PAYLOAD_MAX];
-            // copy the formatted string back to packet->payload
-            snprintf(buf, PACKET_PAYLOAD_MAX, "%d:%.*s", reqTicket,
-                     (int)(PACKET_PAYLOAD_MAX - sizeof(int) - 1),
-                     reqPkt->payload);
-            strcpy(reqPkt->payload, buf);
-            // update packet length
-            reqPkt->length = strlen(reqPkt->payload);
-
-            // Enqueue a JOB_SEND_PKT to send to destination
-            struct Job *sendJob = createJob(JOB_SEND_PKT, reqPkt);
-            job_enqueue(host_id, &host_q, sendJob);
-
-            // Copy request packet to include it in the JOB_WAITING_FOR_RESPONSE
-            struct Packet *waitPkt = createEmptyPacket();
-            memcpy(waitPkt, reqPkt, sizeof(struct Packet));
-
-            // Create Job that will wait for request
-            struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, waitPkt);
-            // Attach request to the job waiting for response
-            waitJob->request = req;
-
-            // Enqueue a JOB_WAIT_FOR_RESPONSE
-            job_enqueue(host_id, &host_q, waitJob);
+            jobSendRequestHandler(host_id, job_from_queue, &host_q,
+                                  hostDirectory, requestList);
             break;
           }  //////////////// End of JOB_SEND_REQUEST
 
           case JOB_SEND_RESPONSE: {
             jobSendResponseHandler(host_id, job_from_queue, &host_q,
-                                   hostDirectory);
+                                   hostDirectory, NULL);
             break;
           }  //////////////// End of case JOB_SEND_RESPONSE
 

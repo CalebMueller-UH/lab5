@@ -98,18 +98,3 @@ struct Job *createEmptyJob() {
   j->next = NULL;
   return j;
 }
-
-void releaseJob(struct Packet *p, struct Request *r, struct Job *j) {
-  if (p) {
-    free(p);
-    p = NULL;
-  }
-  if (r) {
-    free(r);
-    r = NULL;
-  }
-  if (j) {
-    free(j);
-    j = NULL;
-  }
-}
