@@ -286,18 +286,27 @@ void host_main(int host_id) {
 
         case 'u':
           // Upload a file from active host to another host
+
           // Check to see if hostDirectory is valid
           if (!isValidDirectory(hostDirectory)) {
             colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
                        host_id);
             break;
           }
+
           char fname[MAX_FILENAME_LENGTH] = {0};
           int dst;
           sscanf(man_msg, "%d %s", &dst, fname);
           int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
           fname[fnameLen] = '\0';
-          printf("fname: %s,  fnameLen: %d\n", fname, fnameLen);
+
+          // Check to see if uploading to self; issue warning
+          if (dst == host_id) {
+            colorPrint(BOLD_YELLOW, "Can not upload to self\n");
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
           // Concatenate hostDirectory and filePath with a slash in between
           char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
           snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s", hostDirectory,
@@ -319,6 +328,20 @@ void host_main(int host_id) {
 
         case 'd':
           // Download a file from another host to active host
+
+          char fname[MAX_FILENAME_LENGTH] = {0};
+          int dst;
+          sscanf(man_msg, "%d %s", &dst, fname);
+          int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
+          fname[fnameLen] = '\0';
+
+          // Check to see if uploading to self; issue warning
+          if (dst == host_id) {
+            colorPrint(BOLD_YELLOW, "Can not upload to self\n");
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
           // Generate a download request packet
           // Create a job containing that packet
           // And enqueue the job

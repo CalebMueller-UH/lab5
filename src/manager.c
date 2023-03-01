@@ -189,7 +189,6 @@ int file_upload(struct Man_port_at_man *curr_host) {
   scanf("%s", name);
   colorPrint(CYAN, "Enter host id of destination:  ");
   scanf("%d", &host_id);
-  printf("\n");
 
   n = snprintf(msg, MAX_MSG_LENGTH, "u %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
