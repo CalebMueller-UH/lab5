@@ -235,13 +235,12 @@ int isValidDirectory(const char *path) {
   }
 }
 
-// Checks to see if file at path is a valid
 int fileExists(const char *path) {
-  if (access(path, R_OK) != -1) {
-    // File exists and can be read
+  if (access(path, F_OK) != -1) {
+    // File exists
     return 1;
   } else {
-    // File does not exist or cannot be read
+    // File does not exist or cannot be accessed for some reason
     return 0;
   }
 }

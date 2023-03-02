@@ -26,9 +26,18 @@ struct Request *createRequest(requestType req_type, int ttl) {
 }
 
 // Add a new Request node to the beginning of the linked list
-void addToReqList(struct Request **head, struct Request *add) {
-  add->next = (*head);
-  (*head) = add;
+void addToReqList(struct Request **requestList, struct Request *newRequest) {
+  if (*requestList == NULL) {
+    *requestList = newRequest;
+    newRequest->next = NULL;
+  } else {
+    struct Request *current = *requestList;
+    while (current->next != NULL) {
+      current = current->next;
+    }
+    current->next = newRequest;
+    newRequest->next = NULL;
+  }
 }
 
 // Find a request in the request list by ticket value
