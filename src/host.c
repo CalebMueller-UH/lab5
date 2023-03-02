@@ -257,9 +257,10 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
         // Host has directory set
 
         // Build the full file path from directory and fname
-        char fullPath[MAX_RESPONSE_LEN];
-        int fullPathLen =
-            snprintf(fullPath, MAX_RESPONSE_LEN, "%s/%s", hostDirectory, fname);
+        char *fullPath = (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
+
+        int fullPathLen = snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s",
+                                   hostDirectory, fname);
 
         // Check to see if fullPath already points to an existing file
         if (fileExists(fullPath)) {
@@ -270,9 +271,11 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
           responseMsgLen =
               snprintf(responseMsg, MAX_RESPONSE_LEN, "%s:Ready", ticket);
         }
+        free(fullPath);
       }
 
-      printf("responseMsg: %s\n", responseMsg);
+      // Add null terminator to responseMsg buffer
+      responseMsg[MAX_RESPONSE_LEN - 1] = '\0';
 
       struct Packet *responsePkt = job_from_queue->packet;
       // Update responsePkt payload and length
@@ -293,9 +296,7 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
     case PKT_DOWNLOAD_RESPONSE:
       break;
   }
-}
-
-// End of jobSendResponseHandler()
+}  // End of jobSendResponseHandler()
 
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
