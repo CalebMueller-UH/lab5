@@ -3,6 +3,7 @@
 */
 
 #include "host.h"
+#include "socket.h"
 
 /* File buffer operations */
 /* Initialize file buffer data structure */
@@ -229,6 +230,8 @@ void host_main(int host_id) {
           new_packet->dst = (char)dst;
           new_packet->type = (char)PKT_PING_REQ;
           new_packet->length = 0;
+          new_packet->total_payload = sizeof(struct packet); 
+          new_packet->payload_offset = HEADER_SIZE; 
           new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job->packet = new_packet;
           new_job->type = SEND_PKT_ALL_PORTS;
@@ -259,7 +262,9 @@ void host_main(int host_id) {
           new_packet->src = (char)host_id;
           new_packet->dst = (char)dst;
           new_packet->type = (char)PKT_FILE_DOWNLOAD_REQUEST;
-          new_packet->length = strnlen(name, MAX_DIR_NAME);
+          new_packet->length = strnlen(name, MAX_DIR_NAME) + 1;
+          new_packet->total_payload = sizeof(struct packet) + new_packet->length;
+          new_packet->payload_offset = HEADER_SIZE + new_packet->length;
           strncpy(new_packet->payload, name, MAX_DIR_NAME);
           new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job->packet = new_packet;
@@ -324,29 +329,41 @@ void host_main(int host_id) {
               new_job->packet->src = host_id;
               new_job->packet->type = PKT_REQUEST_RESPONSE;
               const char *response = "File does not exist";
-              new_job->packet->length = strlen(response);
-              strncpy(new_job->packet->payload, response, strlen(response));
+              new_job->packet->length = strlen(response) + HEADER_SIZE;
+              *((short*)(new_job->packet->payload)) = (short)new_job->packet->length;
+              *((short*)(new_job->packet->payload + 2)) = (short)HEADER_SIZE;
+              new_job->packet->payload[4] = (char)new_job->packet->dst;
+              new_job->packet->payload[5] = (char)new_job->packet->src;
+              new_job->packet->payload[6] = (char)new_job->packet->type;
+              strncpy(new_job->packet->payload + HEADER_SIZE, response, strlen(response));
               job_enqueue(host_id, &host_q, new_job);
             } else {
               // File exists, start file upload
               new_job->type = FILE_UPLOAD_SEND;
               new_job->file_upload_dst = in_packet->src;
-              strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
-              new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)] =
-                  '\0';
+              strncpy(new_job->fname_upload, in_packet->payload + HEADER_SIZE, MAX_DIR_NAME);
+              new_job->fname_upload[strnlen(in_packet->payload + HEADER_SIZE, MAX_DIR_NAME)] = '\0';
+              // Open file and get its size
+              fseek(file, 0, SEEK_END);
+              size_t file_size = ftell(file);
+              fseek(file, 0, SEEK_SET);
+              // Set packet fields
+              new_job->packet->length = file_size + HEADER_SIZE;
+              *((short*)(new_job->packet->payload)) = (short)new_job->packet->length;
+              *((short*)(new_job->packet->payload + 2)) = (short)HEADER_SIZE;
+              new_job->packet->payload[4] = (char)new_job->packet->dst;
+              new_job->packet->payload[5] = (char)new_job->packet->src;
+              new_job->packet->payload[6] = (char)new_job->packet->type;
+              // Allocate buffer to read file contents
+              char *file_contents = (char*)malloc(file_size);
+              fread(file_contents, sizeof(char), file_size, file);
+              // Copy file contents to packet payload
+              memcpy(new_job->packet->payload + HEADER_SIZE, file_contents, file_size);
+              free(file_contents);
+              fclose(file);
               job_enqueue(host_id, &host_q, new_job);
             }
             break;
-
-            // new_job = (struct job_struct *)malloc(sizeof(struct job_struct));
-            // new_job->type = FILE_UPLOAD_SEND;
-            // new_job->file_upload_dst = in_packet->src;
-            // strncpy(new_job->fname_upload, in_packet->payload, MAX_DIR_NAME);
-            // new_job->fname_upload[strnlen(in_packet->payload, MAX_DIR_NAME)]
-            // =
-            //     '\0';
-            // job_enqueue(host_id, &host_q, new_job);
-            // break;
 
           default:
             free(in_packet);
@@ -380,6 +397,15 @@ void host_main(int host_id) {
           new_packet->type = PKT_PING_REPLY;
           new_packet->length = 0;
 
+          /* Fill in packet header fields */
+          short total_payload = HEADER_SIZE; 
+          short payload_offset = HEADER_SIZE; 
+          *((short*)(new_packet->payload)) = total_payload;
+          *((short*)(new_packet->payload + 2)) = payload_offset;
+          new_job->packet->payload[4] = (char)new_job->packet->src;
+          new_job->packet->payload[5] = (char)new_job->packet->dst;
+          new_job->packet->payload[6] = (char)new_job->packet->type;
+  
           /* Create job for the ping reply */
           new_job2 = (struct job_struct *)malloc(sizeof(struct job_struct));
           new_job2->type = SEND_PKT_ALL_PORTS;
@@ -431,10 +457,19 @@ void host_main(int host_id) {
               new_packet->dst = new_job->file_upload_dst;
               new_packet->src = (char)host_id;
               new_packet->type = PKT_FILE_UPLOAD_START;
-              for (i = 0; new_job->fname_upload[i] != '\0'; i++) {
-                new_packet->payload[i] = new_job->fname_upload[i];
+              for (i = 0; i < strnlen(new_job->fname_upload, MAX_FILE_NAME_LENGTH); i++) {
+        new_packet->payload[i] = new_job->fname_upload[i];
+
               }
               new_packet->length = i;
+              /* Add packet header */
+              int header_size = 7; // size of the added packet header
+              char* packet_with_header = (char*)malloc(PKT_PAYLOAD_MAX + header_size);
+              memcpy(packet_with_header + header_size, new_packet->payload, new_packet->length);
+              memcpy(new_packet->payload, packet_with_header, PKT_PAYLOAD_MAX + header_size);
+              free(packet_with_header);
+              new_packet->length += header_size;
+              memcpy(new_packet->payload, packet_with_header, header_size);
               /*
                * Create a job to send the packet
                * and put it in the job queue
@@ -458,6 +493,12 @@ void host_main(int host_id) {
                 new_packet->payload[i] = string[i];
               }
               new_packet->length = n;
+              // Add packet header 
+              packet_with_header = (char*)malloc(PKT_PAYLOAD_MAX + header_size);
+              memcpy(packet_with_header + header_size, new_packet->payload, new_packet->length);
+              memcpy(new_packet->payload, packet_with_header, PKT_PAYLOAD_MAX + header_size);
+              new_packet->length += header_size;
+              memcpy(new_packet->payload, packet_with_header, header_size);
               /*
                * Create a job to send the packet
                * and put the job in the job queue
@@ -474,7 +515,7 @@ void host_main(int host_id) {
           }
           break;
 
-          /* The next two jobs are for the receving host */
+          /* The next two jobs are for the receiving host */
         case FILE_UPLOAD_RECV_START:
           /* Initialize the file buffer data structure */
           file_buf_init(&f_buf_upload);

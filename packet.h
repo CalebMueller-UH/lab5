@@ -17,6 +17,8 @@
 #include "main.h"
 
 #define PAYLOAD_MAX 100
+#define HEADER_SIZE 4
+
 
 // min returns the smaller of its two arguments.
 // This is used in packet_send() to calculate the number of 

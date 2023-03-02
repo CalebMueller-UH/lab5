@@ -22,7 +22,7 @@
 #define BCAST_ADDR 100
 #define STRING_MAX 100
 #define NAME_LENGTH 100
-
+#define MAX_DOMAIN_NAME_LENGTH 100
 
 
 enum NetNodeType { /* Types of network nodes */

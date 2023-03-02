@@ -12,12 +12,12 @@
  * until the read/write is completely fulfilled.
  */
 
+#include "socket.h"
 #include "net.h"
-
 #include "host.h"
-#include "main.h"
 #include "man.h"
 #include "packet.h"
+#include "main.h"
 
 #define MAX_FILE_NAME_LENGTH 100
 #define PIPE_READ 0

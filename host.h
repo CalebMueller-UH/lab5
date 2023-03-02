@@ -13,13 +13,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "socket.h"
 #include "packet.h"
 #include "job.h"
-#include "main.h"
 #include "man.h"
 #include "net.h"
+#include "main.h"
 
-
+#define HEADER_SIZE 4
 #define MAX_FILE_BUFFER 1000
 #define MAX_MSG_LENGTH 100
 #define MAX_DIR_NAME 100

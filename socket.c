@@ -186,8 +186,6 @@ int sock_send(const char* localDomain, const char* remoteDomain,
     int bytesToSend = min(msgLen - payload_offset, PAYLOAD_MAX);
     memcpy(p.payload, msg + payload_offset, bytesToSend);
 
-    packet_send(&(struct net_port) {.type = SOCKET, .localDomain = localDomain, .remoteDomain = remoteDomain, .remotePort = remotePort, .send_fd = sock_fd}, &p);
-
   bytesSent += bytesToSend;
   payload_offset += bytesToSend;
 }
@@ -201,8 +199,6 @@ int sock_send(const char* localDomain, const char* remoteDomain,
     p.payload_offset = payload_offset;
     p.total_payload = msgLen;
     memcpy(p.payload, msg + payload_offset, msgLen - payload_offset);
-
-    packet_send(&(struct net_port) {.type = SOCKET, .localDomain = localDomain, .remoteDomain = remoteDomain, .remotePort = remotePort, .send_fd = sock_fd}, &p);
 
     bytesSent += msgLen - payload_offset;
   }

@@ -37,11 +37,6 @@ struct job_struct {
   char fname_upload[100];
   int timeToLive;
   int file_upload_dst;
-  int total_payload_length;
-  int payload_offset; 
-  int file_size;
-  int packets_remaining;
-  FILE *fp;
   struct job_struct *next;
 };
 

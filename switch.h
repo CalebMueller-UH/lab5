@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "socket.h"
 #include "net.h"
 #include "job.h"
 #include "main.h"

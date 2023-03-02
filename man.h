@@ -11,8 +11,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "host.h"
+#include "socket.h"
 #include "main.h"
+#include "host.h"
 #include "net.h"
 
 #define MAXBUFFER 1000

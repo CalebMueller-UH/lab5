@@ -2,10 +2,10 @@
     switch.c
 */
 
-#include "switch.h"
 #include "socket.h"
+#include "switch.h"
 #include "net.h"
-
+#include "main.h"
 #include <stdbool.h>
 
 #define MAX_NUM_ROUTES 100
