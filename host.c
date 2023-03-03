@@ -342,7 +342,7 @@ void host_main(int host_id) {
               new_job->type = FILE_UPLOAD_SEND;
               new_job->file_upload_dst = in_packet->src;
               strncpy(new_job->fname_upload, in_packet->payload + HEADER_SIZE, MAX_DIR_NAME);
-              new_job->fname_upload[strnlen(in_packet->payload + HEADER_SIZE, MAX_DIR_NAME)] = '\0';
+              new_job->fname_upload[strlen(in_packet->payload)] = '\0';
               // Open file and get its size
               fseek(file, 0, SEEK_END);
               size_t file_size = ftell(file);
