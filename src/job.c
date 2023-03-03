@@ -27,12 +27,10 @@ char *get_job_type_literal(enum job_type t) {
       return "JOB_SEND_RESPONSE";
     case JOB_WAIT_FOR_RESPONSE:
       return "JOB_WAIT_FOR_RESPONSE";
-    case JOB_UPLOAD_SEND:
-      return "JOB_UPLOAD_SEND";
-    case JOB_RECV_START:
-      return "JOB_RECV_START";
-    case JOB_RECV_END:
-      return "JOB_RECV_END";
+    case JOB_UPLOAD:
+      return "JOB_UPLOAD";
+    case JOB_DOWNLOAD:
+      return "JOB_DOWNLOAD";
     case JOB_INVALID_TYPE:
       return "JOB_INVALID_TYPE";
   };

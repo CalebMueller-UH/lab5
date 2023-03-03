@@ -654,6 +654,11 @@ void host_main(int host_id) {
             break;
           }  //////////////// End of case JOB_WAIT_FOR_RESPONSE
 
+          case JOB_UPLOAD: {
+            jobUploadHandler();
+            break;
+          }  //////////////// End of case JOB_UPLOAD
+
           default:
 #ifdef DEBUG
             colorPrint(YELLOW,
