@@ -6,8 +6,13 @@ request.h
 
 #define TICKETLEN 4
 
-typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ, INVALID } requestType;
-typedef enum { PENDING, COMPLETE } requestState;
+typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ, STATE_INVALID } requestType;
+typedef enum {
+  STATE_PENDING,
+  STATE_COMPLETE,
+  STATE_READY,
+  INVALID
+} requestState;
 
 /* Used to track multiple requests of different types*/
 struct Request {

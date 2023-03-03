@@ -19,7 +19,7 @@ struct Request *createRequest(requestType req_type, int ttl) {
   int ticketMax = keyMod - 1;
   r->ticket = (rand() % (ticketMax - ticketMin + 1)) + ticketMin;
   r->type = req_type;
-  r->state = PENDING;
+  r->state = STATE_PENDING;
   r->timeToLive = ttl;
   r->next = NULL;
   return r;

@@ -26,6 +26,12 @@
 // delimiter, and terminator
 int MAX_RESPONSE_LEN = PACKET_PAYLOAD_MAX - 2 - TICKETLEN;
 
+// Send a message back to manager
+void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]) {
+  int msgLen = strnlen(msg, MAX_MSG_LENGTH);
+  write(fd, msg, msgLen);
+}
+
 void parseString(const char *inputStr, char *ticketStr, char *dataStr) {
   // Find the delimiter in the input string
   char *delimPos = strchr(inputStr, ':');
@@ -115,11 +121,13 @@ void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
   if (r != NULL) {
     switch (recPkt->type) {
       case PKT_PING_RESPONSE:
-        r->state = COMPLETE;
+        r->state = STATE_COMPLETE;
         break;
       case PKT_UPLOAD_RESPONSE:
+        r->state = STATE_READY;
         break;
       case PKT_DOWNLOAD_RESPONSE:
+        r->state = STATE_READY;
         break;
       default:
     }
@@ -297,6 +305,43 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
       break;
   }
 }  // End of jobSendResponseHandler()
+
+void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
+                               struct Job_queue *host_q, char *hostDirectory,
+                               struct Request **reqList, int manFd) {
+  char rTicket[TICKETLEN];
+  parseString(job_from_queue->packet->payload, rTicket, NULL);
+  struct Request *r = findRequestByStringTicket(*reqList, rTicket);
+  if (r != NULL) {
+    switch (r->type) {
+      case PING_REQ:
+        if (r->state == STATE_COMPLETE) {
+          const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
+          write(manFd, repMsg, strlen(repMsg));
+          deleteFromReqList(*reqList, r->ticket);
+        } else if (r->timeToLive > 0) {
+          r->timeToLive--;
+          struct Packet *p = createEmptyPacket();
+          memcpy(p, job_from_queue->packet, sizeof(struct Packet));
+          struct Job *j = createJob(JOB_WAIT_FOR_RESPONSE, p);
+          job_enqueue(host_id, host_q, j);
+        } else {
+          const char *repMsg = "\x1b[31;1mPing timed out!\x1b[0m";
+          write(manFd, repMsg, strlen(repMsg));
+          deleteFromReqList(*reqList, r->ticket);
+        }
+        break;
+
+      case UPLOAD_REQ:
+        break;
+
+      case DOWNLOAD_REQ:
+        break;
+    }
+  } else {
+    printf("Request could not be found in list\n");
+  }
+}  // End of jobWaitForResponseHandler()
 
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
@@ -553,38 +598,44 @@ void host_main(int host_id) {
           }  ////////////////
 
           case JOB_WAIT_FOR_RESPONSE: {
-            char rTicket[TICKETLEN];
-            parseString(job_from_queue->packet->payload, rTicket, NULL);
-            struct Request *r = findRequestByStringTicket(requestList, rTicket);
-            if (r != NULL) {
-              switch (r->type) {
-                case PING_REQ:
-                  if (r->state == COMPLETE) {
-                    const char *repMsg = "\x1b[32;1mPing acknowledged!\x1b[0m";
-                    write(man_port->send_fd, repMsg, strlen(repMsg));
-                    deleteFromReqList(requestList, r->ticket);
-                  } else if (r->timeToLive > 0) {
-                    r->timeToLive--;
-                    struct Packet *p = createEmptyPacket();
-                    memcpy(p, job_from_queue->packet, sizeof(struct Packet));
-                    struct Job *j = createJob(JOB_WAIT_FOR_RESPONSE, p);
-                    job_enqueue(host_id, &host_q, j);
-                  } else {
-                    const char *repMsg = "\x1b[31;1mPing timed out!\x1b[0m";
-                    write(man_port->send_fd, repMsg, strlen(repMsg));
-                    deleteFromReqList(requestList, r->ticket);
-                  }
-                  break;
+            jobWaitForResponseHandler(host_id, job_from_queue, &host_q,
+                                      hostDirectory, &requestList,
+                                      man_port->send_fd);
+            // char rTicket[TICKETLEN];
+            // parseString(job_from_queue->packet->payload, rTicket, NULL);
+            // struct Request *r = findRequestByStringTicket(requestList,
+            // rTicket); if (r != NULL) {
+            //   switch (r->type) {
+            //     case PING_REQ:
+            //       if (r->state == STATE_COMPLETE) {
+            //         const char *repMsg = "\x1b[32;1mPing
+            //         acknowledged!\x1b[0m"; write(man_port->send_fd,
+            //         repMsg, strlen(repMsg));
+            //         deleteFromReqList(requestList, r->ticket);
+            //       } else if (r->timeToLive > 0) {
+            //         r->timeToLive--;
+            //         struct Packet *p = createEmptyPacket();
+            //         memcpy(p, job_from_queue->packet, sizeof(struct
+            //         Packet)); struct Job *j =
+            //         createJob(JOB_WAIT_FOR_RESPONSE, p);
+            //         job_enqueue(host_id, &host_q, j);
+            //       } else {
+            //         const char *repMsg = "\x1b[31;1mPing timed
+            //         out!\x1b[0m"; write(man_port->send_fd, repMsg,
+            //         strlen(repMsg)); deleteFromReqList(requestList,
+            //         r->ticket);
+            //       }
+            //       break;
 
-                case UPLOAD_REQ:
-                  break;
+            //     case UPLOAD_REQ:
+            //       break;
 
-                case DOWNLOAD_REQ:
-                  break;
-              }
-            } else {
-              printf("Request could not be found in list\n");
-            }
+            //     case DOWNLOAD_REQ:
+            //       break;
+            //   }
+            // } else {
+            //   printf("Request could not be found in list\n");
+            // }
             break;
           }  //////////////// End of case JOB_WAIT_FOR_RESPONSE
 
