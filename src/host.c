@@ -476,29 +476,33 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
 
       if (r->state == STATE_PENDING) {
         job_enqueue(host_id, host_q, job_from_queue);
-      }
+      } else {
+        switch (r->type) {
+          case PING_REQ:
+            if (r->state == STATE_COMPLETE) {
+              snprintf(responseMsg, MAX_MSG_LENGTH,
+                       "\x1b[32;1mPing acknowledged!\x1b[0m");
+              sendMsgToManager(manFd, responseMsg);
+              deleteFromReqList(*reqList, r->ticket);
+              destroyJob(job_from_queue);
+            }
+            break;
 
-      switch (r->type) {
-        case PING_REQ:
-          if (r->state == STATE_COMPLETE) {
-            // sendMsgToManager(manFd, "\x1b[32;1mPing acknowledged!\x1b[0m");
-            snprintf(responseMsg, MAX_MSG_LENGTH,
-                     "\x1b[32;1mPing acknowledged!\x1b[0m");
-            sendMsgToManager(manFd, responseMsg);
-            deleteFromReqList(*reqList, r->ticket);
-            destroyJob(job_from_queue);
-          }
-          break;
+          case UPLOAD_REQ:
+            if (r->state == STATE_READY) {
+              jobUploadHandler(host_id, job_from_queue->packet->dst, ticket,
+                               hostDirectory, msg, host_q);
+              snprintf(responseMsg, MAX_MSG_LENGTH, "OK");
+              sendMsgToManager(manFd, responseMsg);
+            } else if (r->state == STATE_ERROR) {
+              snprintf(responseMsg, MAX_MSG_LENGTH, "%s", r->errorMsg);
+              sendMsgToManager(manFd, responseMsg);
+            }
+            break;
 
-        case UPLOAD_REQ:
-          if (r->state == STATE_READY) {
-            jobUploadHandler(host_id, job_from_queue->packet->dst, ticket,
-                             hostDirectory, msg, host_q);
-          }
-          break;
-
-        case DOWNLOAD_REQ:
-          break;
+          case DOWNLOAD_REQ:
+            break;
+        }
       }
     }
 
@@ -761,9 +765,9 @@ void host_main(int host_id) {
           case JOB_SEND_PKT: {
             sendPacketTo(node_port_array, node_port_array_size,
                          job_from_queue->packet);
-            // destroyJob(job_from_queue);
+            destroyJob(job_from_queue);
             break;
-          }  ////////////////
+          }  //////////////// End of case JOB_SEND_PKT
 
           case JOB_WAIT_FOR_RESPONSE: {
             jobWaitForResponseHandler(host_id, job_from_queue, &host_q,
@@ -776,6 +780,11 @@ void host_main(int host_id) {
             // jobUploadHandler();
             break;
           }  //////////////// End of case JOB_UPLOAD
+
+          case JOB_DOWNLOAD: {
+            // jobUploadHandler();
+            break;
+          }  //////////////// End of case JOB_DOWNLOAD
 
           default:
 #ifdef DEBUG

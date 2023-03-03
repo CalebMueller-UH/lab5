@@ -193,6 +193,18 @@ int file_upload(struct Man_port_at_man *curr_host) {
   n = snprintf(msg, MAX_MSG_LENGTH, "u %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
   usleep(LOOP_SLEEP_TIME_MS);
+
+  char reply[MAX_MSG_LENGTH];
+  n = 0;
+  while (n <= 0) {
+    usleep(LOOP_SLEEP_TIME_MS);
+    n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
+  }
+
+  if (strncmp("OK", reply, 2) != 0) {
+    reply[n] = '\0';
+    colorPrint(BOLD_RED, "%s\n", reply);
+  }
 }
 
 /*
