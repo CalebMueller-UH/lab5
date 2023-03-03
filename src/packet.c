@@ -110,17 +110,15 @@ char *get_packet_type_literal(int pktType) {
       return "PKT_DOWNLOAD_REQ";
     case PKT_DOWNLOAD_RESPONSE:
       return "PKT_DOWNLOAD_RESPONSE";
-    case PKT_UPLOAD_START:
-      return "PKT_UPLOAD_START";
-    case PKT_UPLOAD_CONTINUE:
-      return "PKT_UPLOAD_CONTINUE";
-    case PKT_FILE_UPLOAD_END:
-      return "PKT_FILE_UPLOAD_END";
+    case PKT_UPLOAD:
+      return "PKT_UPLOAD";
+    case PKT_UPLOAD_END:
+      return "PKT_UPLOAD_END";
   }
 }
 
-/* Prints the contents of a packet with its source, destination, type, length,
- * and payload. */
+/* Prints the contents of a packet with its source, destination, type,
+ * length, and payload. */
 void printPacket(struct Packet *p) {
   colorPrint(ORANGE, "src:%d dst:%d type: %s len:%d payload:%s\n", p->src,
              p->dst, get_packet_type_literal(p->type), p->length, p->payload);

@@ -110,7 +110,7 @@ void handleIncomingRequestPacket(int host_id, struct Packet *recPkt,
   // Place response packet inside response job and enqueue
   struct Job *resJob = createJob(JOB_SEND_RESPONSE, resPkt);
   job_enqueue(host_id, host_q, resJob);
-}
+}  // End of handleIncomingRequestPacket()
 
 void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
                                   struct Job_queue *host_q,
@@ -132,7 +132,7 @@ void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
       default:
     }
   }
-}
+}  // End of handleIncomingResponsePacket()
 
 void jobSendRequestHandler(int host_id, struct Job *job_from_queue,
                            struct Job_queue *host_q, char *hostDirectory,
@@ -322,15 +322,108 @@ void destroyJob(struct Job *jobToDestroy) {
   }
 }
 
+void jobUploadHandler(int host_id, int dst, char ticket[TICKETLEN],
+                      char directory[MAX_FILENAME_LENGTH],
+                      char fname[MAX_RESPONSE_LEN], struct Job_queue *host_q) {
+  char *fullPath =
+      (char *)malloc(sizeof(char) * (MAX_FILENAME_LENGTH + MAX_RESPONSE_LEN));
+  sprintf(fullPath, "%s/%s", directory, fname);
+
+  // Step 1: Open the file you want to send in binary mode.
+  FILE *fp = fopen(fullPath, "rb");
+  if (fp == NULL) {
+    printf("Error opening file.\n");
+    free(fullPath);
+    return;
+  }
+
+  // Step 2: Determine the size of the file in bytes.
+  fseek(fp, 0L, SEEK_END);
+  long fileSize = ftell(fp);
+  fseek(fp, 0L, SEEK_SET);
+
+  // Step 3: Allocate a buffer of a certain size that you will use to read
+  // chunks of the file into.
+  int bufferSize = MAX_RESPONSE_LEN;
+  char *buffer = (char *)malloc(sizeof(char) * bufferSize);
+
+  // Step 4: Read the first chunk of data from the file into the buffer.
+  int bytesRead = fread(buffer, sizeof(char), bufferSize, fp);
+
+  // Step 5: Send the first chunk of data to the receiving end.
+  struct Packet *firstPkt = createPacket(host_id, dst, PKT_UPLOAD);
+  int pktLen =
+      snprintf(firstPkt->payload, PACKET_PAYLOAD_MAX, "%s:%s", ticket, buffer);
+  firstPkt->length = pktLen;
+  struct Job *firstJob = createJob(JOB_SEND_PKT, firstPkt);
+  job_enqueue(host_id, host_q, firstJob);
+
+  // Step 6: Repeat steps 4 and 5 until you have read and sent the entire file.
+  while (bytesRead == bufferSize) {
+    bytesRead = fread(buffer, sizeof(char), bufferSize, fp);
+    struct Packet *nextPkt = createPacket(host_id, dst, PKT_UPLOAD);
+    int nextPktLen =
+        snprintf(nextPkt->payload, PACKET_PAYLOAD_MAX, "%s:%s", ticket, buffer);
+    nextPkt->length = nextPktLen;
+    struct Job *nextJob = createJob(JOB_SEND_PKT, nextPkt);
+    job_enqueue(host_id, host_q, nextJob);
+  }
+
+  // Step 7: Close the file.
+  fclose(fp);
+
+  // Step 8: Notify the receiving end that the file has been fully sent.
+  // send(ticket, "EOF", 3, 0);
+
+  // Free the memory used by the buffer and full path string.
+  free(buffer);
+  free(fullPath);
+}  // End of jobUploadHandler()
+
+// void jobDownloadHandler(int host_id, int dst, struct Packet *pkt) {
+//   char *payload = pkt->payload;
+//   char *ticketStr = strtok(payload, ":");
+//   char *buffer = strtok(NULL, ":");
+//   int ticket = atoi(ticketStr);
+
+//   // Find the file name from the first packet of the upload
+//   char *uploadPayload = pkt_get_payload(firstPkt);
+//   char *filename = strtok(uploadPayload, "/");
+//   while (filename != NULL) {
+//     filename = strtok(NULL, "/");
+//   }
+
+//   // Step 1: Open the file for writing in binary mode.
+//   FILE *fp = fopen(filename, "wb");
+//   if (fp == NULL) {
+//     printf("Error opening file.\n");
+//     return;
+//   }
+
+//   // Step 2: Write the buffer data to the file.
+//   fwrite(buffer, sizeof(char), pkt->length - strlen(ticketStr) - 1, fp);
+
+//   // Step 3: If this is not the last packet, create a new job to receive the
+//   // next packet.
+//   if (strcmp(buffer, "EOF") != 0) {
+//     struct Job *nextJob = createJob(JOB_RECV_PKT, ticket);
+//     pushJob(nextJob);
+//   }
+
+//   // Step 4: Close the file.
+//   fclose(fp);
+// }  // End of jobDownloadHandler()
+
 void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
                                struct Job_queue *host_q, char *hostDirectory,
                                struct Request **reqList, int manFd) {
   // Grab the request ticket from the job_from_queue->packet->payload
-  char rTicket[TICKETLEN];
-  parseString(job_from_queue->packet->payload, rTicket, NULL);
+  char ticket[TICKETLEN];
+  char msg[MAX_RESPONSE_LEN];
+  parseString(job_from_queue->packet->payload, ticket, msg);
 
   // Find the request r matching that request ticket in payload
-  struct Request *r = findRequestByStringTicket(*reqList, rTicket);
+  struct Request *r = findRequestByStringTicket(*reqList, ticket);
 
   // If the request r can be found in the reqList
   if (r != NULL) {
@@ -378,7 +471,9 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
           break;
 
         case UPLOAD_REQ:
-
+          printf("host%d: jobWaitForResponseHandler msg: %s\n", host_id, msg);
+          jobUploadHandler(host_id, job_from_queue->packet->dst, ticket,
+                           hostDirectory, msg, host_q);
           break;
 
         case DOWNLOAD_REQ:
@@ -390,8 +485,6 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
     printf("Request could not be found in list\n");
   }
 }  // End of jobWaitForResponseHandler()
-
-void jobUploadHandler() {}
 
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
@@ -655,7 +748,7 @@ void host_main(int host_id) {
           }  //////////////// End of case JOB_WAIT_FOR_RESPONSE
 
           case JOB_UPLOAD: {
-            jobUploadHandler();
+            // jobUploadHandler();
             break;
           }  //////////////// End of case JOB_UPLOAD
 
