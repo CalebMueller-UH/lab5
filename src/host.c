@@ -28,39 +28,49 @@ void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]) {
   write(fd, msg, msgLen);
 }
 
-void parseString(const char *inputStr, char *ticketStr, char *dataStr) {
-  // Find the delimiter in the input string
-  char *delimPos = strchr(inputStr, ':');
-  if (delimPos == NULL) {
-    // Handle error - delimiter not found
-    ticketStr = NULL;
-    strncpy(dataStr, "BAD DATA", 9);
-    dataStr[9] = '\0';  // Null-terminate the string
+// Parse a packet payload inputStr into its ticket and data
+// Note:: Use dynamically allocated buffers for ticket and data
+void parsePacket(const char *inputStr, char *ticketStr, char *dataStr) {
+  const char delim = ':';
+
+  int inputLen = strnlen(inputStr, PACKET_PAYLOAD_MAX);
+  if (inputLen == 0) {
+    printf("ERROR: parsePacket was passed an empty inputStr\n");
     return;
   }
-  // Copy the key string to the output buffer (if ticketStr is not NULL)
-  if (ticketStr != NULL) {
-    size_t keyLen = delimPos - inputStr;
-    strncpy(ticketStr, inputStr, keyLen);
-    ticketStr[keyLen] = '\0';  // Null-terminate the string
+  if (inputLen > PACKET_PAYLOAD_MAX) {
+    printf(
+        "ERROR: parsePacket was passed an inputStr larger than "
+        "PACKET_PAYLOAD_MAX\n");
+    return;
   }
-  // Copy the data string to the output buffer (if dataStr is not NULL)
-  if (dataStr != NULL) {
-    size_t dataLen = strlen(inputStr) - (delimPos - inputStr) - 1;
-    strncpy(dataStr, delimPos + 1, dataLen);
-    dataStr[dataLen] = '\0';  // Null-terminate the string
+
+  // Find position of delimiter
+  int delimPos = 0;
+  for (int i = 0; i < inputLen; i++) {
+    if (inputStr[i] == delim) {
+      delimPos = i;
+      break;
+    }
   }
-  // Null-terminate the ticket string
-  if (ticketStr != NULL) {
-    size_t ticketLen = strlen(ticketStr);
-    ticketStr[ticketLen] = '\0';
+
+  if (delimPos == 0) {
+    printf("ERROR: parsePacket: delimiter not found in inputStr\n");
+    return;
   }
-  // Null-terminate the data string
-  if (dataStr != NULL) {
-    size_t dataLen = strlen(dataStr);
-    dataStr[dataLen] = '\0';
+
+  // Copy ticket from inputStr into ticketStr
+  for (int i = 0; i < delimPos; i++) {
+    ticketStr[i] = inputStr[i];
   }
-}  // End of parseString()
+  ticketStr[delimPos] = '\0';
+
+  // Copy data from inputStr into dataStr
+  for (int i = delimPos + 1; i < inputLen; i++) {
+    dataStr[i - delimPos - 1] = inputStr[i];
+  }
+  dataStr[inputLen - delimPos - 1] = '\0';
+}  // End of parsePacket()
 
 int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
   // Find which Net_port entry in net_port_array has desired destination
@@ -111,9 +121,10 @@ void handleIncomingRequestPacket(int host_id, struct Packet *recPkt,
 void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
                                   struct Job_queue *host_q,
                                   struct Request **reqList) {
-  char ticket[TICKETLEN];
-  char msg[MAX_RESPONSE_LEN];
-  parseString(recPkt->payload, ticket, msg);
+  char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+  char *msg = (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
+  parsePacket(recPkt->payload, ticket, msg);
+
   struct Request *r = findRequestByStringTicket(*reqList, ticket);
   if (r != NULL) {
     switch (recPkt->type) {
@@ -121,7 +132,6 @@ void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
         r->state = STATE_COMPLETE;
         break;
       case PKT_UPLOAD_RESPONSE:
-        printf("ticket: %s, msg: %s\n", ticket, msg);
         if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
           r->state = STATE_READY;
         } else {
@@ -135,6 +145,9 @@ void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
       default:
     }
   }
+  // Clean up memory allocation
+  free(ticket);
+  free(msg);
 }  // End of handleIncomingResponsePacket()
 
 void jobSendRequestHandler(int host_id, struct Job *job_from_queue,
@@ -249,12 +262,11 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
 
     case PKT_UPLOAD_RESPONSE: {
       // Parse packet payload for ticket and fname
-      char ticket[TICKETLEN];
-      char fname[MAX_RESPONSE_LEN];
-      memset(ticket, 0, TICKETLEN);
-      memset(fname, 0, MAX_RESPONSE_LEN);
+      char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+      char *fname =
+          (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
 
-      parseString(job_from_queue->packet->payload, ticket, fname);
+      parsePacket(job_from_queue->packet->payload, ticket, fname);
 
       char responseMsg[MAX_RESPONSE_LEN];
       int responseMsgLen = 0;
@@ -302,8 +314,12 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
       // Create and enqueue job
       struct Job *res = createJob(JOB_SEND_PKT, responsePkt);
       job_enqueue(host_id, host_q, res);
+
+      // Clean up memory allocation
+      free(ticket);
+      free(fname);
       break;
-    }
+    }  // End of case PKT_UPLOAD_RESPONSE
 
     case PKT_DOWNLOAD_RESPONSE:
       break;
@@ -421,9 +437,9 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
                                struct Job_queue *host_q, char *hostDirectory,
                                struct Request **reqList, int manFd) {
   // Grab the request ticket from the job_from_queue->packet->payload
-  char ticket[TICKETLEN];
-  char msg[MAX_RESPONSE_LEN];
-  parseString(job_from_queue->packet->payload, ticket, msg);
+  char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+  char *msg = (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
+  parsePacket(job_from_queue->packet->payload, ticket, msg);
 
   // Find the request r matching that request ticket in payload
   struct Request *r = findRequestByStringTicket(*reqList, ticket);
@@ -489,6 +505,9 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
   } else {
     printf("Request could not be found in list\n");
   }
+  // Clean up memory allocation
+  free(ticket);
+  free(msg);
 }  // End of jobWaitForResponseHandler()
 
 ////////////////////////////////////////////////
