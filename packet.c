@@ -22,6 +22,7 @@ void packet_send(struct net_port *port, struct packet *p) {
   // Copy payload data
   int payload_remaining = p->total_payload - p->payload_offset;
   bytesToSend = min(payload_remaining, PAYLOAD_MAX);
+  // Skip the first 7 bytes of the message buffer
   memcpy(msg + 7, p->payload + p->payload_offset, bytesToSend);
 
   // Send Packet

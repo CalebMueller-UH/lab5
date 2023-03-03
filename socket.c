@@ -186,9 +186,9 @@ int sock_send(const char* localDomain, const char* remoteDomain,
     int bytesToSend = min(msgLen - payload_offset, PAYLOAD_MAX);
     memcpy(p.payload, msg + payload_offset, bytesToSend);
 
-  bytesSent += bytesToSend;
-  payload_offset += bytesToSend;
-}
+    bytesSent += bytesToSend;
+    payload_offset += bytesToSend;
+  }
 
   // Send final packet with payload length < PAYLOAD_MAX
   if (payload_offset < msgLen) {
