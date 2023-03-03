@@ -6,7 +6,10 @@ request.c
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
+
+#include "constants.h"
 
 struct Request *createRequest(requestType req_type, int ttl) {
   struct Request *r = (struct Request *)malloc(sizeof(struct Request));
@@ -21,6 +24,7 @@ struct Request *createRequest(requestType req_type, int ttl) {
   r->type = req_type;
   r->state = STATE_PENDING;
   r->timeToLive = ttl;
+  memset(r->errorMsg, 0, MAX_RESPONSE_LEN);
   r->next = NULL;
   return r;
 }

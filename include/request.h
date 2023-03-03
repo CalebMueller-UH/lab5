@@ -4,14 +4,16 @@ request.h
 
 #pragma once
 
-#define TICKETLEN 4
+#include "constants.h"
 
-typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ, STATE_INVALID } requestType;
+typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ, INVALID_REQ } requestType;
+
 typedef enum {
   STATE_PENDING,
   STATE_COMPLETE,
   STATE_READY,
-  INVALID
+  STATE_ERROR,
+  STATE_INVALID
 } requestState;
 
 /* Used to track multiple requests of different types*/
@@ -20,6 +22,7 @@ struct Request {
   requestType type;
   requestState state;
   int timeToLive;
+  char errorMsg[MAX_RESPONSE_LEN];
   struct Request *next;
 };
 

@@ -22,10 +22,6 @@
 #include "request.h"
 #include "semaphore.h"
 
-// The number of payload space available after including a response ticket,
-// delimiter, and terminator
-int MAX_RESPONSE_LEN = PACKET_PAYLOAD_MAX - 2 - TICKETLEN;
-
 // Send a message back to manager
 void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]) {
   int msgLen = strnlen(msg, MAX_MSG_LENGTH);
@@ -115,16 +111,23 @@ void handleIncomingRequestPacket(int host_id, struct Packet *recPkt,
 void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
                                   struct Job_queue *host_q,
                                   struct Request **reqList) {
-  char responseTicket[TICKETLEN];
-  parseString(recPkt->payload, responseTicket, NULL);
-  struct Request *r = findRequestByStringTicket(*reqList, responseTicket);
+  char ticket[TICKETLEN];
+  char msg[MAX_RESPONSE_LEN];
+  parseString(recPkt->payload, ticket, msg);
+  struct Request *r = findRequestByStringTicket(*reqList, ticket);
   if (r != NULL) {
     switch (recPkt->type) {
       case PKT_PING_RESPONSE:
         r->state = STATE_COMPLETE;
         break;
       case PKT_UPLOAD_RESPONSE:
-        r->state = STATE_READY;
+        printf("ticket: %s, msg: %s\n", ticket, msg);
+        if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
+          r->state = STATE_READY;
+        } else {
+          r->state = STATE_ERROR;
+          strncpy(r->errorMsg, msg, MAX_RESPONSE_LEN);
+        }
         break;
       case PKT_DOWNLOAD_RESPONSE:
         r->state = STATE_READY;
@@ -157,7 +160,7 @@ void jobSendRequestHandler(int host_id, struct Job *job_from_queue,
   }
 
   // Determine request type from packet type
-  requestType rtype = INVALID;
+  requestType rtype = INVALID_REQ;
   switch (job_from_queue->packet->type) {
     case PKT_PING_REQ:
       rtype = PING_REQ;
@@ -169,7 +172,7 @@ void jobSendRequestHandler(int host_id, struct Job *job_from_queue,
       rtype = DOWNLOAD_REQ;
       break;
     default:
-      rtype = INVALID;
+      rtype = INVALID_REQ;
       break;
   }
 
@@ -455,6 +458,10 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
       // Decrement
       r->timeToLive--;
 
+      if (r->state == STATE_PENDING) {
+        job_enqueue(host_id, host_q, job_from_queue);
+      }
+
       switch (r->type) {
         case PING_REQ:
           if (r->state == STATE_COMPLETE) {
@@ -464,16 +471,14 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
             sendMsgToManager(manFd, responseMsg);
             deleteFromReqList(*reqList, r->ticket);
             destroyJob(job_from_queue);
-
-          } else if (r->state == STATE_PENDING) {
-            job_enqueue(host_id, host_q, job_from_queue);
           }
           break;
 
         case UPLOAD_REQ:
-          printf("host%d: jobWaitForResponseHandler msg: %s\n", host_id, msg);
-          jobUploadHandler(host_id, job_from_queue->packet->dst, ticket,
-                           hostDirectory, msg, host_q);
+          if (r->state == STATE_READY) {
+            jobUploadHandler(host_id, job_from_queue->packet->dst, ticket,
+                             hostDirectory, msg, host_q);
+          }
           break;
 
         case DOWNLOAD_REQ:
@@ -737,6 +742,7 @@ void host_main(int host_id) {
           case JOB_SEND_PKT: {
             sendPacketTo(node_port_array, node_port_array_size,
                          job_from_queue->packet);
+            // destroyJob(job_from_queue);
             break;
           }  ////////////////
 
