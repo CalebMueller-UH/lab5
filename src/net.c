@@ -150,6 +150,7 @@ void net_free_man_ports_at_hosts() {
     t_h = p_h;
     p_h = p_h->next;
     free(t_h);
+    t_h = NULL;
   }
 }
 
@@ -173,6 +174,7 @@ void net_free_man_ports_at_man() {
     t_m = p_m;
     p_m = p_m->next;
     free(t_m);
+    t_m = NULL;
   }
 }
 
@@ -301,6 +303,7 @@ void create_port_list() {
     } else if (net_link_list[i].type == SOCKET) {
       ////////////////////// SOCKET ///////////////////////////
       free(p1);
+      p1 = NULL;
       p0->type = net_link_list[i].type;
       p0->send_fd = sock_server_init(net_link_list[i].socket_local_domain,
                                      net_link_list[i].socket_local_port);

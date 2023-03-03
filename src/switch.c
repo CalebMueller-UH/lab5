@@ -115,6 +115,7 @@ void switch_main(int switch_id) {
         }
       } else {
         free(received_packet);
+        received_packet = NULL;
       }
     }
 
@@ -142,6 +143,7 @@ void switch_main(int switch_id) {
       }
 
       free(job_from_queue->packet);
+      job_from_queue->packet = NULL;
       free(job_from_queue);
       job_from_queue = NULL;
     }
@@ -156,7 +158,10 @@ void switch_main(int switch_id) {
   /* Free dynamically allocated memory */
   for (int i = 0; i < node_port_array_size; i++) {
     free(node_port_array[i]);
+    node_port_array[i] = NULL;
   }
   free(node_port_array);
+  node_port_array = NULL;
   free(routingTable);
+  routingTable = NULL;
 }

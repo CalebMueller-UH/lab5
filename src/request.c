@@ -79,6 +79,7 @@ int deleteFromReqList(struct Request *head, int t) {
         prev->next = curr->next;
       }
       free(curr);
+      curr = NULL;
       return 0;
     }
     prev = curr;
