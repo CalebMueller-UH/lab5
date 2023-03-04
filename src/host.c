@@ -711,26 +711,47 @@ void host_main(int host_id) {
         case 'd': {
           // Download a file from another host to active host
 
-          char fname[MAX_FILENAME_LENGTH] = {0};
-          int dst;
-          sscanf(man_msg, "%d %s", &dst, fname);
-          int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
-          fname[fnameLen] = '\0';
+          // Check to see if hostDirectory is valid
+          if (!isValidDirectory(hostDirectory)) {
+            colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
+                       host_id);
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
 
-          // Check to see if uploading to self; issue warning
+          // Check to see if downloading to self; issue warning
           if (dst == host_id) {
             colorPrint(BOLD_YELLOW, "Can not upload to self\n");
             write(man_port->send_fd, "", sizeof(""));
             break;
           }
 
-          // Generate a upload request packet
-          struct Packet *requestPacket =
-              createPacket(host_id, dst, PKT_UPLOAD_REQ);
-          requestPacket->length = fnameLen;
-          memcpy(requestPacket->payload, fname, fnameLen);
+          // Get dst and fname from man_msg
+          char fname[MAX_FILENAME_LENGTH] = {0};
+          int dst;
+          sscanf(man_msg, "%d %s", &dst, fname);
+          int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
+          fname[fnameLen] = '\0';
+
+          // Concatenate hostDirectory and filePath with a slash in between
+          char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
+          snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s", hostDirectory,
+                   fname);
+
+          // Check to see if fullPath points to a valid file
+          if (fileExists(fullPath)) {
+            colorPrint(BOLD_RED, "This file already exists in %s\n",
+                       hostDirectory);
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
+          // User input is valid: enqueue download request to verify destination
+          struct Packet *dpacket = createPacket(host_id, dst, PKT_DOWNLOAD_REQ);
+          dpacket->length = fnameLen;
+          memcpy(dpacket->payload, fname, fnameLen);
           // Create a job containing that packet
-          struct Job *requestJob = createJob(JOB_SEND_REQUEST, requestPacket);
+          struct Job *requestJob = createJob(JOB_SEND_REQUEST, dpacket);
           // And enqueue the job
           job_enqueue(host_id, &host_q, requestJob);
           break;
@@ -738,8 +759,6 @@ void host_main(int host_id) {
 
         default:;
       }
-      // Release console_print_access semaphore
-      sem_signal(&console_print_access);
     }
 
     //////////////// COMMAND HANDLER
