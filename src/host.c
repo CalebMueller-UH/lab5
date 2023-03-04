@@ -668,6 +668,7 @@ void host_main(int host_id) {
           if (!isValidDirectory(hostDirectory)) {
             colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
                        host_id);
+            write(man_port->send_fd, "", sizeof(""));
             break;
           }
 
@@ -691,6 +692,7 @@ void host_main(int host_id) {
           // Check to see if fullPath points to a valid file
           if (!fileExists(fullPath)) {
             colorPrint(BOLD_RED, "This file does not exist\n", host_id);
+            write(man_port->send_fd, "", sizeof(""));
             break;
           }
           // User input is valid: enqueue upload request to verify destination
