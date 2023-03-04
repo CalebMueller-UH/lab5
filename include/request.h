@@ -4,6 +4,8 @@ request.h
 
 #pragma once
 
+#include <stdio.h>
+
 #include "constants.h"
 
 typedef enum { PING_REQ, UPLOAD_REQ, DOWNLOAD_REQ, INVALID_REQ } requestType;
@@ -13,6 +15,7 @@ typedef enum {
   STATE_COMPLETE,
   STATE_READY,
   STATE_ERROR,
+  STATE_LISTENING,
   STATE_INVALID
 } requestState;
 
@@ -23,6 +26,8 @@ struct Request {
   requestState state;
   int timeToLive;
   char errorMsg[MAX_RESPONSE_LEN];
+  char filename[MAX_FILENAME_LENGTH];
+  FILE *reqFp;
   struct Request *next;
 };
 

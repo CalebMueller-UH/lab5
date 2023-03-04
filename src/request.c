@@ -25,6 +25,7 @@ struct Request *createRequest(requestType req_type, int ttl) {
   r->state = STATE_PENDING;
   r->timeToLive = ttl;
   memset(r->errorMsg, 0, MAX_RESPONSE_LEN);
+  r->reqFp = NULL;
   r->next = NULL;
   return r;
 }
