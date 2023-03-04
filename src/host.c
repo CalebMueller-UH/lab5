@@ -342,8 +342,73 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
       break;
     }  // End of case PKT_UPLOAD_RESPONSE
 
-    case PKT_DOWNLOAD_RESPONSE:
+    case PKT_DOWNLOAD_RESPONSE: {
+      // Extract ticket and filename from packet payload
+      char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+      char *filename =
+          (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
+      parsePacket(job_from_queue->packet->payload, ticket, filename);
+
+      // Create response message buffer
+      char responseMsg[MAX_RESPONSE_LEN];
+      int responseMsgLen = 0;
+
+      // Check if host directory is valid
+      if (!isValidDirectory(hostDirectory)) {
+        // Generate response message for invalid directory
+        responseMsgLen = snprintf(
+            responseMsg, MAX_RESPONSE_LEN,
+            "%s:Host%d does not have a valid directory set", ticket, host_id);
+      } else {
+        // Build full file path from directory and filename
+        char *fullPath = (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
+        int fullPathLen = snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s",
+                                   hostDirectory, filename);
+
+        // Check if file already exists
+        if (!fileExists(fullPath)) {
+          // Generate response message for existing file
+          responseMsgLen =
+              snprintf(responseMsg, MAX_RESPONSE_LEN,
+                       "%s:File doesn't exists on host%d", ticket, host_id);
+        } else {
+          // User input is valid: enqueue upload request to verify destination
+          // Generate a upload request packet
+          struct Packet *requestPacket = createPacket(
+              host_id, job_from_queue->packet->src, PKT_UPLOAD_REQ);
+          int len = sprintf(requestPacket->payload, "%s", filename);
+          requestPacket->length = len;
+          // Create a job containing that packet
+          struct Job *requestJob = createJob(JOB_SEND_REQUEST, requestPacket);
+          // And enqueue the job
+          job_enqueue(host_id, host_q, requestJob);
+        }
+        free(fullPath);
+      }
+
+      // Add null terminator to response message buffer
+      responseMsg[MAX_RESPONSE_LEN - 1] = '\0';
+
+      // Update response packet payload and length
+      struct Packet *responsePacket = job_from_queue->packet;
+      if (responseMsgLen > PACKET_PAYLOAD_MAX) {
+        // Handle error
+      } else {
+        strncpy(responsePacket->payload, responseMsg, responseMsgLen);
+        responsePacket->payload[responseMsgLen] = '\0';
+        responsePacket->length = responseMsgLen;
+      }
+
+      // Create and enqueue job to send response packet
+      struct Job *responseJob = createJob(JOB_SEND_PKT, responsePacket);
+      job_enqueue(host_id, host_q, responseJob);
+
+      // Free dynamically allocated memory
+      free(ticket);
+      free(filename);
+
       break;
+    }
   }
 }  // End of jobSendResponseHandler()
 
@@ -668,6 +733,7 @@ void host_main(int host_id) {
           if (!isValidDirectory(hostDirectory)) {
             colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
                        host_id);
+            write(man_port->send_fd, "", sizeof(""));
             break;
           }
 
@@ -691,6 +757,7 @@ void host_main(int host_id) {
           // Check to see if fullPath points to a valid file
           if (!fileExists(fullPath)) {
             colorPrint(BOLD_RED, "This file does not exist\n", host_id);
+            write(man_port->send_fd, "", sizeof(""));
             break;
           }
           // User input is valid: enqueue upload request to verify destination
@@ -709,6 +776,7 @@ void host_main(int host_id) {
         case 'd': {
           // Download a file from another host to active host
 
+          // Grab fname and destination from man_msg
           char fname[MAX_FILENAME_LENGTH] = {0};
           int dst;
           sscanf(man_msg, "%d %s", &dst, fname);
@@ -722,9 +790,29 @@ void host_main(int host_id) {
             break;
           }
 
-          // Generate a upload request packet
+          // Check to see if hostDirectory is valid
+          if (!isValidDirectory(hostDirectory)) {
+            colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
+                       host_id);
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
+          // Check to see if fname aleady exists
+          // Concatenate hostDirectory and filePath with a slash in between
+          char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
+          snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s", hostDirectory,
+                   fname);
+          // Check to see if fullPath points to a valid file
+          if (fileExists(fullPath)) {
+            colorPrint(BOLD_RED, "This file already exists\n", host_id);
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
+          // Generate a download request packet
           struct Packet *requestPacket =
-              createPacket(host_id, dst, PKT_UPLOAD_REQ);
+              createPacket(host_id, dst, PKT_DOWNLOAD_REQ);
           requestPacket->length = fnameLen;
           memcpy(requestPacket->payload, fname, fnameLen);
           // Create a job containing that packet
