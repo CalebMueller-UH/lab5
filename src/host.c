@@ -91,332 +91,6 @@ int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
   }
 }
 
-void handleIncomingRequestPacket(int host_id, struct Packet *recPkt,
-                                 struct Job_queue *host_q) {
-  packet_type ptype;
-  switch (recPkt->type) {
-    case PKT_PING_REQ:
-      ptype = PKT_PING_RESPONSE;
-      break;
-    case PKT_UPLOAD_REQ:
-      ptype = PKT_UPLOAD_RESPONSE;
-      break;
-    case PKT_DOWNLOAD_REQ:
-      ptype = PKT_DOWNLOAD_RESPONSE;
-      break;
-    default:
-      ptype = PKT_INVALID_TYPE;
-      return;
-  }
-  struct Packet *resPkt = createPacket(host_id, recPkt->src, ptype);
-  resPkt->length = recPkt->length;
-  memcpy(resPkt->payload, recPkt->payload, PACKET_PAYLOAD_MAX);
-  resPkt->src = host_id;
-  resPkt->dst = recPkt->src;
-  // Place response packet inside response job and enqueue
-  struct Job *resJob = createJob(JOB_SEND_RESPONSE, resPkt);
-  job_enqueue(host_id, host_q, resJob);
-}  // End of handleIncomingRequestPacket()
-
-void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
-                                  struct Job_queue *host_q,
-                                  struct Request **reqList) {
-  char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
-  char *msg = (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
-  parsePacket(recPkt->payload, ticket, msg);
-
-  struct Request *r = findRequestByStringTicket(*reqList, ticket);
-  if (r != NULL) {
-    switch (recPkt->type) {
-      case PKT_PING_RESPONSE:
-        r->state = STATE_COMPLETE;
-        break;
-      case PKT_UPLOAD_RESPONSE:
-        if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
-          r->state = STATE_READY;
-        } else {
-          r->state = STATE_ERROR;
-          strncpy(r->errorMsg, msg, MAX_RESPONSE_LEN);
-        }
-        break;
-      case PKT_DOWNLOAD_RESPONSE:
-        r->state = STATE_READY;
-        break;
-      default:
-    }
-  }
-  // Clean up memory allocation
-  free(ticket);
-  free(msg);
-}  // End of handleIncomingResponsePacket()
-
-void jobSendRequestHandler(int host_id, struct Job *job_from_queue,
-                           struct Job_queue *host_q, char *hostDirectory,
-                           struct Request **requestList) {
-  if (!job_from_queue || !host_q || !requestList) {
-    fprintf(stderr,
-            "ERROR: host%d jobSendRequestHandler invoked with invalid function "
-            "parameter: %s%s%s\n",
-            host_id, !job_from_queue ? "job_from_queue " : "",
-            !host_q ? "host_q " : "", !requestList ? "requestList" : "");
-    return;
-  }
-
-  requestType rtype;
-  switch (job_from_queue->packet->type) {
-    case PKT_PING_REQ:
-      rtype = PING_REQ;
-      break;
-    case PKT_UPLOAD_REQ:
-      rtype = UPLOAD_REQ;
-      break;
-    case PKT_DOWNLOAD_REQ:
-      rtype = DOWNLOAD_REQ;
-      break;
-    default:
-      rtype = INVALID_REQ;
-      break;
-  }
-
-  struct Request *requestX = createRequest(rtype, TIMETOLIVE);
-  if (!requestX) {
-    fprintf(stderr,
-            "ERROR: host%d jobSendRequestHandler could not create requestX\n",
-            host_id);
-    return;
-  }
-  addToReqList(requestList, requestX);
-
-  struct Packet *reqPkt = createEmptyPacket();
-  if (!reqPkt) {
-    fprintf(stderr,
-            "ERROR: host%d jobSendRequestHandler could not create reqPkt\n",
-            host_id);
-    return;
-  }
-  memcpy(reqPkt, job_from_queue->packet, sizeof(struct Packet));
-
-  char payloadBuffer[PACKET_PAYLOAD_MAX];
-  int payload_len = snprintf(
-      payloadBuffer, sizeof(payloadBuffer), "%d:%.*s", requestX->ticket,
-      (int)(sizeof(payloadBuffer) - sizeof(int) - 1), reqPkt->payload);
-  if (payload_len >= PACKET_PAYLOAD_MAX) {
-    payload_len = PACKET_PAYLOAD_MAX - 1;
-  }
-  memcpy(reqPkt->payload, payloadBuffer, payload_len + 1);
-  reqPkt->length = payload_len;
-
-  struct Job *sendJob = createJob(JOB_SEND_PKT, reqPkt);
-  if (!sendJob) {
-    fprintf(stderr,
-            "ERROR: host%d jobSendRequestHandler could not create sendJob\n",
-            host_id);
-    return;
-  }
-  job_enqueue(host_id, host_q, sendJob);
-
-  struct Packet *waitPkt = createEmptyPacket();
-  if (!waitPkt) {
-    fprintf(stderr,
-            "ERROR: host%d jobSendRequestHandler could not create waitPkt "
-            "parameter\n",
-            host_id);
-    return;
-  }
-  memcpy(waitPkt, reqPkt, sizeof(struct Packet));
-
-  struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, waitPkt);
-  if (!waitJob) {
-    fprintf(stderr,
-            "ERROR: host%d jobSendRequestHandler could not create waitJob "
-            "parameter\n",
-            host_id);
-    return;
-  }
-  waitJob->request = requestX;
-  job_enqueue(host_id, host_q, waitJob);
-}
-// End of jobSendRequestHandler
-
-void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
-                            struct Job_queue *host_q, char *hostDirectory,
-                            struct Request **reqList) {
-  switch (job_from_queue->packet->type) {
-    case PKT_PING_RESPONSE: {
-      job_from_queue->type = JOB_SEND_PKT;
-      job_enqueue(host_id, host_q, job_from_queue);
-      break;
-    }
-
-    case PKT_UPLOAD_RESPONSE: {
-      // Extract ticket and filename from packet payload
-      char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
-      char *filename =
-          (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
-      parsePacket(job_from_queue->packet->payload, ticket, filename);
-
-      // Create response message buffer
-      char responseMsg[MAX_RESPONSE_LEN];
-      int responseMsgLen = 0;
-
-      // Check if host directory is valid
-      if (!isValidDirectory(hostDirectory)) {
-        // Generate response message for invalid directory
-        responseMsgLen = snprintf(
-            responseMsg, MAX_RESPONSE_LEN,
-            "%s:Host%d does not have a valid directory set", ticket, host_id);
-      } else {
-        // Build full file path from directory and filename
-        char *fullPath = (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
-        int fullPathLen = snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s",
-                                   hostDirectory, filename);
-
-        // Check if file already exists
-        if (fileExists(fullPath)) {
-          // Generate response message for existing file
-          responseMsgLen =
-              snprintf(responseMsg, MAX_RESPONSE_LEN,
-                       "%s:File already exists on host%d", ticket, host_id);
-        } else {
-          // Create file and generate response message for ready state
-          FILE *fp;
-          fp = fopen(fullPath, "w");
-          if (fp == NULL) {
-            // Generate response message for file creation error
-            responseMsgLen = snprintf(responseMsg, MAX_RESPONSE_LEN,
-                                      "%s:file could not be created on host%d",
-                                      ticket, host_id);
-          } else {
-            responseMsgLen =
-                snprintf(responseMsg, MAX_RESPONSE_LEN, "%s:Ready", ticket);
-
-            // Create upload request and JOB_WAIT_FOR_RESPONSE
-            struct Request *uploadReq = createRequest(UPLOAD_REQ, TIMETOLIVE);
-            if (!uploadReq) {
-              // Handle error
-              fprintf(stderr,
-                      "ERROR: host%d jobSendResponseHandler could not create "
-                      "upreq\n",
-                      host_id);
-              return;
-            }
-            uploadReq->ticket = atoi(ticket);
-            uploadReq->state = STATE_PENDING;
-            strncpy(uploadReq->filename, filename, MAX_RESPONSE_LEN);
-            uploadReq->reqFp = fp;
-            addToReqList(reqList, uploadReq);
-
-            struct Packet *uploadPkt =
-                createPacket(job_from_queue->packet->src, host_id, PKT_UPLOAD);
-            strncpy(uploadPkt->payload, job_from_queue->packet->payload,
-                    job_from_queue->packet->length);
-            uploadPkt->length = job_from_queue->packet->length;
-            struct Job *uploadJob = createJob(JOB_WAIT_FOR_RESPONSE, uploadPkt);
-            uploadJob->request = uploadReq;
-            job_enqueue(host_id, host_q, uploadJob);
-          }
-        }
-        free(fullPath);
-      }
-
-      // Add null terminator to response message buffer
-      responseMsg[MAX_RESPONSE_LEN - 1] = '\0';
-
-      // Update response packet payload and length
-      struct Packet *responsePacket = job_from_queue->packet;
-      if (responseMsgLen > PACKET_PAYLOAD_MAX) {
-        // Handle error
-      } else {
-        strncpy(responsePacket->payload, responseMsg, responseMsgLen);
-        responsePacket->payload[responseMsgLen] = '\0';
-        responsePacket->length = responseMsgLen;
-      }
-
-      // Create and enqueue job to send response packet
-      struct Job *responseJob = createJob(JOB_SEND_PKT, responsePacket);
-      job_enqueue(host_id, host_q, responseJob);
-
-      // Free dynamically allocated memory
-      free(ticket);
-      free(filename);
-      break;
-    }  // End of case PKT_UPLOAD_RESPONSE
-
-    case PKT_DOWNLOAD_RESPONSE: {
-      // Extract ticket and filename from packet payload
-      char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
-      char *filename =
-          (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
-      parsePacket(job_from_queue->packet->payload, ticket, filename);
-
-      // Create response message buffer
-      char responseMsg[MAX_RESPONSE_LEN];
-      int responseMsgLen = 0;
-
-      // Check if host directory is valid
-      if (!isValidDirectory(hostDirectory)) {
-        // Generate response message for invalid directory
-        responseMsgLen = snprintf(
-            responseMsg, MAX_RESPONSE_LEN,
-            "%s:Host%d does not have a valid directory set", ticket, host_id);
-      } else {
-        // Build full file path from directory and filename
-        char *fullPath = (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
-        int fullPathLen = snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s",
-                                   hostDirectory, filename);
-
-        // Check if file already exists
-        if (!fileExists(fullPath)) {
-          // Generate response message for existing file
-          responseMsgLen =
-              snprintf(responseMsg, MAX_RESPONSE_LEN,
-                       "%s:File does not exist on host%d", ticket, host_id);
-        } else {
-          // Directory is set, and file exists, good to move forward
-                }
-        free(fullPath);
-      }
-
-      // Add null terminator to response message buffer
-      responseMsg[MAX_RESPONSE_LEN - 1] = '\0';
-
-      // Update response packet payload and length
-      struct Packet *responsePacket = job_from_queue->packet;
-      if (responseMsgLen > PACKET_PAYLOAD_MAX) {
-        // Handle error
-      } else {
-        strncpy(responsePacket->payload, responseMsg, responseMsgLen);
-        responsePacket->payload[responseMsgLen] = '\0';
-        responsePacket->length = responseMsgLen;
-      }
-
-      // Create and enqueue job to send response packet
-      struct Job *responseJob = createJob(JOB_SEND_PKT, responsePacket);
-      job_enqueue(host_id, host_q, responseJob);
-
-      // Free dynamically allocated memory
-      free(ticket);
-      free(filename);
-      break;
-    }  // End of case PKT_DOWNLOAD_RESPONSE
-  }
-}  // End of jobSendResponseHandler()
-
-void destroyJob(struct Job *jobToDestroy) {
-  if (jobToDestroy) {
-    if (jobToDestroy->packet) {
-      free(jobToDestroy->packet);
-      jobToDestroy->packet = NULL;
-    }
-    // if (jobToDestroy->request) {
-    //   free(jobToDestroy->request);
-    //   jobToDestroy->request = NULL;
-    // }
-    free(jobToDestroy);
-    jobToDestroy = NULL;
-  }
-}
-
 void jobUploadSendHandler(int host_id, int dst, char ticket[TICKETLEN],
                           char directory[MAX_FILENAME_LENGTH],
                           char fname[MAX_RESPONSE_LEN],
@@ -476,6 +150,362 @@ void jobUploadSendHandler(int host_id, int dst, char ticket[TICKETLEN],
   free(fullPath);
   free(buffer);
 }  // End of jobUploadSendHandler()
+
+void handleIncomingRequestPacket(int host_id, struct Packet *recPkt,
+                                 struct Job_queue *host_q) {
+  packet_type ptype;
+  switch (recPkt->type) {
+    case PKT_PING_REQ:
+      ptype = PKT_PING_RESPONSE;
+      break;
+    case PKT_UPLOAD_REQ:
+      ptype = PKT_UPLOAD_RESPONSE;
+      break;
+    case PKT_DOWNLOAD_REQ:
+      ptype = PKT_DOWNLOAD_RESPONSE;
+      break;
+    default:
+      ptype = PKT_INVALID_TYPE;
+      return;
+  }
+  struct Packet *resPkt = createPacket(host_id, recPkt->src, ptype);
+  resPkt->length = recPkt->length;
+  memcpy(resPkt->payload, recPkt->payload, PACKET_PAYLOAD_MAX);
+  resPkt->src = host_id;
+  resPkt->dst = recPkt->src;
+  // Place response packet inside response job and enqueue
+  struct Job *resJob = createJob(JOB_SEND_RESPONSE, resPkt);
+  job_enqueue(host_id, host_q, resJob);
+}  // End of handleIncomingRequestPacket()
+
+void handleIncomingResponsePacket(int host_id, struct Packet *recPkt,
+                                  struct Job_queue *host_q,
+                                  struct Request **reqList,
+                                  char *hostDirectory) {
+  char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+  char *msg = (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
+  parsePacket(recPkt->payload, ticket, msg);
+
+  struct Request *r = findRequestByStringTicket(*reqList, ticket);
+  if (r != NULL) {
+    switch (recPkt->type) {
+      case PKT_PING_RESPONSE:
+        r->state = STATE_COMPLETE;
+        break;
+      case PKT_UPLOAD_RESPONSE: {
+        if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
+          r->state = STATE_READY;
+        } else {
+          r->state = STATE_ERROR;
+          strncpy(r->errorMsg, msg, MAX_RESPONSE_LEN);
+        }
+        break;
+      }
+      case PKT_DOWNLOAD_RESPONSE: {
+        if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
+          r->state = STATE_READY;
+
+          // Build full file path from directory and filename
+          char *fullPath =
+              (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
+          int fullPathLen = snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s",
+                                     hostDirectory, r->filename);
+
+          FILE *fp;
+          fp = fopen(fullPath, "w");
+          if (fp == NULL) {
+            fprintf(stderr,
+                    "host%d: handleIncomingResponsePacket: "
+                    "PKT_DOWNLOAD_RESPONSE: unable to create file\n",
+                    host_id);
+          } else {
+            r->reqFp = fp;
+          }
+
+        } else {
+          r->state = STATE_ERROR;
+          strncpy(r->errorMsg, msg, MAX_RESPONSE_LEN);
+        }
+        break;
+      }
+      default:
+    }
+  }
+  // Clean up memory allocation
+  free(ticket);
+  free(msg);
+}  // End of handleIncomingResponsePacket()
+
+void jobSendRequestHandler(int host_id, struct Job *job_from_queue,
+                           struct Job_queue *host_q, char *hostDirectory,
+                           struct Request **requestList) {
+  if (!job_from_queue || !host_q || !requestList) {
+    fprintf(stderr,
+            "ERROR: host%d jobSendRequestHandler invoked with invalid function "
+            "parameter: %s%s%s\n",
+            host_id, !job_from_queue ? "job_from_queue " : "",
+            !host_q ? "host_q " : "", !requestList ? "requestList" : "");
+    return;
+  }
+
+  requestType rtype;
+  switch (job_from_queue->packet->type) {
+    case PKT_PING_REQ:
+      rtype = PING_REQ;
+      break;
+    case PKT_UPLOAD_REQ:
+      rtype = UPLOAD_REQ;
+      break;
+    case PKT_DOWNLOAD_REQ:
+      rtype = DOWNLOAD_REQ;
+      break;
+    default:
+      rtype = INVALID_REQ;
+      break;
+  }
+
+  struct Request *requestX = createRequest(rtype, TIMETOLIVE);
+  if (!requestX) {
+    fprintf(stderr,
+            "ERROR: host%d jobSendRequestHandler could not create requestX\n",
+            host_id);
+    return;
+  }
+  strncpy(requestX->filename, job_from_queue->packet->payload,
+          PACKET_PAYLOAD_MAX);
+  addToReqList(requestList, requestX);
+
+  struct Packet *reqPkt = createEmptyPacket();
+  if (!reqPkt) {
+    fprintf(stderr,
+            "ERROR: host%d jobSendRequestHandler could not create reqPkt\n",
+            host_id);
+    return;
+  }
+  memcpy(reqPkt, job_from_queue->packet, sizeof(struct Packet));
+
+  char payloadBuffer[PACKET_PAYLOAD_MAX];
+  int payload_len = snprintf(
+      payloadBuffer, sizeof(payloadBuffer), "%d:%.*s", requestX->ticket,
+      (int)(sizeof(payloadBuffer) - sizeof(int) - 1), reqPkt->payload);
+  if (payload_len >= PACKET_PAYLOAD_MAX) {
+    payload_len = PACKET_PAYLOAD_MAX - 1;
+  }
+  memcpy(reqPkt->payload, payloadBuffer, payload_len + 1);
+  reqPkt->length = payload_len;
+
+  struct Job *sendJob = createJob(JOB_SEND_PKT, reqPkt);
+  if (!sendJob) {
+    fprintf(stderr,
+            "ERROR: host%d jobSendRequestHandler could not create sendJob\n",
+            host_id);
+    return;
+  }
+  job_enqueue(host_id, host_q, sendJob);
+
+  struct Packet *waitPkt = createEmptyPacket();
+  if (!waitPkt) {
+    fprintf(stderr,
+            "ERROR: host%d jobSendRequestHandler could not create waitPkt "
+            "parameter\n",
+            host_id);
+    return;
+  }
+  memcpy(waitPkt, reqPkt, sizeof(struct Packet));
+
+  struct Job *waitJob = createJob(JOB_WAIT_FOR_RESPONSE, waitPkt);
+  if (!waitJob) {
+    fprintf(stderr,
+            "ERROR: host%d jobSendRequestHandler could not create waitJob "
+            "parameter\n",
+            host_id);
+    return;
+  }
+  waitJob->request = requestX;
+  job_enqueue(host_id, host_q, waitJob);
+}
+// End of jobSendRequestHandler
+
+void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
+                            struct Job_queue *host_q, char *hostDirectory,
+                            struct Request **reqList) {
+  struct Packet *packet = job_from_queue->packet;
+  char *ticket, *filename, *fullPath;
+  char responseMsg[MAX_RESPONSE_LEN];
+  int responseMsgLen = 0;
+
+  switch (packet->type) {
+    case PKT_PING_RESPONSE:
+      job_from_queue->type = JOB_SEND_PKT;
+      job_enqueue(host_id, host_q, job_from_queue);
+      break;
+
+    case PKT_UPLOAD_RESPONSE:
+      // Extract ticket and filename from packet payload
+      ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+      filename =
+          (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
+      parsePacket(packet->payload, ticket, filename);
+
+      // Check if host directory is valid
+      if (!isValidDirectory(hostDirectory)) {
+        // Generate response message for invalid directory
+        responseMsgLen = snprintf(
+            responseMsg, MAX_RESPONSE_LEN,
+            "%s:Host%d does not have a valid directory set", ticket, host_id);
+        goto SEND_RESPONSE;
+      }
+
+      // Build full file path from directory and filename
+      fullPath = (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
+      snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s", hostDirectory,
+               filename);
+
+      // Check if file already exists
+      if (fileExists(fullPath)) {
+        // Generate response message for existing file
+        responseMsgLen =
+            snprintf(responseMsg, MAX_RESPONSE_LEN,
+                     "%s:File already exists on host%d", ticket, host_id);
+        goto CLEANUP;
+      }
+
+      // Create file and generate response message for ready state
+      FILE *fp = fopen(fullPath, "w");
+      if (fp == NULL) {
+        // Generate response message for file creation error
+        responseMsgLen =
+            snprintf(responseMsg, MAX_RESPONSE_LEN,
+                     "%s:file could not be created on host%d", ticket, host_id);
+        goto CLEANUP;
+      }
+      responseMsgLen =
+          snprintf(responseMsg, MAX_RESPONSE_LEN, "%s:Ready", ticket);
+
+      // Create upload request and JOB_WAIT_FOR_RESPONSE
+      struct Request *uploadReq = createRequest(UPLOAD_REQ, TIMETOLIVE);
+      if (!uploadReq) {
+        // Handle error
+        fprintf(stderr,
+                "ERROR: host%d jobSendResponseHandler could not create upreq\n",
+                host_id);
+        goto CLEANUP;
+      }
+      uploadReq->ticket = atoi(ticket);
+      uploadReq->state = STATE_PENDING;
+      strncpy(uploadReq->filename, filename, MAX_RESPONSE_LEN);
+      uploadReq->reqFp = fp;
+      addToReqList(reqList, uploadReq);
+
+      struct Packet *uploadPkt = createPacket(packet->src, host_id, PKT_UPLOAD);
+      strncpy(uploadPkt->payload, packet->payload, packet->length);
+      uploadPkt->length = packet->length;
+      struct Job *uploadJob = createJob(JOB_WAIT_FOR_RESPONSE, uploadPkt);
+      uploadJob->request = uploadReq;
+      job_enqueue(host_id, host_q, uploadJob);
+
+    CLEANUP:
+      fclose(fp);
+      free(fullPath);
+
+    SEND_RESPONSE:
+      // Add null terminator to response message buffer
+      responseMsg[MAX_RESPONSE_LEN - 1] = '\0';
+
+      // Update response packet payload and length
+      if (responseMsgLen <= PACKET_PAYLOAD_MAX) {
+        strncpy(packet->payload, responseMsg, responseMsgLen);
+        packet->payload[responseMsgLen] = '\0';
+        packet->length = responseMsgLen;
+      } else {
+        // Handle error
+      }
+      // Create and enqueue job to send response packet
+      struct Job *responseJob = createJob(JOB_SEND_PKT, packet);
+      job_enqueue(host_id, host_q, responseJob);
+
+      // Free dynamically allocated memory
+      free(ticket);
+      free(filename);
+      break;
+
+    case PKT_DOWNLOAD_RESPONSE:
+      // Extract ticket and filename from packet payload
+      ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+      filename =
+          (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
+      parsePacket(packet->payload, ticket, filename);
+
+      // Check if host directory is valid
+      if (!isValidDirectory(hostDirectory)) {
+        // Generate response message for invalid directory
+        responseMsgLen = snprintf(
+            responseMsg, MAX_RESPONSE_LEN,
+            "%s:Host%d does not have a valid directory set", ticket, host_id);
+        goto SEND_DOWNLOAD_RESPONSE;
+      }
+
+      // Build full file path from directory and filename
+      fullPath = (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
+      snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s", hostDirectory,
+               filename);
+
+      // Check if file exists
+      if (!fileExists(fullPath)) {
+        // Generate response message for non-existent file
+        responseMsgLen =
+            snprintf(responseMsg, MAX_RESPONSE_LEN,
+                     "%s:File does not exist on host%d", ticket, host_id);
+        goto CLEANUP_DOWNLOAD;
+      }
+
+      // Generate response message for ready state
+      responseMsgLen =
+          snprintf(responseMsg, MAX_RESPONSE_LEN, "%s:Ready", ticket);
+
+    // Create and enqueue job to send response packet
+    SEND_DOWNLOAD_RESPONSE:
+      // Add null terminator to response message buffer
+      responseMsg[MAX_RESPONSE_LEN - 1] = '\0';
+
+      // Update response packet payload and length
+      if (responseMsgLen <= PACKET_PAYLOAD_MAX) {
+        strncpy(packet->payload, responseMsg, responseMsgLen);
+        packet->payload[responseMsgLen] = '\0';
+        packet->length = responseMsgLen;
+      } else {
+        // Handle error
+      }
+
+      // Create and enqueue job to send response packet
+      struct Job *downloadResponseJob = createJob(JOB_SEND_PKT, packet);
+      job_enqueue(host_id, host_q, downloadResponseJob);
+
+      // If file exists, invoke jobUploadSendHandler
+      if (fileExists(fullPath)) {
+        jobUploadSendHandler(host_id, packet->dst, ticket, hostDirectory,
+                             filename, host_q);
+      }
+
+    // Free dynamically allocated memory
+    CLEANUP_DOWNLOAD:
+      free(fullPath);
+      free(ticket);
+      free(filename);
+      break;
+  }
+}  // End of jobSendResponseHandler()
+
+void destroyJob(struct Job *jobToDestroy) {
+  if (jobToDestroy) {
+    if (jobToDestroy->packet) {
+      free(jobToDestroy->packet);
+      jobToDestroy->packet = NULL;
+    }
+    free(jobToDestroy);
+    jobToDestroy = NULL;
+  }
+}
 
 void jobUploadReceiveHandler(int host_id, struct Packet *pkt,
                              struct Request **reqList) {
@@ -597,11 +627,26 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
               printf("UPLOAD_REQ complete\n");
               fclose(r->reqFp);
               deleteFromReqList(*reqList, r->ticket);
-              destroyJob(job_from_queue);
+              // destroyJob(job_from_queue);
             }
             break;
 
           case DOWNLOAD_REQ:
+            if (r->state == STATE_READY) {
+              snprintf(responseMsg, MAX_MSG_LENGTH, "OK");
+              sendMsgToManager(manFd, responseMsg);
+
+            } else if (r->state == STATE_ERROR) {
+              snprintf(responseMsg, MAX_MSG_LENGTH, "%s", r->errorMsg);
+              sendMsgToManager(manFd, responseMsg);
+
+            } else if (r->state == STATE_COMPLETE) {
+              printf("DOWNLOAD_REQ complete\n");
+
+              fclose(r->reqFp);
+              deleteFromReqList(*reqList, r->ticket);
+            }
+            // destroyJob(job_from_queue);
             break;
         }
       }
@@ -766,10 +811,11 @@ void host_main(int host_id) {
         case 'd': {
           // Download a file from another host to active host
 
-          // Check to see if hostDirectory is valid
-          if (!isValidDirectory(hostDirectory)) {
-            colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
-                       host_id);
+          // Get dst and fname from man_msg
+          char fname[MAX_FILENAME_LENGTH];
+          int dst;
+          if (sscanf(man_msg, "%d %s", &dst, fname) != 2) {
+            colorPrint(BOLD_RED, "Invalid download request format\n");
             write(man_port->send_fd, "", sizeof(""));
             break;
           }
@@ -781,17 +827,9 @@ void host_main(int host_id) {
             break;
           }
 
-          // Get dst and fname from man_msg
-          char fname[MAX_FILENAME_LENGTH] = {0};
-          int dst;
-          sscanf(man_msg, "%d %s", &dst, fname);
-          int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
-          fname[fnameLen] = '\0';
-
           // Concatenate hostDirectory and filePath with a slash in between
-          char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
-          snprintf(fullPath, (2 * MAX_FILENAME_LENGTH), "%s/%s", hostDirectory,
-                   fname);
+          char fullPath[2 * MAX_FILENAME_LENGTH];
+          snprintf(fullPath, sizeof(fullPath), "%s/%s", hostDirectory, fname);
 
           // Check to see if fullPath points to a valid file
           if (fileExists(fullPath)) {
@@ -801,10 +839,18 @@ void host_main(int host_id) {
             break;
           }
 
+          // Check to see if hostDirectory is valid
+          if (!isValidDirectory(hostDirectory)) {
+            colorPrint(BOLD_RED, "Host%d does not have a valid directory set\n",
+                       host_id);
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
           // User input is valid: enqueue download request to verify destination
           struct Packet *dpacket = createPacket(host_id, dst, PKT_DOWNLOAD_REQ);
-          dpacket->length = fnameLen;
-          memcpy(dpacket->payload, fname, fnameLen);
+          dpacket->length = strnlen(fname, MAX_FILENAME_LENGTH);
+          memcpy(dpacket->payload, fname, dpacket->length);
           // Create a job containing that packet
           struct Job *requestJob = createJob(JOB_SEND_REQUEST, dpacket);
           // And enqueue the job
@@ -849,7 +895,7 @@ void host_main(int host_id) {
           case PKT_UPLOAD_RESPONSE:
           case PKT_DOWNLOAD_RESPONSE:
             handleIncomingResponsePacket(host_id, received_packet, &host_q,
-                                         &requestList);
+                                         &requestList, hostDirectory);
             break;
 
           case PKT_UPLOAD:
