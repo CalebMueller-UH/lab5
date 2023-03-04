@@ -342,8 +342,63 @@ void jobSendResponseHandler(int host_id, struct Job *job_from_queue,
       break;
     }  // End of case PKT_UPLOAD_RESPONSE
 
-    case PKT_DOWNLOAD_RESPONSE:
+    case PKT_DOWNLOAD_RESPONSE: {
+      // Extract ticket and filename from packet payload
+      char *ticket = (char *)malloc(sizeof(char) * TICKETLEN);
+      char *filename =
+          (char *)malloc(sizeof(char) * PACKET_PAYLOAD_MAX - TICKETLEN - 1);
+      parsePacket(job_from_queue->packet->payload, ticket, filename);
+
+      // Create response message buffer
+      char responseMsg[MAX_RESPONSE_LEN];
+      int responseMsgLen = 0;
+
+      // Check if host directory is valid
+      if (!isValidDirectory(hostDirectory)) {
+        // Generate response message for invalid directory
+        responseMsgLen = snprintf(
+            responseMsg, MAX_RESPONSE_LEN,
+            "%s:Host%d does not have a valid directory set", ticket, host_id);
+      } else {
+        // Build full file path from directory and filename
+        char *fullPath = (char *)malloc(sizeof(char) * 2 * MAX_FILENAME_LENGTH);
+        int fullPathLen = snprintf(fullPath, 2 * MAX_FILENAME_LENGTH, "%s/%s",
+                                   hostDirectory, filename);
+
+        // Check if file already exists
+        if (!fileExists(fullPath)) {
+          // Generate response message for existing file
+          responseMsgLen =
+              snprintf(responseMsg, MAX_RESPONSE_LEN,
+                       "%s:File does not exist on host%d", ticket, host_id);
+        } else {
+          // Directory is set, and file exists, good to move forward
+                }
+        free(fullPath);
+      }
+
+      // Add null terminator to response message buffer
+      responseMsg[MAX_RESPONSE_LEN - 1] = '\0';
+
+      // Update response packet payload and length
+      struct Packet *responsePacket = job_from_queue->packet;
+      if (responseMsgLen > PACKET_PAYLOAD_MAX) {
+        // Handle error
+      } else {
+        strncpy(responsePacket->payload, responseMsg, responseMsgLen);
+        responsePacket->payload[responseMsgLen] = '\0';
+        responsePacket->length = responseMsgLen;
+      }
+
+      // Create and enqueue job to send response packet
+      struct Job *responseJob = createJob(JOB_SEND_PKT, responsePacket);
+      job_enqueue(host_id, host_q, responseJob);
+
+      // Free dynamically allocated memory
+      free(ticket);
+      free(filename);
       break;
+    }  // End of case PKT_DOWNLOAD_RESPONSE
   }
 }  // End of jobSendResponseHandler()
 
