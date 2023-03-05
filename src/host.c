@@ -42,6 +42,9 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
                           struct Job *job_from_queue, struct Net_port **arr,
                           int arrSize);
 
+void jobUploadReceiveHandler(int host_id, struct Packet *pkt,
+                             struct JobQueue *hostq);
+
 void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
                                struct JobQueue *hostq, char *hostDirectory,
                                struct Net_port **arr, int arrSize, int manFd);
@@ -224,7 +227,7 @@ void host_main(int host_id) {
             break;
 
           case PKT_UPLOAD:
-
+            jobUploadReceiveHandler(host_id, inPkt, &hostq);
             break;
 
           case PKT_UPLOAD_END:
@@ -434,16 +437,63 @@ void jobSendUploadResponseHandler(int host_id, struct JobQueue *hostq,
 
   sendPacketTo(arr, arrSize, qPkt);
 
-  FILE *fp = fopen(fullPath, "rb");
+  FILE *fp = fopen(fullPath, "w");
   job_from_queue->fp = fp;
+  strncpy(job_from_queue->filepath, fullPath, sizeof(fullPath));
   job_from_queue->type = JOB_WAIT_FOR_RESPONSE;
   job_enqueue(host_id, hostq, job_from_queue);
+
+  printf("host%d: jobSendUploadResponseHandler:\n", host_id);
+  printJob(job_from_queue);
 
   // Clean up memory
   free(id);
   free(fname);
   free(payloadMsg);
 }  // End of jobSendUploadResponseHandler()
+
+void jobUploadReceiveHandler(int host_id, struct Packet *pkt,
+                             struct JobQueue *hostq) {
+  printf("host%d: jobUploadReceiveHandler\n", host_id);
+
+  char *id = (char *)malloc(sizeof(char) * JIDLEN);
+  char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
+  parsePacket(pkt->payload, id, msg);
+
+  struct Job *rjob = job_queue_find_id(hostq, id);
+  if (rjob != NULL) {
+    printf("jobUploadReceiveHandler: found request\n");
+    printf("jobUploadReceiveHandler: rjob->filename: %s\n", rjob->filepath);
+
+    // Refresh timeToLive of request
+    rjob->timeToLive = TIMETOLIVE;
+
+    if (rjob->fp == NULL) {
+      // Open the file in append mode if it hasn't been opened already
+      rjob->fp = fopen(rjob->filepath, "ab");
+      if (rjob->fp == NULL) {
+        printf("jobUploadReceiveHandler: failed to open file %s\n",
+               rjob->filepath);
+      } else {
+        printf("jobUploadReceiveHandler: opened file\n");
+      }
+    }
+
+    if (rjob->fp != NULL) {
+      // Write message to the file
+      size_t msg_len = strlen(msg);
+      fwrite(msg, sizeof(char), msg_len, rjob->fp);
+
+      // Flush the file buffer to make sure data is written to disk
+      fflush(rjob->fp);
+    }
+  } else {
+    printf("Request not found for ticket %s\n", id);
+  }
+
+  free(id);
+  free(msg);
+}  // End of jobUploadReceiveHandler()
 
 void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
                           struct Job *job_from_queue, struct Net_port **arr,
@@ -475,30 +525,27 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
 
     // Create a packet and send it
     struct Packet *upPkt = createPacket(src, dst, PKT_UPLOAD, 0, NULL);
-    int pktLen = snprintf(upPkt->payload, PACKET_PAYLOAD_MAX, "%s:%.*s", id,
-                          bytesRead, buffer);
-    upPkt->length = pktLen;
-
+    int upPktLen = snprintf(upPkt->payload, PACKET_PAYLOAD_MAX, "%s:%.*s", id,
+                            bytesRead, buffer);
+    upPkt->payload[upPktLen] = '\0';
+    upPkt->length = upPktLen;
     struct Job *upJob =
         job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_PENDING_STATE, upPkt);
-
     job_enqueue(host_id, hostq, upJob);
-
     fileSize -= bytesRead;
   }
-
-  // Close the file
-  fclose(fp);
 
   // Notify the receiver that the file transfer is complete
   struct Packet *finPkt = createPacket(src, dst, PKT_UPLOAD_END, 0, NULL);
   int finPktLen = snprintf(finPkt->payload, PACKET_PAYLOAD_MAX, "%s:", id);
+  finPkt->payload[finPktLen] = '\0';
   finPkt->length = finPktLen;
-
   struct Job *finJob =
       job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_PENDING_STATE, finPkt);
-
   job_enqueue(host_id, hostq, finJob);
+
+  // Close the file
+  fclose(fp);
 
   // Free allocated memory
   free(id);
@@ -509,14 +556,15 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
 void jobWaitForResponseHandler(int host_id, struct Job *job,
                                struct JobQueue *hostq, char *hostDirectory,
                                struct Net_port **arr, int arrSize, int manFd) {
+  // Uncomment to print debug info
   // printf("host%d: jobWaitForResponseHandler called\n", host_id);
   // printJob(job);
 
-  char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
+  char *responseMsg = malloc(sizeof(char) * MAX_MSG_LENGTH);
   memset(responseMsg, 0, MAX_MSG_LENGTH);
 
   if (job->timeToLive <= 0) {
-    // job timeToLive has expired
+    // Handle expired job
     switch (job->packet->type) {
       case PKT_PING_REQ:
         colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
@@ -533,15 +581,11 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
     }
     sendMsgToManager(manFd, responseMsg);
     job_delete(job);
-
   } else {
-    // timeToLive > 0
-
-    // Decrement
+    // Handle pending job
     job->timeToLive--;
-
     if (job->state == JOB_PENDING_STATE) {
-      // re-enque job while ttl > 0
+      // Re-enqueue job while ttl > 0
       job_enqueue(host_id, hostq, job);
     } else {
       switch (job->packet->type) {
@@ -549,18 +593,19 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
           if (job->state == JOB_COMPLETE_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
                           "Ping request acknowledged!");
+            sendMsgToManager(manFd, responseMsg);
           }
           break;
 
         case PKT_UPLOAD_REQ:
           if (job->state == JOB_READY_STATE) {
             jobUploadSendHandler(host_id, hostq, job, arr, arrSize);
+            job_enqueue(host_id, hostq, job);
           } else if (job->state == JOB_ERROR_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED, "%s",
                           job->errorMsg);
             sendMsgToManager(manFd, responseMsg);
             job_delete(job);
-
           } else if (job->state == JOB_COMPLETE_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
                           "Upload Complete");
@@ -571,12 +616,12 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
 
         case PKT_DOWNLOAD_REQ:
           if (job->state == JOB_READY_STATE) {
+            job_enqueue(host_id, hostq, job);
           } else if (job->state == JOB_ERROR_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED, "%s",
                           job->errorMsg);
             sendMsgToManager(manFd, responseMsg);
             job_delete(job);
-
           } else if (job->state == JOB_COMPLETE_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
                           "Download Complete");
@@ -587,6 +632,7 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
       }
     }
   }
+
   free(responseMsg);
 }  // End of jobWaitForResponseHandler()
 
