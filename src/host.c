@@ -22,6 +22,16 @@
 #include "semaphore.h"
 
 // Helper Function Forward Declarations
+void jobSendRequestHandler(int host_id, struct JobQueue *hostq,
+                           struct Job *job_from_queue, struct Net_port **arr,
+                           int arrSize);
+
+void parsePacket(const char *inputStr, char *ticketStr, char *dataStr);
+
+void pktIncomingRequestHandler(int host_id, struct JobQueue *hostq,
+                               struct Packet *inPkt);
+
+int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p);
 
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
@@ -30,8 +40,6 @@ void host_main(int host_id) {
   char hostDirectory[MAX_FILENAME_LENGTH];
   char man_msg[MAX_MSG_LENGTH];
   // char man_reply_msg[MAX_MSG_LENGTH];
-  char man_cmd;
-  int dst;
 
   // Initialize file buffer
   struct File_buf f_buf_upload;
@@ -76,6 +84,9 @@ void host_main(int host_id) {
     ////////////////////////////////
     //////////////// COMMAND HANDLER
 
+    char man_cmd;
+    int dst;
+
     int n = get_man_command(man_port, man_msg, &man_cmd);
     /* Execute command */
     if (n > 0) {
@@ -87,25 +98,47 @@ void host_main(int host_id) {
           reply_display_host_state(man_port, hostDirectory,
                                    isValidDirectory(hostDirectory), host_id);
           break;
-            //////////////// End of case 's'
+        }  //////////////// End of case 's'
 
-          case 'm':
-            // Change Active Host's hostDirectory
-            size_t len = strnlen(man_msg, MAX_FILENAME_LENGTH - 1);
-            if (isValidDirectory(man_msg)) {
-              memcpy(hostDirectory, man_msg, len);
-              hostDirectory[len] = '\0';  // add null character
-              colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
-                         host_id, man_msg);
-            } else {
-              colorPrint(BOLD_RED, "%s is not a valid directory\n", man_msg);
-            }
-            break;
+        case 'm': {
+          // Change Active Host's hostDirectory
+          size_t len = strnlen(man_msg, MAX_FILENAME_LENGTH - 1);
+          if (isValidDirectory(man_msg)) {
+            memcpy(hostDirectory, man_msg, len);
+            hostDirectory[len] = '\0';  // add null character
+            colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
+                       host_id, man_msg);
+          } else {
+            colorPrint(BOLD_RED, "%s is not a valid directory\n", man_msg);
+          }
+          break;
         }  //////////////// End of case 'm'
 
         case 'p': {
           ////// Have active Host ping another host //////
+          // Get destination from man_msg
+          sscanf(man_msg, "%d", &dst);
 
+          // Check to see if pinging self; issue warning
+          if (dst == host_id) {
+            colorPrint(BOLD_YELLOW, "Can not ping self\n");
+            write(man_port->send_fd, "", sizeof(""));
+            break;
+          }
+
+          // Create ping request packet
+          struct Packet *preqPkt =
+              createPacket(host_id, dst, PKT_PING_REQ, 0, NULL);
+
+          // Create send request job
+          struct Job *sendReqJob =
+              job_create(NULL, TIMETOLIVE, NULL, JOB_SEND_REQUEST,
+                         JOB_PENDING_STATE, preqPkt);
+          // Enqueue job
+          job_enqueue(host_id, &hostq, sendReqJob);
+
+          printf("host%d: command handler: 'p' printJob:\n", host_id);
+          printJob(sendReqJob);
           break;
         }  //////////////// End of case 'p'
 
@@ -135,22 +168,22 @@ void host_main(int host_id) {
 
     for (int portNum = 0; portNum < node_port_array_size; portNum++) {
       // Receive packets for all ports in node_port_array
-      struct Packet *received_packet = createEmptyPacket();
-      n = packet_recv(node_port_array[portNum], received_packet);
+      struct Packet *inPkt = createEmptyPacket();
+      n = packet_recv(node_port_array[portNum], inPkt);
       // if portNum has received a packet, translate the packet into a job
-      if ((n > 0) && ((int)received_packet->dst == host_id)) {
+      if ((n > 0) && ((int)inPkt->dst == host_id)) {
 #ifdef DEBUG
         colorPrint(YELLOW,
                    "DEBUG: node_id:%d host_main packet_handler received "
                    "packet: \n\t",
                    host_id);
-        printPacket(received_packet);
+        printPacket(inPkt);
 #endif
-        switch (received_packet->type) {
+        switch (inPkt->type) {
           case PKT_PING_REQ:
           case PKT_UPLOAD_REQ:
           case PKT_DOWNLOAD_REQ:
-
+            pktIncomingRequestHandler(host_id, &hostq, inPkt);
             break;
 
             ////////////////
@@ -189,6 +222,8 @@ void host_main(int host_id) {
         switch (job_from_queue->type) {
           ////////////////
           case JOB_SEND_REQUEST: {
+            jobSendRequestHandler(host_id, &hostq, job_from_queue,
+                                  node_port_array, node_port_array_size);
             break;
           }  //////////////// End of JOB_SEND_REQUEST
 
@@ -232,3 +267,127 @@ void host_main(int host_id) {
        // portNum++)
   }    // End of while(1)
 }  // End of host_main()
+
+// void jobSendRequestHandler(struct Job *job_from_queue) {}
+
+void jobSendRequestHandler(int host_id, struct JobQueue *hostq,
+                           struct Job *job_from_queue, struct Net_port **arr,
+                           int arrSize) {
+  if (!job_from_queue || !hostq) {
+    fprintf(stderr,
+            "ERROR: host%d jobSendRequestHandler invoked with invalid function "
+            "parameter: %s %s\n",
+            host_id, !job_from_queue ? "job_from_queue " : "",
+            !hostq ? "hostq " : "");
+    return;
+  }
+
+  sendPacketTo(arr, arrSize, job_from_queue->packet);
+
+  free(job_from_queue->packet);
+  job_from_queue->packet = NULL;
+
+  job_from_queue->type = JOB_WAIT_FOR_RESPONSE;
+  job_enqueue(host_id, hostq, job_from_queue);
+}
+// End of jobSendRequestHandler
+
+/* parsePacket:
+ * parse a packet payload inputStr into its ticket and data
+ * Note:: Use dynamically allocated buffers for ticket and data */
+void parsePacket(const char *inputStr, char *ticketStr, char *dataStr) {
+  const char delim = ':';
+
+  int inputLen = strnlen(inputStr, PACKET_PAYLOAD_MAX);
+  if (inputLen == 0) {
+    printf("ERROR: parsePacket was passed an empty inputStr\n");
+    return;
+  }
+  if (inputLen > PACKET_PAYLOAD_MAX) {
+    printf(
+        "ERROR: parsePacket was passed an inputStr larger than "
+        "PACKET_PAYLOAD_MAX\n");
+    return;
+  }
+
+  // Find position of delimiter
+  int delimPos = 0;
+  for (int i = 0; i < inputLen; i++) {
+    if (inputStr[i] == delim) {
+      delimPos = i;
+      break;
+    }
+  }
+
+  if (delimPos == 0) {
+    printf("ERROR: parsePacket: delimiter not found in inputStr\n");
+    return;
+  }
+
+  // Copy ticket from inputStr into ticketStr
+  for (int i = 0; i < delimPos; i++) {
+    ticketStr[i] = inputStr[i];
+  }
+  ticketStr[delimPos] = '\0';
+
+  // Copy data from inputStr into dataStr
+  for (int i = delimPos + 1; i < inputLen; i++) {
+    dataStr[i - delimPos - 1] = inputStr[i];
+  }
+  dataStr[inputLen - delimPos - 1] = '\0';
+}  // End of parsePacket()
+
+void pktIncomingRequestHandler(int host_id, struct JobQueue *hostq,
+                               struct Packet *inPkt) {
+  packet_type response_type;
+  switch (inPkt->type) {
+    case PKT_PING_REQ:
+      response_type = PKT_PING_RESPONSE;
+      break;
+    case PKT_UPLOAD_REQ:
+      response_type = PKT_UPLOAD_RESPONSE;
+      break;
+    case PKT_DOWNLOAD_REQ:
+      response_type = PKT_DOWNLOAD_RESPONSE;
+      break;
+    default:
+      response_type = PKT_INVALID_TYPE;
+      return;
+  }
+
+  // Readdress incoming packet to use as
+  inPkt->type = response_type;
+  inPkt->dst = inPkt->src;
+  inPkt->src = host_id;
+
+  // Grab jid from request packet payload
+  char *id = (char *)malloc(sizeof(char) * JIDLEN);
+  char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
+  parsePacket(inPkt->payload, id, msg);
+
+  struct Job *sendRespJob = job_create(id, TIMETOLIVE, NULL, JOB_SEND_RESPONSE,
+                                       JOB_PENDING_STATE, inPkt);
+  job_enqueue(host_id, hostq, sendRespJob);
+
+  free(id);
+  free(msg);
+}  // End of pktIncomingRequestHandler()
+
+int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
+  // Find which Net_port entry in net_port_array has desired destination
+  int destIndex = -1;
+  for (int i = 0; i < arrSize; i++) {
+    if (arr[i]->link_node_id == p->dst) {
+      destIndex = i;
+    }
+  }
+  // If node_port_array had the destination id, send to that node
+  if (destIndex >= 0) {
+    packet_send(arr[destIndex], p);
+  } else {
+    // Else, broadcast packet to all connected hosts
+    for (int i = 0; i < arrSize; i++) {
+      packet_send(arr[i], p);
+    }
+  }
+}  // End of sendPacketTo

@@ -3,6 +3,7 @@
         "manager.h": "c",
         "constants.h": "c",
         "dirent.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "extensionfns.h": "c"
     }
 }

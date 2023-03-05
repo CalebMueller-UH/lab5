@@ -89,7 +89,7 @@
 //       packet_send(arr[i], p);
 //     }
 //   }
-// }
+// } // End of sendPacketTo
 
 // void jobUploadSendHandler(int host_id, int dst, char ticket[TICKETLEN],
 //                           char directory[MAX_FILENAME_LENGTH],

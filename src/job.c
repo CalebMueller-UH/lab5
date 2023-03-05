@@ -10,11 +10,12 @@
 #include <time.h>
 
 #include "color.h"
+#include "extensionFns.h"
 #include "packet.h"
 
 /* Takes an enumeration value representing a job type and returns the
  * corresponding string representation. */
-char *JobType_literal(enum JobType t) {
+char *get_job_type_literal(enum JobType t) {
   switch (t) {
     case JOB_SEND_PKT:
       return "JOB_SEND_PKT";
@@ -38,11 +39,28 @@ char *JobType_literal(enum JobType t) {
   return "UNKNOWN_JobType";
 }
 
+/* Takes an enumeration value representing a job state and returns the
+ * corresponding string representation. */
+char *get_job_state_literal(enum JobState s) {
+  switch (s) {
+    case JOB_PENDING_STATE:
+      return "PENDING";
+    case JOB_COMPLETE_STATE:
+      return "COMPLETE";
+    case JOB_READY_STATE:
+      return "READY";
+    case JOB_ERROR_STATE:
+      return "ERROR";
+    default:
+      return "INVALID";
+  }
+}
+
 /* Adds a new job to the end of a job queue. */
 void job_enqueue(int host_id, struct JobQueue *jq, struct Job *j) {
 #ifdef DEBUG
   colorPrint(GREEN, "DEBUG: node_id:%d job_enqueue: type: %s\n", host_id,
-             get_JobType_literal(j->type));
+             get_job_type_literal(j->type));
 #endif
 
   if (jq->head == NULL) {
@@ -65,7 +83,7 @@ struct Job *job_dequeue(int host_id, struct JobQueue *jq) {
 
 #ifdef DEBUG
   colorPrint(RED, "DEBUG: node_id:%d job_dequeue: type: %s\n", host_id,
-             get_JobType_literal(j->type));
+             get_job_type_literal(j->type));
 #endif
 
   jq->head = (jq->head)->next;
@@ -74,11 +92,13 @@ struct Job *job_dequeue(int host_id, struct JobQueue *jq) {
 }  // End of job_dequeue()
 
 /* job_create:
- * creates a new job with the given parameters, or generates a random job ID if
- * no ID is provided. It initializes all other properties to the given values
- * and returns a pointer to the new job*/
-struct Job *job_create(int jid, int timeToLive, FILE *fp, enum JobType type,
-                       enum JobState state, struct Packet *packet) {
+ * creates a new job with the given parameters and a randomly generated job ID
+ * if no ID is provided. It initializes all other properties to the given
+ * values, prepends the job ID to the packet payload if provided, and returns a
+ * pointer to the new job*/
+struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
+                       enum JobType type, enum JobState state,
+                       struct Packet *packet) {
   struct Job *j = job_create_empty();
   if (jid == NULL) {
     char t[JIDLEN];
@@ -92,6 +112,10 @@ struct Job *job_create(int jid, int timeToLive, FILE *fp, enum JobType type,
   j->type = type;
   j->state = state;
   j->packet = packet;
+
+  if (packet != NULL) {
+    job_prepend_jid_to_payload(j->jid, j->packet);
+  }
   return j;
 }
 
@@ -100,6 +124,10 @@ struct Job *job_create(int jid, int timeToLive, FILE *fp, enum JobType type,
  * default values. It returns a pointer to the new job*/
 struct Job *job_create_empty() {
   struct Job *j = (struct Job *)malloc(sizeof(struct Job));
+  if (j == NULL) {
+    printf("Failed to allocate memory for job\n");
+    exit(EXIT_FAILURE);
+  }
   memset(j->jid, 0, (sizeof(char) * JIDLEN));
   j->timeToLive = 0;
   j->fp = NULL;
@@ -124,8 +152,34 @@ void job_jid_gen(char *dst) {
   int ticketMin = keyMod / 10;
   int ticketMax = keyMod - 1;
   int jidInt = (rand() % (ticketMax - ticketMin + 1)) + ticketMin;
-  int len = snprintf(dst, JIDLEN, "%d", jidInt);
-  dst[JIDLEN] = '\0';
+  int len = snprintf(NULL, 0, "%d", jidInt);
+  snprintf(dst, len + 1, "%d", jidInt);
+  dst[len] = '\0';
+}
+
+/* job_prepend_jid_to_payload:
+ * prepends the job identifier jid to the payload of a given Packet structure,
+ * separated by a colon character. If jid is not already present in the payload,
+ * it is added to the beginning of the payload */
+void job_prepend_jid_to_payload(char jid[JIDLEN], struct Packet *p) {
+  if (strstr(p->payload, jid) == NULL) {
+    char pbuff[PACKET_PAYLOAD_MAX] = {0};
+    snprintf_s(pbuff, PACKET_PAYLOAD_MAX - 1, "%s:%s", jid, p->payload);
+    strncpy(p->payload, pbuff, PACKET_PAYLOAD_MAX);
+    p->length = strlen(pbuff);
+  }
+}
+
+/* Prints the contents of a job with its job ID, time to live, file pointer,
+ * type, state, and associated packet. */
+void printJob(struct Job *j) {
+  printf("jid:%s ttl:%d fp:%p type:%s state:%s packet:", j->jid, j->timeToLive,
+         j->fp, get_job_type_literal(j->type), get_job_state_literal(j->state));
+  if (j->packet == NULL) {
+    printf("NULL\n");
+  } else {
+    printPacket(j->packet);
+  }
 }
 
 /* Initializes a job queue. */

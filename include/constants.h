@@ -13,4 +13,4 @@ constants.h
 
 // The number of payload space available after including a response ticket,
 // delimiter, and terminator
-#define MAX_RESPONSE_LEN (PACKET_PAYLOAD_MAX - 2 - TICKETLEN)
+#define MAX_RESPONSE_LEN (PACKET_PAYLOAD_MAX - 2 - JIDLEN)

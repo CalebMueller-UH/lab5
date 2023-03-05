@@ -48,7 +48,11 @@ struct Job {
 
 /* Takes an enumeration value representing a job type and returns the
  * corresponding string representation.*/
-char *JobType_literal(enum JobType t);
+char *get_job_type_literal(enum JobType t);
+
+/* Takes an enumeration value representing a job state and returns the
+ * corresponding string representation. */
+char *get_job_state_literal(enum JobState s);
 
 /* Adds a new job to the end of a job queue.*/
 void job_enqueue(int host_id, struct JobQueue *jq, struct Job *j);
@@ -56,8 +60,9 @@ void job_enqueue(int host_id, struct JobQueue *jq, struct Job *j);
 /* Removes the first job from a job queue and returns it.*/
 struct Job *job_dequeue(int host_id, struct JobQueue *j_q);
 
-struct Job *job_create(int jid, int timeToLive, FILE *fp, enum JobType type,
-                       enum JobState state, struct Packet *packet);
+struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
+                       enum JobType type, enum JobState state,
+                       struct Packet *packet);
 
 /* Allocates memory for a new job, initializes its fields with default
  * values, and returns a pointer to it.*/
@@ -65,7 +70,9 @@ struct Job *job_create_empty();
 
 void job_jid_gen(char *dst);
 
-void releaseJob(struct Packet *p, struct Request *r, struct Job *j);
+void job_prepend_jid_to_payload(char jid[JIDLEN], struct Packet *p);
+
+void printJob(struct Job *j);
 
 /* Initializes a job queue.*/
 void job_queue_init(struct JobQueue *jq);

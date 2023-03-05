@@ -72,7 +72,7 @@ void switch_main(int switch_id) {
   }
 
   /* Initialize the job queue */
-  struct Job_queue switch_q;
+  struct JobQueue switch_q;
   job_queue_init(&switch_q);
 
   ////// Initialize Router Table //////
@@ -99,7 +99,7 @@ void switch_main(int switch_id) {
             "src:%d dst:%d\n",
             switch_id, portNum, received_packet->src, received_packet->dst);
 #endif
-        struct Job *swJob = createEmptyJob();
+        struct Job *swJob = job_create_empty();
         swJob->packet = received_packet;
 
         int dstIndex =
