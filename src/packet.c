@@ -18,34 +18,6 @@
 #include "net.h"
 #include "socket.h"
 
-/* Sends a network packet through a pipe or socket by parsing the packet into a
- * message buffer and then sending it. */
-void packet_send(struct Net_port *port, struct Packet *p) {
-  char pkt[PACKET_PAYLOAD_MAX + 4];
-  int bytesSent = -1;
-
-  // Parse Packet
-  pkt[0] = (char)p->src;
-  pkt[1] = (char)p->dst;
-  pkt[2] = (char)p->type;
-  pkt[3] = (char)p->length;
-  for (int i = 0; i < p->length; i++) {
-    pkt[i + 4] = p->payload[i];
-  }
-
-  if (port->type == PIPE) {
-    bytesSent = write(port->send_fd, pkt, p->length + 4);
-
-  } else if (port->type == SOCKET) {
-    bytesSent = sock_send(port->localDomain, port->remoteDomain,
-                          port->remotePort, pkt, p->length + 4);
-  }
-
-#ifdef DEBUG
-  // printPacket(p);
-#endif
-}
-
 /* Receives a network packet through a pipe or socket by reading a message
  * buffer and then parsing it into a packet. */
 int packet_recv(struct Net_port *port, struct Packet *p) {
@@ -75,12 +47,47 @@ int packet_recv(struct Net_port *port, struct Packet *p) {
   return (bytesRead);
 }
 
-// Creates a packet using passed in argument values
-struct Packet *createPacket(int src, int dst, int type) {
+/* Sends a network packet through a pipe or socket by parsing the packet into a
+ * message buffer and then sending it. */
+void packet_send(struct Net_port *port, struct Packet *p) {
+  char pkt[PACKET_PAYLOAD_MAX + 4];
+  int bytesSent = -1;
+
+  // Parse Packet
+  pkt[0] = (char)p->src;
+  pkt[1] = (char)p->dst;
+  pkt[2] = (char)p->type;
+  pkt[3] = (char)p->length;
+  for (int i = 0; i < p->length; i++) {
+    pkt[i + 4] = p->payload[i];
+  }
+
+  if (port->type == PIPE) {
+    bytesSent = write(port->send_fd, pkt, p->length + 4);
+
+  } else if (port->type == SOCKET) {
+    bytesSent = sock_send(port->localDomain, port->remoteDomain,
+                          port->remotePort, pkt, p->length + 4);
+  }
+
+#ifdef DEBUG
+  // printPacket(p);
+#endif
+}
+
+/* createPacket:
+ * creates a new packet with the given parameters and payload, or with a
+ * specified length if no payload is provided */
+struct Packet *createPacket(int src, int dst, int type, int length,
+                            char *payload) {
   struct Packet *p = createEmptyPacket();
   p->src = src;
   p->dst = dst;
   p->type = type;
+  if (payload != NULL) {
+    strncpy(p->payload, payload, PACKET_PAYLOAD_MAX);
+    p->length = strlen(payload);
+  }
   return p;
 }
 

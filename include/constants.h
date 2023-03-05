@@ -11,9 +11,6 @@ constants.h
 #define PACKET_PAYLOAD_MAX 100
 #define TIMETOLIVE 10  // 10 * 10ms = 100ms
 
-// Number of digits used in creation of a random request identifier
-#define TICKETLEN 4
-
 // The number of payload space available after including a response ticket,
 // delimiter, and terminator
 #define MAX_RESPONSE_LEN (PACKET_PAYLOAD_MAX - 2 - TICKETLEN)
