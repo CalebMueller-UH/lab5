@@ -88,7 +88,7 @@ void display_host(struct Man_port_at_man *list,
   for (p = list; p != NULL; p = p->next) {
     colorPrint(CYAN, "   Host id = %d ", p->host_id);
     if (p->host_id == curr_host->host_id) {
-      colorPrint(GREEN, "(<- connected)");
+      colorPrint(GREEN, "<- connected");
     }
     printf("\n");
   }
@@ -163,7 +163,7 @@ void ping(struct Man_port_at_man *curr_host) {
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
   reply[n] = '\0';
-  colorPrint(CYAN, "%s\n", reply);
+  printf("%s\n", reply);
 }
 
 /*
@@ -201,10 +201,8 @@ int file_upload(struct Man_port_at_man *curr_host) {
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
 
-  if (strncmp("OK", reply, 2) != 0) {
-    reply[n] = '\0';
-    colorPrint(BOLD_RED, "%s\n", reply);
-  }
+  reply[n] = '\0';
+  printf("%s\n", reply);
 }
 
 /*
@@ -243,10 +241,8 @@ int file_download(struct Man_port_at_man *curr_host) {
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
 
-  if (strncmp("OK", reply, 2) != 0) {
-    reply[n] = '\0';
-    colorPrint(BOLD_RED, "%s\n", reply);
-  }
+  reply[n] = '\0';
+  printf("%s\n", reply);
 }
 
 int isValidDirectory(const char *path) {
@@ -360,7 +356,7 @@ void man_main() {
       case 'q': /* Quit */
         return;
       default:
-        colorPrint(BOLD_RED, "\nInvalid, you entered %c\n\n", cmd);
+        colorPrint(BOLD_RED, "\nInvalid command entered: %c\n\n", cmd);
     }
   }
 }

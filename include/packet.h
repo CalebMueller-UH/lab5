@@ -39,6 +39,8 @@ struct Packet *createPacket(int src, int dst, int type, int length,
 
 struct Packet *createEmptyPacket();
 
+void packet_delete(struct Packet *p);
+
 char *get_packet_type_literal(int pktType);
 
 void printPacket(struct Packet *p);

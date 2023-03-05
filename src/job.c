@@ -96,9 +96,8 @@ struct Job *job_dequeue(int host_id, struct JobQueue *jq) {
  * if no ID is provided. It initializes all other properties to the given
  * values, prepends the job ID to the packet payload if provided, and returns a
  * pointer to the new job*/
-struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
-                       enum JobType type, enum JobState state,
-                       struct Packet *packet) {
+struct Job *job_create(const char *jid, int timeToLive, enum JobType type,
+                       enum JobState state, struct Packet *packet) {
   struct Job *j = job_create_empty();
   if (jid == NULL) {
     char t[JIDLEN];
@@ -108,7 +107,6 @@ struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
     strncpy(j->jid, jid, JIDLEN);
   }
   j->timeToLive = timeToLive;
-  j->fp = fp;
   j->type = type;
   j->state = state;
   j->packet = packet;
@@ -120,6 +118,8 @@ struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
 }
 
 void job_delete(struct Job *j) {
+  // printf("job_delete called: deleting:\n");
+  // printJob(j);
   j->fp = NULL;
   if (j->packet) {
     free(j->packet);
@@ -141,6 +141,7 @@ struct Job *job_create_empty() {
   memset(j->jid, 0, (sizeof(char) * JIDLEN));
   j->timeToLive = 0;
   j->fp = NULL;
+  memset(j->filepath, 0, sizeof(j->filepath));
   j->type = JOB_INVALID_TYPE;
   j->state = JOB_INVALID_STATE;
   j->packet = NULL;

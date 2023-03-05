@@ -41,6 +41,7 @@ struct Job {
   char errorMsg[MAX_MSG_LENGTH];
   int timeToLive;
   FILE *fp;
+  char filepath[MAX_FILENAME_LENGTH * 2];
   enum JobType type;
   enum JobState state;
   struct Packet *packet;
@@ -61,9 +62,8 @@ void job_enqueue(int host_id, struct JobQueue *jq, struct Job *j);
 /* Removes the first job from a job queue and returns it.*/
 struct Job *job_dequeue(int host_id, struct JobQueue *j_q);
 
-struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
-                       enum JobType type, enum JobState state,
-                       struct Packet *packet);
+struct Job *job_create(const char *jid, int timeToLive, enum JobType type,
+                       enum JobState state, struct Packet *packet);
 
 /* Allocates memory for a new job, initializes its fields with default
  * values, and returns a pointer to it.*/

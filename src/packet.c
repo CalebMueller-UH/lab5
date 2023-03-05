@@ -102,6 +102,18 @@ struct Packet *createEmptyPacket() {
   return p;
 }
 
+void packet_delete(struct Packet *p) {
+  // printf("packet_delete called");
+  if (p == NULL) {
+    // printf("on null packet!\n");
+  } else {
+    // printf(": deleting:\n");
+    // printPacket(p);
+    free(p);
+    p = NULL;
+  }
+}
+
 /* Returns a string representation of the packet type. */
 char *get_packet_type_literal(int pktType) {
   switch (pktType) {
