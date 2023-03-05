@@ -69,7 +69,7 @@ struct Job *job_create(const char *jid, int timeToLive, enum JobType type,
  * values, and returns a pointer to it.*/
 struct Job *job_create_empty();
 
-void job_delete(struct Job *j);
+void job_delete(int host_id, struct Job *j);
 
 void job_jid_gen(char *dst);
 

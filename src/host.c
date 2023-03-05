@@ -42,8 +42,9 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
                           struct Job *job_from_queue, struct Net_port **arr,
                           int arrSize);
 
-void jobUploadReceiveHandler(int host_id, struct Packet *pkt,
-                             struct JobQueue *hostq);
+void pktUploadReceive(int host_id, struct Packet *pkt, struct JobQueue *hostq);
+
+void pktUploadEnd(int host_id, struct Packet *pkt, struct JobQueue *hostq);
 
 void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
                                struct JobQueue *hostq, char *hostDirectory,
@@ -51,10 +52,10 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
 
 void parsePacket(const char *inputStr, char *ticketStr, char *dataStr);
 
-void pktIncomingRequestHandler(int host_id, struct JobQueue *hostq,
-                               struct Packet *inPkt);
+void pktIncomingRequest(int host_id, struct JobQueue *hostq,
+                        struct Packet *inPkt);
 
-void pktIncomingResponseHandler(struct Packet *inPkt, struct JobQueue *hostq);
+void pktIncomingResponse(struct Packet *inPkt, struct JobQueue *hostq);
 
 // Send a message back to manager
 void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]);
@@ -216,22 +217,22 @@ void host_main(int host_id) {
           case PKT_PING_REQ:
           case PKT_UPLOAD_REQ:
           case PKT_DOWNLOAD_REQ:
-            pktIncomingRequestHandler(host_id, &hostq, inPkt);
+            pktIncomingRequest(host_id, &hostq, inPkt);
             break;
 
             ////////////////
           case PKT_PING_RESPONSE:
           case PKT_UPLOAD_RESPONSE:
           case PKT_DOWNLOAD_RESPONSE:
-            pktIncomingResponseHandler(inPkt, &hostq);
+            pktIncomingResponse(inPkt, &hostq);
             break;
 
           case PKT_UPLOAD:
-            jobUploadReceiveHandler(host_id, inPkt, &hostq);
+            pktUploadReceive(host_id, inPkt, &hostq);
             break;
 
           case PKT_UPLOAD_END:
-
+            pktUploadEnd(host_id, inPkt, &hostq);
             break;
 
           ////////////////
@@ -264,12 +265,13 @@ void host_main(int host_id) {
             jobSendResponseHandler(host_id, &hostq, hostDirectory,
                                    job_from_queue, node_port_array,
                                    node_port_array_size);
+            break;
           }  //////////////// End of case JOB_SEND_RESPONSE
 
           case JOB_SEND_PKT: {
             sendPacketTo(node_port_array, node_port_array_size,
                          job_from_queue->packet);
-            job_delete(job_from_queue);
+            job_delete(host_id, job_from_queue);
             break;
           }  //////////////// End of case JOB_SEND_PKT
 
@@ -344,14 +346,12 @@ void commandUploadHandler(int host_id, struct JobQueue *hostq,
 
       // Create an upload request packet
       struct Packet *upReqPkt =
-          createPacket(host_id, dst, PKT_UPLOAD_REQ, 0, NULL);
-
+          createPacket(host_id, dst, PKT_UPLOAD_REQ, 0, fname);
       // Create a send request job
       struct Job *sendReqJob = job_create(NULL, TIMETOLIVE, JOB_SEND_REQUEST,
                                           JOB_PENDING_STATE, upReqPkt);
       sendReqJob->fp = fp;
       strncpy(sendReqJob->filepath, fullPath, sizeof(sendReqJob->filepath));
-
       // Enque job
       job_enqueue(host_id, hostq, sendReqJob);
     }
@@ -421,13 +421,18 @@ void jobSendUploadResponseHandler(int host_id, struct JobQueue *hostq,
   } else {
     snprintf(fullPath, sizeof(fullPath), "%s/%s", hostDirectory, fname);
 
-    if (!fileExists(fullPath)) {
-      snprintf(payloadMsg, MAX_MSG_LENGTH, "%s:This file does not exist", id);
+    if (fileExists(fullPath)) {
+      snprintf(payloadMsg, MAX_MSG_LENGTH, "%s:This file already exists!", id);
     } else {
       // Directory is set, and file exists
-      // Send back ready message to begin upload
-
       snprintf(payloadMsg, PACKET_PAYLOAD_MAX, "%s:Ready", id);
+
+      FILE *fp = fopen(fullPath, "w");
+      job_from_queue->fp = fp;
+      strncpy(job_from_queue->filepath, fullPath,
+              strnlen(fullPath, MAX_FILENAME_LENGTH * 2));
+      job_from_queue->type = JOB_WAIT_FOR_RESPONSE;
+      job_enqueue(host_id, hostq, job_from_queue);
     }
   }
   int payloadMsgLen = strnlen(payloadMsg, PACKET_PAYLOAD_MAX);
@@ -437,46 +442,25 @@ void jobSendUploadResponseHandler(int host_id, struct JobQueue *hostq,
 
   sendPacketTo(arr, arrSize, qPkt);
 
-  FILE *fp = fopen(fullPath, "w");
-  job_from_queue->fp = fp;
-  strncpy(job_from_queue->filepath, fullPath, sizeof(fullPath));
-  job_from_queue->type = JOB_WAIT_FOR_RESPONSE;
-  job_enqueue(host_id, hostq, job_from_queue);
-
-  printf("host%d: jobSendUploadResponseHandler:\n", host_id);
-  printJob(job_from_queue);
-
   // Clean up memory
   free(id);
   free(fname);
   free(payloadMsg);
 }  // End of jobSendUploadResponseHandler()
 
-void jobUploadReceiveHandler(int host_id, struct Packet *pkt,
-                             struct JobQueue *hostq) {
-  printf("host%d: jobUploadReceiveHandler\n", host_id);
-
+void pktUploadReceive(int host_id, struct Packet *pkt, struct JobQueue *hostq) {
   char *id = (char *)malloc(sizeof(char) * JIDLEN);
   char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
   parsePacket(pkt->payload, id, msg);
 
   struct Job *rjob = job_queue_find_id(hostq, id);
   if (rjob != NULL) {
-    printf("jobUploadReceiveHandler: found request\n");
-    printf("jobUploadReceiveHandler: rjob->filename: %s\n", rjob->filepath);
-
     // Refresh timeToLive of request
     rjob->timeToLive = TIMETOLIVE;
 
     if (rjob->fp == NULL) {
       // Open the file in append mode if it hasn't been opened already
       rjob->fp = fopen(rjob->filepath, "ab");
-      if (rjob->fp == NULL) {
-        printf("jobUploadReceiveHandler: failed to open file %s\n",
-               rjob->filepath);
-      } else {
-        printf("jobUploadReceiveHandler: opened file\n");
-      }
     }
 
     if (rjob->fp != NULL) {
@@ -493,7 +477,24 @@ void jobUploadReceiveHandler(int host_id, struct Packet *pkt,
 
   free(id);
   free(msg);
-}  // End of jobUploadReceiveHandler()
+}  // End of pktUploadReceive()
+
+void pktUploadEnd(int host_id, struct Packet *pkt, struct JobQueue *hostq) {
+  printf("host%d: pktUploadEnd\n", host_id);
+  char *id = (char *)malloc(sizeof(char) * JIDLEN);
+  char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
+  parsePacket(pkt->payload, id, msg);
+
+  struct Job *r = job_queue_find_id(hostq, id);
+  if (r != NULL) {
+    r->state = JOB_COMPLETE_STATE;
+  } else {
+    printf("Request not found for ticket %s\n", id);
+  }
+
+  free(id);
+  free(msg);
+}  // End of pktUploadEnd()
 
 void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
                           struct Job *job_from_queue, struct Net_port **arr,
@@ -512,7 +513,7 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
   fseek(fp, 0L, SEEK_SET);
 
   // Allocate a buffer for reading data from the file
-  int bufferSize = MAX_RESPONSE_LEN;
+  int bufferSize = MAX_RESPONSE_LEN - 1;
   char *buffer = (char *)malloc(sizeof(char) * bufferSize);
 
   // Read and send the file in chunks
@@ -523,29 +524,21 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
       break;
     }
 
-    // Create a packet and send it
-    struct Packet *upPkt = createPacket(src, dst, PKT_UPLOAD, 0, NULL);
-    int upPktLen = snprintf(upPkt->payload, PACKET_PAYLOAD_MAX, "%s:%.*s", id,
-                            bytesRead, buffer);
-    upPkt->payload[upPktLen] = '\0';
-    upPkt->length = upPktLen;
-    struct Job *upJob =
-        job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_PENDING_STATE, upPkt);
-    job_enqueue(host_id, hostq, upJob);
+    buffer[bytesRead] = '\0';
+
+    struct Packet *p = createPacket(src, dst, PKT_UPLOAD, 0, buffer);
+    struct Job *j = job_create(id, 0, JOB_SEND_PKT, JOB_COMPLETE_STATE, p);
+    job_enqueue(host_id, hostq, j);
+
     fileSize -= bytesRead;
+    usleep(1000);
   }
 
   // Notify the receiver that the file transfer is complete
   struct Packet *finPkt = createPacket(src, dst, PKT_UPLOAD_END, 0, NULL);
-  int finPktLen = snprintf(finPkt->payload, PACKET_PAYLOAD_MAX, "%s:", id);
-  finPkt->payload[finPktLen] = '\0';
-  finPkt->length = finPktLen;
   struct Job *finJob =
-      job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_PENDING_STATE, finPkt);
+      job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_COMPLETE_STATE, finPkt);
   job_enqueue(host_id, hostq, finJob);
-
-  // Close the file
-  fclose(fp);
 
   // Free allocated memory
   free(id);
@@ -565,6 +558,7 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
 
   if (job->timeToLive <= 0) {
     // Handle expired job
+    job_delete(host_id, job);
     switch (job->packet->type) {
       case PKT_PING_REQ:
         colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
@@ -580,7 +574,6 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
         break;
     }
     sendMsgToManager(manFd, responseMsg);
-    job_delete(job);
   } else {
     // Handle pending job
     job->timeToLive--;
@@ -599,18 +592,21 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
 
         case PKT_UPLOAD_REQ:
           if (job->state == JOB_READY_STATE) {
+            // Send file upload packets
             jobUploadSendHandler(host_id, hostq, job, arr, arrSize);
+            job->state = JOB_COMPLETE_STATE;
             job_enqueue(host_id, hostq, job);
           } else if (job->state == JOB_ERROR_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED, "%s",
                           job->errorMsg);
             sendMsgToManager(manFd, responseMsg);
-            job_delete(job);
+            job_delete(host_id, job);
           } else if (job->state == JOB_COMPLETE_STATE) {
+            fclose(job->fp);
+            job_delete(host_id, job);
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
                           "Upload Complete");
             sendMsgToManager(manFd, responseMsg);
-            job_delete(job);
           }
           break;
 
@@ -621,12 +617,12 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED, "%s",
                           job->errorMsg);
             sendMsgToManager(manFd, responseMsg);
-            job_delete(job);
+            job_delete(host_id, job);
           } else if (job->state == JOB_COMPLETE_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
                           "Download Complete");
             sendMsgToManager(manFd, responseMsg);
-            job_delete(job);
+            job_delete(host_id, job);
           }
           break;
       }
@@ -681,8 +677,8 @@ void parsePacket(const char *inputStr, char *ticketStr, char *dataStr) {
   dataStr[inputLen - delimPos - 1] = '\0';
 }  // End of parsePacket()
 
-void pktIncomingRequestHandler(int host_id, struct JobQueue *hostq,
-                               struct Packet *inPkt) {
+void pktIncomingRequest(int host_id, struct JobQueue *hostq,
+                        struct Packet *inPkt) {
   packet_type response_type;
   switch (inPkt->type) {
     case PKT_PING_REQ:
@@ -715,9 +711,9 @@ void pktIncomingRequestHandler(int host_id, struct JobQueue *hostq,
 
   free(id);
   free(msg);
-}  // End of pktIncomingRequestHandler()
+}  // End of pktIncomingRequest()
 
-void pktIncomingResponseHandler(struct Packet *inPkt, struct JobQueue *hostq) {
+void pktIncomingResponse(struct Packet *inPkt, struct JobQueue *hostq) {
   // Grab jid from request packet payload
   char *id = (char *)malloc(sizeof(char) * JIDLEN);
   char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
@@ -737,6 +733,7 @@ void pktIncomingResponseHandler(struct Packet *inPkt, struct JobQueue *hostq) {
         if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
           waitJob->state = JOB_READY_STATE;
         } else {
+          strncpy(waitJob->errorMsg, msg, strnlen(msg, MAX_RESPONSE_LEN));
           waitJob->state = JOB_ERROR_STATE;
         }
         break;
@@ -746,6 +743,7 @@ void pktIncomingResponseHandler(struct Packet *inPkt, struct JobQueue *hostq) {
           // banana
           waitJob->state = JOB_READY_STATE;
         } else {
+          strncpy(waitJob->errorMsg, msg, strnlen(msg, MAX_RESPONSE_LEN));
           waitJob->state = JOB_ERROR_STATE;
         }
         break;
@@ -761,7 +759,7 @@ void pktIncomingResponseHandler(struct Packet *inPkt, struct JobQueue *hostq) {
   packet_delete(inPkt);
   free(id);
   free(msg);
-}  // End of pktIncomingResponseHandler()
+}  // End of pktIncomingResponse()
 
 // Send a message back to manager
 void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]) {
