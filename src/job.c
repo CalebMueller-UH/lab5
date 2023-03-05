@@ -118,8 +118,9 @@ struct Job *job_create(const char *jid, int timeToLive, enum JobType type,
 }
 
 void job_delete(int host_id, struct Job *j) {
-  // colorPrint(BOLD_MAGENTA, "host%d job_delete called: deleting:\n", host_id);
-  // printJob(j);
+  colorPrint(BOLD_MAGENTA, "\nhost%d job_delete called: deleting:\n", host_id);
+  printJob(j);
+  printf("\n");
   j->fp = NULL;
   if (j->packet) {
     free(j->packet);

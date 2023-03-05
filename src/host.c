@@ -21,6 +21,8 @@
 #include "packet.h"
 #include "semaphore.h"
 
+#define WATCHDOG_TIMEOUT_SEC 3
+
 // Helper Function Forward Declarations
 void commandUploadHandler(int host_id, struct JobQueue *hostq,
                           char *hostDirectory, int dst, char *fname, int manFd);
@@ -308,7 +310,8 @@ void host_main(int host_id) {
       /* The host goes to sleep for 10 ms */
       usleep(LOOP_SLEEP_TIME_MS);
     }  // End of for (int portNum = 0; portNum ...
-  }    // End of while(1)
+
+  }  // End of while(1)
 }  // End of host_main()
 
 //////////////////////////////////////////////////
@@ -337,7 +340,7 @@ void commandUploadHandler(int host_id, struct JobQueue *hostq,
 
     if (!fileExists(fullPath)) {
       colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
-                    "This file does not exist");
+                    "This file does not exist in %s", hostDirectory);
     } else {
       // Directory is set, and file exists
 
@@ -422,7 +425,8 @@ void jobSendUploadResponseHandler(int host_id, struct JobQueue *hostq,
     snprintf(fullPath, sizeof(fullPath), "%s/%s", hostDirectory, fname);
 
     if (fileExists(fullPath)) {
-      snprintf(payloadMsg, MAX_MSG_LENGTH, "%s:This file already exists!", id);
+      snprintf(payloadMsg, MAX_MSG_LENGTH, "%s:This file already exists in %s!",
+               id, hostDirectory);
     } else {
       // Directory is set, and file exists
       snprintf(payloadMsg, PACKET_PAYLOAD_MAX, "%s:Ready", id);
@@ -480,7 +484,6 @@ void pktUploadReceive(int host_id, struct Packet *pkt, struct JobQueue *hostq) {
 }  // End of pktUploadReceive()
 
 void pktUploadEnd(int host_id, struct Packet *pkt, struct JobQueue *hostq) {
-  printf("host%d: pktUploadEnd\n", host_id);
   char *id = (char *)malloc(sizeof(char) * JIDLEN);
   char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
   parsePacket(pkt->payload, id, msg);
@@ -531,9 +534,10 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
     job_enqueue(host_id, hostq, j);
 
     fileSize -= bytesRead;
-    usleep(1000);
+    usleep(5000);
   }
 
+  usleep(10000);
   // Notify the receiver that the file transfer is complete
   struct Packet *finPkt = createPacket(src, dst, PKT_UPLOAD_END, 0, NULL);
   struct Job *finJob =
@@ -550,15 +554,16 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
                                struct JobQueue *hostq, char *hostDirectory,
                                struct Net_port **arr, int arrSize, int manFd) {
   // Uncomment to print debug info
-  // printf("host%d: jobWaitForResponseHandler called\n", host_id);
+  // colorPrint(BOLD_GREY, "\nhost%d: jobWaitForResponseHandler called\n",
+  //            host_id);
   // printJob(job);
+  // printf("\n");
 
   char *responseMsg = malloc(sizeof(char) * MAX_MSG_LENGTH);
   memset(responseMsg, 0, MAX_MSG_LENGTH);
 
   if (job->timeToLive <= 0) {
     // Handle expired job
-    job_delete(host_id, job);
     switch (job->packet->type) {
       case PKT_PING_REQ:
         colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
@@ -574,6 +579,8 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
         break;
     }
     sendMsgToManager(manFd, responseMsg);
+    job_delete(host_id, job);
+
   } else {
     // Handle pending job
     job->timeToLive--;
@@ -587,6 +594,7 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
                           "Ping request acknowledged!");
             sendMsgToManager(manFd, responseMsg);
+            job_delete(host_id, job);
           }
           break;
 
