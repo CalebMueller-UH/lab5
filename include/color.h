@@ -4,6 +4,10 @@ color.h
 
 #pragma once
 
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+
 #include "constants.h"
 
 typedef enum {
@@ -30,3 +34,5 @@ typedef enum {
 extern const int NUM_COLORS;
 
 void colorPrint(color c, const char *format, ...);
+
+int colorSnprintf(char *str, size_t size, color c, const char *format, ...);

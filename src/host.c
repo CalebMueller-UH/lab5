@@ -22,6 +22,9 @@
 #include "semaphore.h"
 
 // Helper Function Forward Declarations
+void commandUploadHandler(int host_id, struct JobQueue *hostq,
+                          char *hostDirectory, int dst, char *fname, int manFd);
+
 void jobSendRequestHandler(int host_id, struct JobQueue *hostq,
                            struct Job *job_from_queue, struct Net_port **arr,
                            int arrSize);
@@ -154,7 +157,14 @@ void host_main(int host_id) {
 
         case 'u': {
           // Upload a file from active host to another host
-
+          // Get dst and fname from man_msg
+          int dst;
+          char fname[MAX_FILENAME_LENGTH] = {0};
+          sscanf(man_msg, "%d %s", &dst, fname);
+          int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
+          fname[fnameLen] = '\0';
+          commandUploadHandler(host_id, &hostq, hostDirectory, dst, fname,
+                               man_port->send_fd);
           break;
         }  //////////////// End of case 'u'
 
@@ -282,7 +292,50 @@ void host_main(int host_id) {
   }    // End of while(1)
 }  // End of host_main()
 
-// void jobSendRequestHandler(struct Job *job_from_queue) {}
+//////////////////////////////////////////////////
+//////////////////////////////////////////////////
+//////////////////////////////////////////////////
+//////////////////////////////////////////////////
+//////////////////////////////////////////////////
+//////////////////////////////////////////////////
+//////////////// HELPER FUNCTIONS ////////////////
+
+void commandUploadHandler(int host_id, struct JobQueue *hostq,
+                          char *hostDirectory, int dst, char *fname,
+                          int manFd) {
+  char *responseMsg = malloc(sizeof(char) * MAX_MSG_LENGTH);
+
+  if (!isValidDirectory(hostDirectory)) {
+    snprintf(responseMsg, MAX_MSG_LENGTH,
+             "Host %d does not have a valid directory set", host_id);
+  } else if (dst == host_id) {
+    snprintf(responseMsg, MAX_MSG_LENGTH, "Cannot upload to self");
+  } else {
+    char fullPath[2 * MAX_FILENAME_LENGTH] = {0};
+    snprintf(fullPath, sizeof(fullPath), "%s/%s", hostDirectory, fname);
+
+    if (!fileExists(fullPath)) {
+      snprintf(responseMsg, MAX_MSG_LENGTH, "This file does not exist");
+    } else {
+      // Directory is set, and file exists
+
+      // Create an upload request packet
+      struct Packet *upReqPkt =
+          createPacket(host_id, dst, PKT_UPLOAD_REQ, 0, NULL);
+
+      // Create a send request job
+      struct Job *sendReqJob =
+          job_create(NULL, TIMETOLIVE, NULL, JOB_SEND_REQUEST,
+                     JOB_PENDING_STATE, upReqPkt);
+
+      // Enque job
+      job_enqueue(host_id, hostq, sendReqJob);
+    }
+  }
+
+  sendMsgToManager(manFd, responseMsg);
+  free(responseMsg);
+}
 
 void jobSendRequestHandler(int host_id, struct JobQueue *hostq,
                            struct Job *job_from_queue, struct Net_port **arr,
@@ -333,7 +386,9 @@ void jobWaitForResponseHandler(int host_id, struct Job *job,
     // job timeToLive has expired
     switch (job->packet->type) {
       case PKT_PING_REQ:
-        snprintf(responseMsg, MAX_MSG_LENGTH, "Ping request timed out!");
+        // snprintf(responseMsg, MAX_MSG_LENGTH, "Ping request timed out!");
+        colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
+                      "Ping request timed out!");
         break;
       case PKT_UPLOAD_REQ:
         snprintf(responseMsg, MAX_MSG_LENGTH, "Upload request timed out!");
