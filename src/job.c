@@ -119,6 +119,17 @@ struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
   return j;
 }
 
+void job_delete(struct Job *j) {
+  fclose(j->fp);
+  j->fp = NULL;
+  if (j->packet) {
+    free(j->packet);
+    j->packet = NULL;
+  }
+  j->next = NULL;
+  free(j);
+}
+
 /* job_create_empty:
  * allocates memory for a new empty job and initializes all its properties to
  * default values. It returns a pointer to the new job*/
@@ -173,11 +184,13 @@ void job_prepend_jid_to_payload(char jid[JIDLEN], struct Packet *p) {
 /* Prints the contents of a job with its job ID, time to live, file pointer,
  * type, state, and associated packet. */
 void printJob(struct Job *j) {
-  printf("jid:%s ttl:%d fp:%p type:%s state:%s packet:", j->jid, j->timeToLive,
-         j->fp, get_job_type_literal(j->type), get_job_state_literal(j->state));
+  colorPrint(BLUE, "jid:%s ttl:%d fp:%p type:%s state:%s packet: ", j->jid,
+             j->timeToLive, j->fp, get_job_type_literal(j->type),
+             get_job_state_literal(j->state));
   if (j->packet == NULL) {
     printf("NULL\n");
   } else {
+    printf("\n");
     printPacket(j->packet);
   }
 }
@@ -212,7 +225,7 @@ struct Job *job_queue_find_id(struct JobQueue *jq, char findjid[JIDLEN]) {
  *searches a job queue for a job with a given ID,
  *removes it from the queue, and updates the linked list structure. It returns 1
  *if successful, 0 if the job is not found. */
-int job_queue_delete_id(struct JobQueue *jq, char deljid[JIDLEN]) {
+int job_queue_delete_id(struct JobQueue *jq, const char *deljid) {
   struct Job *prev = NULL;
   struct Job *curr = jq->head;
   while (curr != NULL) {

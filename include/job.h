@@ -38,6 +38,7 @@ struct JobQueue {
 
 struct Job {
   char jid[JIDLEN];
+  char errorMsg[MAX_MSG_LENGTH];
   int timeToLive;
   FILE *fp;
   enum JobType type;
@@ -68,6 +69,8 @@ struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
  * values, and returns a pointer to it.*/
 struct Job *job_create_empty();
 
+void job_delete(struct Job *j);
+
 void job_jid_gen(char *dst);
 
 void job_prepend_jid_to_payload(char jid[JIDLEN], struct Packet *p);
@@ -82,4 +85,4 @@ int job_queue_length(struct JobQueue *jq);
 
 struct Job *job_queue_find_id(struct JobQueue *jq, char findjid[JIDLEN]);
 
-int job_queue_delete_id(struct JobQueue *jq, char deljid[JIDLEN]);
+int job_queue_delete_id(struct JobQueue *jq, const char *deljid);

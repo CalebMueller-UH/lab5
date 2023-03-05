@@ -26,10 +26,23 @@ void jobSendRequestHandler(int host_id, struct JobQueue *hostq,
                            struct Job *job_from_queue, struct Net_port **arr,
                            int arrSize);
 
+void jobSendResponseHandler(int host_id, struct JobQueue *hostq,
+                            struct Job *job_from_queue, struct Net_port **arr,
+                            int arrSize);
+
+void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
+                               struct JobQueue *hostq, char *hostDirectory,
+                               int manFd);
+
 void parsePacket(const char *inputStr, char *ticketStr, char *dataStr);
 
 void pktIncomingRequestHandler(int host_id, struct JobQueue *hostq,
                                struct Packet *inPkt);
+
+void pktIncomingResponseHandler(struct Packet *inPkt, struct JobQueue *hostq);
+
+// Send a message back to manager
+void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]);
 
 int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p);
 
@@ -136,9 +149,6 @@ void host_main(int host_id) {
                          JOB_PENDING_STATE, preqPkt);
           // Enqueue job
           job_enqueue(host_id, &hostq, sendReqJob);
-
-          printf("host%d: command handler: 'p' printJob:\n", host_id);
-          printJob(sendReqJob);
           break;
         }  //////////////// End of case 'p'
 
@@ -190,7 +200,7 @@ void host_main(int host_id) {
           case PKT_PING_RESPONSE:
           case PKT_UPLOAD_RESPONSE:
           case PKT_DOWNLOAD_RESPONSE:
-
+            pktIncomingResponseHandler(inPkt, &hostq);
             break;
 
           case PKT_UPLOAD:
@@ -228,6 +238,8 @@ void host_main(int host_id) {
           }  //////////////// End of JOB_SEND_REQUEST
 
           case JOB_SEND_RESPONSE: {
+            jobSendResponseHandler(host_id, &hostq, job_from_queue,
+                                   node_port_array, node_port_array_size);
           }  //////////////// End of case JOB_SEND_RESPONSE
 
           case JOB_SEND_PKT: {
@@ -235,6 +247,8 @@ void host_main(int host_id) {
           }  //////////////// End of case JOB_SEND_PKT
 
           case JOB_WAIT_FOR_RESPONSE: {
+            jobWaitForResponseHandler(host_id, job_from_queue, &hostq,
+                                      hostDirectory, man_port->send_fd);
             break;
           }  //////////////// End of case JOB_WAIT_FOR_RESPONSE
 
@@ -284,13 +298,103 @@ void jobSendRequestHandler(int host_id, struct JobQueue *hostq,
 
   sendPacketTo(arr, arrSize, job_from_queue->packet);
 
-  free(job_from_queue->packet);
-  job_from_queue->packet = NULL;
-
   job_from_queue->type = JOB_WAIT_FOR_RESPONSE;
   job_enqueue(host_id, hostq, job_from_queue);
 }
 // End of jobSendRequestHandler
+
+// void sendPingResponse(int host_id, struct JobQueue *hostq,
+//                       struct Job *job_from_queue, struct Net_port **arr,
+//                       int arrSize) {}
+
+void jobSendResponseHandler(int host_id, struct JobQueue *hostq,
+                            struct Job *job_from_queue, struct Net_port **arr,
+                            int arrSize) {
+  switch (job_from_queue->packet->type) {
+    case PKT_PING_RESPONSE:
+      sendPacketTo(arr, arrSize, job_from_queue->packet);
+      break;
+    case PKT_UPLOAD_RESPONSE:
+      break;
+    case PKT_DOWNLOAD_RESPONSE:
+      break;
+  }
+}  // End of jobSendResponseHandler()
+
+void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
+                               struct JobQueue *hostq, char *hostDirectory,
+                               int manFd) {
+  // Shortened alias
+  struct Job *job = job_from_queue;
+  printf("jobWaitForResponseHandler called\n");
+  printJob(job);
+
+  char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
+
+  // Check the time to live of the request
+  if (job->timeToLive <= 0) {
+    // job request timeToLive has expired
+    job_delete(job);
+
+    switch (job->packet->type) {
+      case PKT_PING_REQ:
+        snprintf(responseMsg, MAX_MSG_LENGTH,
+                 "\x1b[31;1mPing request timed out!\x1b[0m");
+        sendMsgToManager(manFd, responseMsg);
+        break;
+      case PKT_UPLOAD_REQ:
+        snprintf(responseMsg, MAX_MSG_LENGTH, "Upload request timed out!");
+        sendMsgToManager(manFd, responseMsg);
+        break;
+      case PKT_DOWNLOAD_REQ:
+        snprintf(responseMsg, MAX_MSG_LENGTH, "Download request timed out!");
+        sendMsgToManager(manFd, responseMsg);
+        break;
+    }
+  } else {
+    // job request timeToLive still alive
+
+    // Decrement
+    job->timeToLive--;
+
+    if (job->state == JOB_PENDING_STATE) {
+      // re-enque job while ttl > 0
+      job_enqueue(host_id, hostq, job_from_queue);
+    } else {
+      switch (job->packet->type) {
+        case PKT_PING_REQ:
+          if (job->state == JOB_COMPLETE_STATE) {
+            snprintf(responseMsg, MAX_MSG_LENGTH,
+                     "\x1b[32;1mPing request acknowledged!\x1b[0m");
+          }
+          break;
+
+        case PKT_UPLOAD_REQ:
+          if (job->state == JOB_READY_STATE) {
+          } else if (job->state == JOB_ERROR_STATE) {
+            snprintf(responseMsg, MAX_MSG_LENGTH, "%s", job->errorMsg);
+
+          } else if (job->state == JOB_COMPLETE_STATE) {
+            snprintf(responseMsg, MAX_MSG_LENGTH, "Upload Complete");
+          }
+          break;
+
+        case PKT_DOWNLOAD_REQ:
+          if (job->state == JOB_READY_STATE) {
+          } else if (job->state == JOB_ERROR_STATE) {
+            snprintf(responseMsg, MAX_MSG_LENGTH, "%s", job->errorMsg);
+
+          } else if (job->state == JOB_COMPLETE_STATE) {
+            printf("Download Complete\n");
+          }
+          // destroyJob(job_from_queue);
+          break;
+      }
+      sendMsgToManager(manFd, responseMsg);
+      job_delete(job);
+    }
+  }
+}  // End of jobWaitForResponseHandler()
 
 /* parsePacket:
  * parse a packet payload inputStr into its ticket and data
@@ -372,6 +476,43 @@ void pktIncomingRequestHandler(int host_id, struct JobQueue *hostq,
   free(id);
   free(msg);
 }  // End of pktIncomingRequestHandler()
+
+void pktIncomingResponseHandler(struct Packet *inPkt, struct JobQueue *hostq) {
+  // Grab jid from request packet payload
+  char *id = (char *)malloc(sizeof(char) * JIDLEN);
+  char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
+  parsePacket(inPkt->payload, id, msg);
+
+  // Find jid in job queue
+  struct Job *waitJob = job_queue_find_id(hostq, id);
+
+  switch (inPkt->type) {
+    case PKT_PING_RESPONSE:
+      // Ping request acknowledged
+      waitJob->state = JOB_COMPLETE_STATE;
+      break;
+    case PKT_UPLOAD_RESPONSE:
+    case PKT_DOWNLOAD_RESPONSE:
+      if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
+        waitJob->state = JOB_READY_STATE;
+      } else {
+        waitJob->state = JOB_ERROR_STATE;
+      }
+      break;
+  }
+
+  // Clean up packet and dynamic vars
+  free(inPkt);
+  inPkt = NULL;
+  free(id);
+  free(msg);
+}  // End of pktPingResponseHandler()
+
+// Send a message back to manager
+void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]) {
+  int msgLen = strnlen(msg, MAX_MSG_LENGTH);
+  write(fd, msg, msgLen);
+}
 
 int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
   // Find which Net_port entry in net_port_array has desired destination
