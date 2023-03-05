@@ -321,45 +321,39 @@ void jobSendResponseHandler(int host_id, struct JobQueue *hostq,
   }
 }  // End of jobSendResponseHandler()
 
-void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
+void jobWaitForResponseHandler(int host_id, struct Job *job,
                                struct JobQueue *hostq, char *hostDirectory,
                                int manFd) {
-  // Shortened alias
-  struct Job *job = job_from_queue;
-  printf("jobWaitForResponseHandler called\n");
-  printJob(job);
+  // printf("jobWaitForResponseHandler called\n");
+  // printJob(job);
 
   char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
 
-  // Check the time to live of the request
   if (job->timeToLive <= 0) {
-    // job request timeToLive has expired
-    job_delete(job);
-
+    // job timeToLive has expired
     switch (job->packet->type) {
       case PKT_PING_REQ:
-        snprintf(responseMsg, MAX_MSG_LENGTH,
-                 "\x1b[31;1mPing request timed out!\x1b[0m");
-        sendMsgToManager(manFd, responseMsg);
+        snprintf(responseMsg, MAX_MSG_LENGTH, "Ping request timed out!");
         break;
       case PKT_UPLOAD_REQ:
         snprintf(responseMsg, MAX_MSG_LENGTH, "Upload request timed out!");
-        sendMsgToManager(manFd, responseMsg);
         break;
       case PKT_DOWNLOAD_REQ:
         snprintf(responseMsg, MAX_MSG_LENGTH, "Download request timed out!");
-        sendMsgToManager(manFd, responseMsg);
         break;
     }
+    sendMsgToManager(manFd, responseMsg);
+    job_delete(job);
+
   } else {
-    // job request timeToLive still alive
+    // timeToLive > 0
 
     // Decrement
     job->timeToLive--;
 
     if (job->state == JOB_PENDING_STATE) {
       // re-enque job while ttl > 0
-      job_enqueue(host_id, hostq, job_from_queue);
+      job_enqueue(host_id, hostq, job);
     } else {
       switch (job->packet->type) {
         case PKT_PING_REQ:
@@ -394,6 +388,7 @@ void jobWaitForResponseHandler(int host_id, struct Job *job_from_queue,
       job_delete(job);
     }
   }
+  free(responseMsg);
 }  // End of jobWaitForResponseHandler()
 
 /* parsePacket:

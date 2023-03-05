@@ -120,7 +120,6 @@ struct Job *job_create(const char *jid, int timeToLive, FILE *fp,
 }
 
 void job_delete(struct Job *j) {
-  fclose(j->fp);
   j->fp = NULL;
   if (j->packet) {
     free(j->packet);
