@@ -33,6 +33,8 @@ int packet_recv(struct Net_port *port, struct Packet *p) {
   }
   if (bytesRead > 0) {
 #ifdef DEBUG
+    // printPacket(p);
+#endif
     p->src = (char)pkt[0];
     p->dst = (char)pkt[1];
     p->type = (char)pkt[2];
@@ -40,9 +42,6 @@ int packet_recv(struct Net_port *port, struct Packet *p) {
     for (int i = 0; i < p->length; i++) {
       p->payload[i] = pkt[i + 4];
     }
-
-    // printPacket(p);
-#endif
   }
   return (bytesRead);
 }
