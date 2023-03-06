@@ -440,9 +440,6 @@ void jobSendRequestHandler(int host_id, struct JobQueue *hostq,
 void jobSendResponseHandler(int host_id, struct JobQueue *hostq,
                             char *hostDirectory, struct Job *job_from_queue,
                             struct Net_port **arr, int arrSize, int manFd) {
-  // printf("host%d: jobSendResponseHandler\n", host_id);
-  // printJob(job_from_queue);
-
   switch (job_from_queue->packet->type) {
     case PKT_PING_RESPONSE:
       sendPacketTo(arr, arrSize, job_from_queue->packet);
@@ -463,9 +460,6 @@ void jobSendDownloadResponseHandler(int host_id, struct JobQueue *hostq,
                                     char *hostDirectory,
                                     struct Job *job_from_queue,
                                     struct Net_port **arr, int arrSize) {
-  // printf("host%d jobSendDownloadResponseHandler\n", host_id);
-  // printJob(job_from_queue);
-
   struct Packet *qPkt = job_from_queue->packet;
 
   char *id = (char *)malloc(sizeof(char) * JIDLEN);
@@ -505,7 +499,6 @@ void jobSendDownloadResponseHandler(int host_id, struct JobQueue *hostq,
   sendPacketTo(arr, arrSize, qPkt);
 
   if (readyFlag) {
-    printf("jobUploadSendHandler about to be called\n");
     jobUploadSendHandler(host_id, hostq, job_from_queue, arr, arrSize);
   }
 
@@ -589,7 +582,7 @@ void pktUploadReceive(int host_id, struct Packet *pkt, struct JobQueue *hostq) {
       fflush(rjob->fp);
     }
   } else {
-    printf("Request not found for ticket %s\n", id);
+    fprintf(stderr, "Request not found for ticket %s\n", id);
   }
 
   free(id);
@@ -605,7 +598,7 @@ void pktUploadEnd(int host_id, struct Packet *pkt, struct JobQueue *hostq) {
   if (r != NULL) {
     r->state = JOB_COMPLETE_STATE;
   } else {
-    printf("Request not found for ticket %s\n", id);
+    fprintf(stderr, "Request not found for ticket %s\n", id);
   }
 
   free(id);
@@ -615,9 +608,6 @@ void pktUploadEnd(int host_id, struct Packet *pkt, struct JobQueue *hostq) {
 void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
                           struct Job *job_from_queue, struct Net_port **arr,
                           int arrSize) {
-  // printf("host%d: jobUploadSendHandler\n", host_id);
-  // printJob(job_from_queue);
-
   char *id = (char *)malloc(sizeof(char) * JIDLEN);
   char *msg = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
   parsePacket(job_from_queue->packet->payload, id, msg);
@@ -669,12 +659,6 @@ void jobUploadSendHandler(int host_id, struct JobQueue *hostq,
 void jobWaitForResponseHandler(int host_id, struct Job *job,
                                struct JobQueue *hostq, char *hostDirectory,
                                struct Net_port **arr, int arrSize, int manFd) {
-  // Uncomment to print debug info
-  // colorPrint(BOLD_GREY, "\nhost%d: jobWaitForResponseHandler called\n",
-  //            host_id);
-  // printJob(job);
-  // printf("\n");
-
   char *responseMsg = malloc(sizeof(char) * MAX_MSG_LENGTH);
   memset(responseMsg, 0, MAX_MSG_LENGTH);
 
@@ -764,13 +748,13 @@ void parsePacket(const char *inputStr, char *ticketStr, char *dataStr) {
 
   int inputLen = strnlen(inputStr, PACKET_PAYLOAD_MAX);
   if (inputLen == 0) {
-    printf("ERROR: parsePacket was passed an empty inputStr\n");
+    fprintf(stderr, "ERROR: parsePacket was passed an empty inputStr\n");
     return;
   }
   if (inputLen > PACKET_PAYLOAD_MAX) {
-    printf(
-        "ERROR: parsePacket was passed an inputStr larger than "
-        "PACKET_PAYLOAD_MAX\n");
+    fprintf(stderr,
+            "ERROR: parsePacket was passed an inputStr larger than "
+            "PACKET_PAYLOAD_MAX\n");
     return;
   }
 
@@ -784,7 +768,7 @@ void parsePacket(const char *inputStr, char *ticketStr, char *dataStr) {
   }
 
   if (delimPos == 0) {
-    printf("ERROR: parsePacket: delimiter not found in inputStr\n");
+    fprintf(stderr, "ERROR: parsePacket: delimiter not found in inputStr\n");
     return;
   }
 

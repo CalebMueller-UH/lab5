@@ -102,12 +102,9 @@ struct Packet *createEmptyPacket() {
 }
 
 void packet_delete(struct Packet *p) {
-  // printf("packet_delete called");
   if (p == NULL) {
-    // printf("on null packet!\n");
+    fprintf(stderr, "packet_delete called on NULL packet\n");
   } else {
-    // printf(": deleting:\n");
-    // printPacket(p);
     free(p);
     p = NULL;
   }

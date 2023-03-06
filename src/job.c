@@ -118,9 +118,6 @@ struct Job *job_create(const char *jid, int timeToLive, enum JobType type,
 }
 
 void job_delete(int host_id, struct Job *j) {
-  // colorPrint(BOLD_MAGENTA, "\nhost%d job_delete called: deleting:\n",
-  // host_id); printJob(j); printf("\n");
-
   j->fp = NULL;
   if (j->packet) {
     free(j->packet);
@@ -136,7 +133,7 @@ void job_delete(int host_id, struct Job *j) {
 struct Job *job_create_empty() {
   struct Job *j = (struct Job *)malloc(sizeof(struct Job));
   if (j == NULL) {
-    printf("Failed to allocate memory for job\n");
+    fprintf(stderr, "Failed to allocate memory for job\n");
     exit(EXIT_FAILURE);
   }
   memset(j->jid, 0, (sizeof(char) * JIDLEN));
