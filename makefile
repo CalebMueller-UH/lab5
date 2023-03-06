@@ -6,7 +6,7 @@ DEFAULT_CONFIG = p2p.config
 
 # Define compiler and flags
 CC = gcc
-CFLAGS = -g
+CFLAGS = -g -static
 
 # Define source and header directories
 SRCDIR = src
