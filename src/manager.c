@@ -8,11 +8,6 @@ manager.c
 #include <stdio.h>
 #include <unistd.h>
 
-// #include <fcntl.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <sys/types.h>
-
 #include "color.h"
 #include "constants.h"
 #include "host.h"

@@ -14,15 +14,6 @@
 
 #include "net.h"
 
-// Needed libraries?
-// #include <arpa/inet.h>
-// #include <errno.h>
-// #include <netdb.h>
-// #include <netinet/in.h>
-// #include <sys/select.h>
-// #include <sys/socket.h>
-// #include <sys/types.h>
-
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
