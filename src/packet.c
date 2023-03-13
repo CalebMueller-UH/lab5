@@ -4,17 +4,17 @@
 
 #include "packet.h"
 
-#include <fcntl.h>
+// #include <fcntl.h>
+// #include <sys/socket.h>
+// #include <sys/types.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "color.h"
 #include "host.h"
-#include "main.h"
 #include "net.h"
 #include "socket.h"
 

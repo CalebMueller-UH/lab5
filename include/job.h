@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <stdio.h>
+#include <stdio.h>  // For FILE type
 
 #include "constants.h"
 
@@ -19,7 +19,7 @@ enum JobType {
   JOB_WAIT_FOR_RESPONSE,
   JOB_UPLOAD,
   JOB_DOWNLOAD,
-  JOB_INVALID_TYPE
+  JOB_INVALID_TYPE = -1
 };
 
 enum JobState {
@@ -27,7 +27,7 @@ enum JobState {
   JOB_COMPLETE_STATE,
   JOB_READY_STATE,
   JOB_ERROR_STATE,
-  JOB_INVALID_STATE
+  JOB_INVALID_STATE = -1
 };
 
 struct JobQueue {

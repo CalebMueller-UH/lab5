@@ -2,23 +2,22 @@
   main.c
 */
 
-#include "main.h"
+// #include <fcntl.h>
+// #include <stdlib.h>
+// #include <string.h>
+// #include <sys/socket.h>
+// #include <sys/types.h>
+// #include <sys/wait.h>
 
-#include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "color.h"
+#include "constants.h"
 #include "host.h"
 #include "manager.h"
 #include "net.h"
-#include "semaphore.h"
 #include "switch.h"
 
 #define BCAST_ADDR 100
@@ -30,11 +29,6 @@ void main(int argc, char **argv) {
   int status;
   struct Net_node *node_list;
   struct Net_node *p_node;
-
-  // Create shared memory for the binary semaphore
-  int shmid = create_shared_memory(sizeof(binary_semaphore));
-  binary_semaphore *console_print_access = attach_shared_memory(shmid);
-  console_print_access->value = 1;
 
   /*
    * Read network configuration file, which specifies
@@ -86,8 +80,5 @@ void main(int argc, char **argv) {
    * The following will terminate all the children processes.
    */
 
-  // Detach and destroy shared memory
-  detach_shared_memory(console_print_access);
-  destroy_shared_memory(shmid);
   kill(0, SIGKILL); /* Kill all processes */
 }

@@ -4,7 +4,6 @@
 
 #include "constants.h"
 
-#define MAX_FILENAME_LENGTH 100
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 

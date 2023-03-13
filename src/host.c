@@ -4,25 +4,23 @@
 
 #include "host.h"
 
-#include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
+// #include <errno.h>
+// #include <fcntl.h>
+// #include <stdio.h>
+// #include <sys/stat.h>
+// #include <sys/types.h>
+
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "color.h"
 #include "constants.h"
-#include "filebuf.h"
 #include "job.h"
 #include "manager.h"
 #include "net.h"
 #include "packet.h"
 #include "semaphore.h"
-
-#define WATCHDOG_TIMEOUT_SEC 3
 
 // Helper Function Forward Declarations
 void commandDownloadHandler(int host_id, struct JobQueue *hostq,

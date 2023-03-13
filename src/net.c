@@ -14,24 +14,25 @@
 
 #include "net.h"
 
-#include <arpa/inet.h>
-#include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
+// Needed libraries?
+// #include <arpa/inet.h>
+// #include <errno.h>
+// #include <netdb.h>
+// #include <netinet/in.h>
+// #include <sys/select.h>
+// #include <sys/socket.h>
+// #include <sys/types.h>
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 #define _GNU_SOURCE
 #include <fcntl.h>
 
 #include "color.h"
 #include "host.h"
-#include "main.h"
 #include "manager.h"
 #include "packet.h"
 #include "socket.h"

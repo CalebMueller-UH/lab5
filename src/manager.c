@@ -5,16 +5,17 @@ manager.c
 #include "manager.h"
 
 #include <dirent.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
 
+// #include <fcntl.h>
+// #include <stdlib.h>
+// #include <string.h>
+// #include <sys/types.h>
+
 #include "color.h"
+#include "constants.h"
 #include "host.h"
-#include "main.h"
 #include "net.h"
 #include "semaphore.h"
 
@@ -321,9 +322,7 @@ void man_main() {
   char cmd; /* Command entered by user */
 
   while (1) {
-    sem_wait(&console_print_access);
     man_print_command_prompt(curr_host->host_id);
-    sem_signal(&console_print_access);
 
     /* Get a command from the user */
     cmd = man_get_user_cmd(curr_host->host_id);

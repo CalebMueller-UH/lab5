@@ -4,25 +4,6 @@
 
 #pragma once
 
-#include "constants.h"
-/*
-manager.c
-*/
-
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "color.h"
-#include "host.h"
-#include "main.h"
-#include "manager.h"
-#include "net.h"
-#include "semaphore.h"
-
 struct Man_port_at_host { /* Port located at the man */
   int host_id;
   int send_fd;

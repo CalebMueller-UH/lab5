@@ -4,6 +4,20 @@
         "constants.h": "c",
         "dirent.h": "c",
         "string.h": "c",
-        "extensionfns.h": "c"
+        "extensionfns.h": "c",
+        "fcntl.h": "c",
+        "unistd.h": "c",
+        "types.h": "c",
+        "socket.h": "c",
+        "select.h": "c",
+        "stdlib.h": "c",
+        "stdbool.h": "c",
+        "in.h": "c",
+        "stdio.h": "c",
+        "errno.h": "c",
+        "inet.h": "c",
+        "stddef.h": "c",
+        "stat.h": "c",
+        "wait.h": "c"
     }
 }
