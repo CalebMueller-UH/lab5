@@ -15,6 +15,11 @@ INCDIR = include
 # Define output directory
 OUTDIR = output
 
+# Create output directory if it doesn't exist
+ifneq ($(wildcard $(OUTDIR)), $(OUTDIR))
+$(shell mkdir -p $(OUTDIR))
+endif
+
 # Define output executable
 EXECUTABLE = net367
 
