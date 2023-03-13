@@ -20,8 +20,9 @@ ifneq ($(wildcard $(OUTDIR)), $(OUTDIR))
 $(shell mkdir -p $(OUTDIR))
 endif
 
-# Define output executable
+# Define output executables
 EXECUTABLE = net367
+DEBUG_EXECUTABLE = net367debug
 
 # Define source files
 SRCS = $(wildcard $(SRCDIR)/*.c)
@@ -35,8 +36,15 @@ INCLUDES = -I$(INCDIR)
 # Define libraries
 LIBS =
 
-# Default rule to build executable
+# Default rule to build both executables
+all: $(EXECUTABLE) $(DEBUG_EXECUTABLE)
+
+# Rule to build the non-debug executable
 $(EXECUTABLE): $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
+
+# Rule to build the debug executable
+$(DEBUG_EXECUTABLE): $(OBJS)
 	$(CC) $(CFLAGS) $(DEBUG) $(OBJS) $(LIBS) -o $@
 
 # Rule to build object files
@@ -51,7 +59,7 @@ TD1_FILES = bigTest haha.txt testmsg1 testmsg1B
 # Rule to clean object files
 clean:
 	rm -f $(OUTDIR)/*.o
-	rm -f ./$(EXECUTABLE)
+	rm -f ./$(EXECUTABLE) ./$(DEBUG_EXECUTABLE)
 	$(foreach file, $(wildcard TestDir0/*), \
 		$(if $(filter $(notdir $(file)), $(TD0_FILES)), , rm -f $(file)))
 	$(foreach file, $(wildcard TestDir1/*), \
@@ -60,9 +68,13 @@ clean:
 clear:
 	clear
 	
-# Rule to regenerate object files and executable
-regen: clear clean $(EXECUTABLE) 
+# Rule to regenerate object files and executables
+regen: clear clean all
 
-# Rule to run the executable with the default configuration
+# Rule to run the non-debug executable with the default configuration
 run: $(EXECUTABLE)
 	./$(EXECUTABLE) $(DEFAULT_CONFIG)
+
+# Rule to run the debug executable with the default configuration
+debug: $(DEBUG_EXECUTABLE)
+	./$(DEBUG_EXECUTABLE) $(DEFAULT_CONFIG)
