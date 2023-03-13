@@ -1,3 +1,4 @@
 *.o
-net367
-
+include/*
+src/*
+output/*
