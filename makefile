@@ -37,8 +37,7 @@ INCLUDES = -I$(INCDIR)
 LIBS =
 
 # Check if the system is Fedora
-ifneq ($(shell cat /etc/os-release | grep -o '^NAME=.*' | sed 's/NAME=//'
-),Fedora Linux)
+ifneq ($(shell cat /etc/os-release | grep -o '^NAME=.*' | sed 's/NAME=//'),Fedora)
 # Default rule to build both executables
 all: $(EXECUTABLE) $(DEBUG_EXECUTABLE)
 
