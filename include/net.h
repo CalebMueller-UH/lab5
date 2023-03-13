@@ -13,7 +13,7 @@ enum NetNodeType { /* Types of network nodes */
                    SWITCH
 };
 
-enum NetLinkType { /* Types of linkls */
+enum NetLinkType { /* Types of network links */
                    PIPE,
                    SOCKET
 };

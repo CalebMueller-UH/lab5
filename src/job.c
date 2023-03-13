@@ -59,7 +59,7 @@ char *get_job_state_literal(enum JobState s) {
 /* Adds a new job to the end of a job queue. */
 void job_enqueue(int host_id, struct JobQueue *jq, struct Job *jobToEnqueue) {
 #ifdef DEBUG
-  colorPrint(GREEN, "DEBUG: node_id:%d job_enqueue: type: %s\n", host_id,
+  colorPrint(GREEN, "DEBUG: id:%d job_enqueue: type: %s\n", host_id,
              get_job_type_literal(jobToEnqueue->type));
 #endif
 
@@ -82,7 +82,7 @@ struct Job *job_dequeue(int host_id, struct JobQueue *jq) {
   j = jq->head;
 
 #ifdef DEBUG
-  colorPrint(RED, "DEBUG: node_id:%d job_dequeue: type: %s\n", host_id,
+  colorPrint(RED, "DEBUG: id:%d job_dequeue: type: %s\n", host_id,
              get_job_type_literal(j->type));
 #endif
 

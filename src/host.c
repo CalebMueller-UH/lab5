@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "color.h"
+#include "constants.h"
 #include "filebuf.h"
 #include "job.h"
 #include "manager.h"
@@ -80,12 +81,6 @@ void host_main(int host_id) {
   char hostDirectory[MAX_FILENAME_LENGTH];
   char man_msg[MAX_MSG_LENGTH];
   // char man_reply_msg[MAX_MSG_LENGTH];
-
-  // Initialize file buffer
-  struct File_buf f_buf_upload;
-  struct File_buf f_buf_download;
-  file_buf_init(&f_buf_upload);
-  file_buf_init(&f_buf_download);
 
   /* Initialize pipes, Get link port to the manager */
   struct Man_port_at_host *man_port;  // Port to the manager
@@ -226,7 +221,7 @@ void host_main(int host_id) {
       if ((n > 0) && ((int)inPkt->dst == host_id)) {
 #ifdef DEBUG
         colorPrint(YELLOW,
-                   "DEBUG: node_id:%d host_main packet_handler received "
+                   "DEBUG: id:%d host_main packet_handler received "
                    "packet: \n\t",
                    host_id);
         printPacket(inPkt);
@@ -324,7 +319,7 @@ void host_main(int host_id) {
       ///////////////////////////////////////////////////////////////////////
 
       /* The host goes to sleep for 10 ms */
-      usleep(LOOP_SLEEP_TIME_MS);
+      usleep(LOOP_SLEEP_TIME_US);
     }  // End of for (int portNum = 0; portNum ...
 
   }  // End of while(1)

@@ -4,10 +4,6 @@ color.h
 
 #pragma once
 
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdio.h>
-
 #include "constants.h"
 
 typedef enum {
@@ -31,8 +27,9 @@ typedef enum {
   BOLD_GREY
 } color;
 
-extern const int NUM_COLORS;
-
 void colorPrint(color c, const char *format, ...);
+
+// Forward declaration of size_t
+typedef unsigned long size_t;
 
 int colorSnprintf(char *str, size_t size, color c, const char *format, ...);

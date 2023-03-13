@@ -4,6 +4,10 @@ color.c
 
 #include "color.h"
 
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+
 const int NUM_COLORS = BOLD_GREY + 1;
 
 void colorPrint(color c, const char *format, ...) {

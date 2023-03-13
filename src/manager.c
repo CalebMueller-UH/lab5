@@ -113,7 +113,7 @@ void display_host_state(struct Man_port_at_man *curr_host) {
 
   n = 0;
   while (n <= 0) {
-    usleep(LOOP_SLEEP_TIME_MS);
+    usleep(LOOP_SLEEP_TIME_US);
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
   reply[n] = '\0';
@@ -159,7 +159,7 @@ void ping(struct Man_port_at_man *curr_host) {
 
   n = 0;
   while (n <= 0) {
-    usleep(LOOP_SLEEP_TIME_MS);
+    usleep(LOOP_SLEEP_TIME_US);
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
   reply[n] = '\0';
@@ -192,12 +192,12 @@ int file_upload(struct Man_port_at_man *curr_host) {
 
   n = snprintf(msg, MAX_MSG_LENGTH, "u %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
-  usleep(LOOP_SLEEP_TIME_MS);
+  usleep(LOOP_SLEEP_TIME_US);
 
   char reply[MAX_MSG_LENGTH];
   n = 0;
   while (n <= 0) {
-    usleep(LOOP_SLEEP_TIME_MS);
+    usleep(LOOP_SLEEP_TIME_US);
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
 
@@ -228,16 +228,15 @@ int file_download(struct Man_port_at_man *curr_host) {
   scanf("%s", name);
   colorPrint(CYAN, "Enter host id that has this file:  ");
   scanf("%d", &host_id);
-  printf("\n");
 
   n = snprintf(msg, MAX_MSG_LENGTH, "d %d %s", host_id, name);
   write(curr_host->send_fd, msg, n);
-  usleep(LOOP_SLEEP_TIME_MS);
+  usleep(LOOP_SLEEP_TIME_US);
 
   char reply[MAX_MSG_LENGTH];
   n = 0;
   while (n <= 0) {
-    usleep(LOOP_SLEEP_TIME_MS);
+    usleep(LOOP_SLEEP_TIME_US);
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
 

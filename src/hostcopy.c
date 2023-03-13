@@ -893,7 +893,7 @@
 //       if ((n > 0) && ((int)received_packet->dst == host_id)) {
 // #ifdef DEBUG
 //         colorPrint(YELLOW,
-//                    "DEBUG: node_id:%d host_main packet_handler received "
+//                    "DEBUG: id:%d host_main packet_handler received "
 //                    "packet: \n\t",
 //                    host_id);
 //         printPacket(received_packet);
@@ -1009,7 +1009,7 @@
 //       ///////////////////////////////////////////////////////////////////////
 
 //       /* The host goes to sleep for 10 ms */
-//       usleep(LOOP_SLEEP_TIME_MS);
+//       usleep(LOOP_SLEEP_TIME_US);
 //     }  // End of for (int portNum = 0; portNum < node_port_array_size;
 //        // portNum++)
 //   }    // End of while(1)

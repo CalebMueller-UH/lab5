@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "color.h"
+#include "constants.h"
 #include "job.h"
 #include "main.h"
 #include "net.h"
@@ -16,7 +17,6 @@
 #include "semaphore.h"
 
 #define MAX_NUM_ROUTES 100
-#define LOOP_SLEEP_TIME_MS 10000
 
 // Searches the routing table for a matching valid TableEntry matching id
 // Returns routing table index of valid id, or -1 if unsuccessful
@@ -152,7 +152,7 @@ void switch_main(int switch_id) {
     ////////////////////////////////////////////////////////////////////////////
 
     /* The host goes to sleep for 10 ms */
-    usleep(LOOP_SLEEP_TIME_MS);
+    usleep(LOOP_SLEEP_TIME_US);
   } /* End of while loop */
 
   /* Free dynamically allocated memory */
