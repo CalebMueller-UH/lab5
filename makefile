@@ -37,7 +37,8 @@ INCLUDES = -I$(INCDIR)
 LIBS =
 
 # Check if the system is Fedora
-ifneq ($(shell lsb_release -i -s),Fedora)
+ifneq ($(shell cat /etc/os-release | grep -o '^NAME=.*' | sed 's/NAME=//'
+),Fedora Linux)
 # Default rule to build both executables
 all: $(EXECUTABLE) $(DEBUG_EXECUTABLE)
 
@@ -68,13 +69,6 @@ TD1_FILES = bigTest haha.txt testmsg1 testmsg1B
 clean:
 	rm -f $(OUTDIR)/*.o
 	rm -f ./$(EXECUTABLE) ./$(DEBUG_EXECUTABLE)
-	$(foreach file, $(wildcard TestDir0/*), \
-		$(if $(filter $(notdir $(file)), $(TD0_FILES)), , rm -f $(file)))
-	$(foreach file, $(wildcard TestDir1/*), \
-		$(if $(filter $(notdir $(file)), $(TD1_FILES)), , rm -f $(file)))
-
-# Rule to clean object files
-reset:
 	$(foreach file, $(wildcard TestDir0/*), \
 		$(if $(filter $(notdir $(file)), $(TD0_FILES)), , rm -f $(file)))
 	$(foreach file, $(wildcard TestDir1/*), \
