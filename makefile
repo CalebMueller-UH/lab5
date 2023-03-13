@@ -75,11 +75,11 @@ clean:
 
 # Rule to clean object files
 reset:
-   $(foreach file, $(wildcard TestDir0/*), \
-      $(if $(filter $(notdir $(file)), $(TD0_FILES)), , rm -f $(file)))
-   $(foreach file, $(wildcard TestDir1/*), \
-      $(if $(filter $(notdir $(file)), $(TD1_FILES)), , rm -f $(file)))
-   pkill -f net367
+	$(foreach file, $(wildcard TestDir0/*), \
+		$(if $(filter $(notdir $(file)), $(TD0_FILES)), , rm -f $(file)))
+	$(foreach file, $(wildcard TestDir1/*), \
+		$(if $(filter $(notdir $(file)), $(TD1_FILES)), , rm -f $(file)))
+	pkill -f net367
 
 clear:
 	clear
