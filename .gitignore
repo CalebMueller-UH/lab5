@@ -1,3 +1,5 @@
 *.o
 output/*
+!output/.keep
 net367
+
