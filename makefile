@@ -1,7 +1,7 @@
 # Uncomment the following line to turn on debug messages
 DEBUG = -DDEBUG
 
-# Select the configuration file to use as default for 'run' 
+# Select the configuration file to use as default for 'run'
 DEFAULT_CONFIG = p2p.config
 
 # Define compiler and flags
@@ -36,6 +36,8 @@ INCLUDES = -I$(INCDIR)
 # Define libraries
 LIBS =
 
+# Check if the system is Fedora
+ifneq ($(shell lsb_release -i -s),Fedora)
 # Default rule to build both executables
 all: $(EXECUTABLE) $(DEBUG_EXECUTABLE)
 
@@ -46,6 +48,12 @@ $(EXECUTABLE): $(OBJS)
 # Rule to build the debug executable
 $(DEBUG_EXECUTABLE): $(OBJS)
 	$(CC) $(CFLAGS) $(DEBUG) $(OBJS) $(LIBS) -o $@
+
+else
+# If the system is Fedora, only reset the files
+all:
+	@echo "Cannot compile on Fedora"
+endif
 
 # Rule to build object files
 $(OUTDIR)/%.o: $(SRCDIR)/%.c
@@ -86,4 +94,4 @@ run: $(EXECUTABLE)
 
 # Rule to run the debug executable with the default configuration
 debug: $(DEBUG_EXECUTABLE)
-	./$(DEBUG_EXECUTABLE) $(DEFAULT_CONFIG)
+	./$(DEBUG_EXECUTABLE) $(DEFAULT_CONFIG
