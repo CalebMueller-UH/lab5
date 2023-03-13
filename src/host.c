@@ -14,7 +14,6 @@
 #include "manager.h"
 #include "net.h"
 #include "packet.h"
-#include "semaphore.h"
 
 // Helper Function Forward Declarations
 void commandDownloadHandler(int host_id, struct JobQueue *hostq,

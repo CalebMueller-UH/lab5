@@ -12,7 +12,6 @@ manager.c
 #include "constants.h"
 #include "host.h"
 #include "net.h"
-#include "semaphore.h"
 
 void man_print_command_prompt(int curr_host) {
   usleep(200000);
