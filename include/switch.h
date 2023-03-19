@@ -4,14 +4,11 @@
 
 #pragma once
 
-#include <stdbool.h>
-
 // Forward declarations
 struct Net_port;
 struct Job;
 
 struct TableEntry {
-  bool isValid;
   int id;
   struct TableEntry *next;
 };

@@ -1,8 +1,8 @@
 # Uncomment the following line to turn on debug messages
-# DEBUG = -DDEBUG
+DEBUG = -DDEBUG
 
 # Select the configuration file to use as default for 'run' 
-DEFAULT_CONFIG = p2p.config
+DEFAULT_CONFIG = socketchain.config
 
 # Define compiler and flags
 CC = gcc

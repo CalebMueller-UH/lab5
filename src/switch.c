@@ -15,16 +15,69 @@
 
 #define MAX_NUM_ROUTES 100
 
+// Used for searchRoutingTableForValidID when port is unknown
+#define UNKNOWN -1
+
 // Searches the routing table for a matching valid TableEntry matching id
 // Returns routing table index of valid id, or -1 if unsuccessful
-//  Note that routing table index is = to port
-int searchRoutingTableForValidID(struct TableEntry *rt, int id) {
-  for (int i = 0; i < MAX_NUM_ROUTES; i++) {
-    if (rt[i].id == id && rt[i].isValid == true) {
-      return i;
+//  **Note that routing table index is the port
+int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
+#ifdef DEBUG
+  char portMsg[100];
+  if (port == UNKNOWN) {
+    snprintf(portMsg, 100, "unknown port");
+  } else {
+    snprintf(portMsg, 100, "port:%d", port);
+  }
+  colorPrint(BLUE, "Searching routing table for id:%d on %s\n", id, portMsg);
+#endif
+
+  if (port == UNKNOWN) {
+    // Port was not given...
+    // Scan through the indices (ports) of the routing table
+    for (int i = 0; i < MAX_NUM_ROUTES; i++) {
+      // If there are entries for that port
+      if (rt[i] != NULL) {
+        struct TableEntry *t = rt[i];
+        while (t != NULL) {
+          if (t->id == id) {
+            return i;
+          }
+          t = t->next;
+        }
+      }
+    }
+  } else {
+    // Port was specified...
+    // Look in the routing table at that port for a matching id
+    if (rt[port] != NULL) {
+      struct TableEntry *t = rt[port];
+      while (t != NULL) {
+        if (t->id == id) {
+          return port;
+        }
+        t = t->next;
+      }
     }
   }
+
+#ifdef DEBUG
+  colorPrint(BLUE, "id:%d was not found\n", id);
+#endif
+
   return -1;
+}
+
+void addToRoutingTable(struct TableEntry **rt, int id, int port) {
+#ifdef DEBUG
+  colorPrint(BLUE, "Adding %d to routing table on port %d\n", id, port);
+#endif
+  struct TableEntry *newEntry =
+      malloc(sizeof(struct TableEntry));  // Memory allocation added here
+  newEntry->id = id;
+  newEntry->next = rt[port];
+  rt[port] = newEntry;  // Assignment changed to address of new entry instead
+                        // of its value
 }
 
 /*
@@ -33,11 +86,22 @@ pointers and the size of the array as parameters. It then iterates through the
 port_array and sends the job's packet to each port in the array, except for the
 port that corresponds to the job->packet->src
 */
-void broadcastToAllButSender(struct Job *job, struct TableEntry *rt,
+void broadcastToAllButSender(struct Job *job, struct TableEntry **rt,
                              struct Net_port **port_array,
                              int port_array_size) {
+  int senderPort = searchRoutingTableForValidID(rt, job->packet->src, UNKNOWN);
+
+  if (senderPort < 0) {
+    fprintf(
+        stderr,
+        "Error: broadcastToAllButSender unable to find value for senderPort\n");
+    return;
+  }
+
+  // Iterate through all connected ports and broadcast packet
+  // to all except senderPort
   for (int i = 0; i < port_array_size; i++) {
-    if (i != job->packet->src) {
+    if (i != senderPort) {
       packet_send(port_array[i], job->packet);
     }
   }
@@ -51,14 +115,17 @@ void switch_main(int switch_id) {
   struct Net_port **node_port_array;  // Array of pointers to node ports
   int node_port_array_size;           // Number of node ports
   node_port_list = net_get_port_list(switch_id);
+
   /*  Count the number of network link ports */
   node_port_array_size = 0;
   for (struct Net_port *p = node_port_list; p != NULL; p = p->next) {
     node_port_array_size++;
   }
+
   /* Create memory space for the array */
   node_port_array = (struct Net_port **)malloc(node_port_array_size *
                                                sizeof(struct Net_port *));
+
   /* Load ports into the array */
   {
     struct Net_port *p = node_port_list;
@@ -73,11 +140,10 @@ void switch_main(int switch_id) {
   job_queue_init(&switch_q);
 
   ////// Initialize Router Table //////
-  struct TableEntry *routingTable =
-      (struct TableEntry *)malloc(sizeof(struct TableEntry) * MAX_NUM_ROUTES);
+  struct TableEntry **routingTable = (struct TableEntry **)malloc(
+      sizeof(struct TableEntry *) * MAX_NUM_ROUTES);
   for (int i = 0; i < MAX_NUM_ROUTES; i++) {
-    routingTable[i].isValid = false;
-    routingTable[i].id = -1;
+    routingTable[i] = NULL;
   }
 
   while (1) {
@@ -96,21 +162,34 @@ void switch_main(int switch_id) {
             "src:%d dst:%d\n",
             switch_id, portNum, received_packet->src, received_packet->dst);
 #endif
+
         struct Job *swJob = job_create_empty();
         swJob->packet = received_packet;
 
-        int dstIndex =
-            searchRoutingTableForValidID(routingTable, received_packet->dst);
+        // Ensure that sender of received packet is in the routing table
+        if (searchRoutingTableForValidID(routingTable, received_packet->src,
+                                         portNum) == UNKNOWN) {
+          // Sender was not found in routing table
+          addToRoutingTable(routingTable, received_packet->src, portNum);
+        }
+
+        // Search for destination in routing table
+        int dstIndex = searchRoutingTableForValidID(
+            routingTable, received_packet->dst, UNKNOWN);
         if (dstIndex < 0) {
-          // destination of received packet is not in routing table
+          // destination of received packet is not in routing table...
+          // enqueue job to broadcast packet to all connected hosts
           swJob->type = JOB_BROADCAST_PKT;
           job_enqueue(switch_id, &switch_q, swJob);
+
         } else {
-          // destination of received packet has been found in routing table
+          // destination of received packet has been found in routing table...
+          // enqueue job to forward packet to the associated port
           swJob->type = JOB_FORWARD_PKT;
           job_enqueue(switch_id, &switch_q, swJob);
         }
       } else {
+        // Nothing to receive on port, so discard malloc'd packet
         free(received_packet);
         received_packet = NULL;
       }
@@ -134,7 +213,7 @@ void switch_main(int switch_id) {
           break;
         case JOB_FORWARD_PKT:
           int dstPort = searchRoutingTableForValidID(
-              routingTable, job_from_queue->packet->dst);
+              routingTable, job_from_queue->packet->dst, UNKNOWN);
           packet_send(node_port_array[dstPort], job_from_queue->packet);
           break;
       }
