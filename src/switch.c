@@ -27,9 +27,9 @@ int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
   if (port == UNKNOWN) {
     snprintf(portMsg, 100, "unknown port");
   } else {
-    snprintf(portMsg, 100, "port:%d", port);
+    snprintf(portMsg, 100, "port%d", port);
   }
-  colorPrint(BLUE, "Searching routing table for id:%d on %s\n", id, portMsg);
+  colorPrint(BLUE, "Searching routing table for host%d on %s\n", id, portMsg);
 #endif
 
   if (port == UNKNOWN) {
@@ -41,6 +41,9 @@ int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
         struct TableEntry *t = rt[i];
         while (t != NULL) {
           if (t->id == id) {
+#ifdef DEBUG
+            colorPrint(BLUE, "\tFound host%d on port%d\n", id, i);
+#endif
             return i;
           }
           t = t->next;
@@ -62,7 +65,7 @@ int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
   }
 
 #ifdef DEBUG
-  colorPrint(BLUE, "id:%d was not found\n", id);
+  colorPrint(BLUE, "\tUnable to find host%d in routing table\n", id);
 #endif
 
   return -1;
@@ -70,7 +73,7 @@ int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
 
 void addToRoutingTable(struct TableEntry **rt, int id, int port) {
 #ifdef DEBUG
-  colorPrint(BLUE, "Adding %d to routing table on port %d\n", id, port);
+  colorPrint(BLUE, "\tAdding host%d to routing table on port%d\n", id, port);
 #endif
   struct TableEntry *newEntry =
       malloc(sizeof(struct TableEntry));  // Memory allocation added here
