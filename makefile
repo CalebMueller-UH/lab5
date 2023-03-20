@@ -1,9 +1,10 @@
-# Select the configuration file to use as default for 'run' 
+# Select the configuration file to use as default for 'run'
 DEFAULT_CONFIG = socketchain.config
 
 # Define compiler and flags
 CC = gcc
 CFLAGS = -g -static
+DEBUG = -DDEBUG
 
 # Define source and header directories
 SRCDIR = src
@@ -44,8 +45,8 @@ $(EXECUTABLE): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
 # Rule to build the debug executable
-$(DEBUG_EXECUTABLE): $(OBJS)
-	$(CC) $(CFLAGS) -DDEBUG $(OBJS) $(LIBS) -o $@
+$(DEBUG_EXECUTABLE): $(patsubst $(OUTDIR)/%.o, $(OUTDIR)/debug_%.o, $(OBJS))
+	$(CC) $(CFLAGS) $(patsubst $(OUTDIR)/%.o, $(OUTDIR)/debug_%.o, $(OBJS)) $(LIBS) -o $@
 
 clean:
 	rm -f $(OUTDIR)/*.o
@@ -55,9 +56,13 @@ clean:
 	$(foreach file, $(wildcard TestDir1/*), \
 		$(if $(filter $(notdir $(file)), $(TD1_FILES)), , rm -f $(file)))
 
-# Rule to build object files
+# Rule to build object files for non-debug executable
 $(OUTDIR)/%.o: $(SRCDIR)/%.c
-	$(CC) $(CFLAGS) $(DEBUG) $(INCLUDES) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# Rule to build object files for debug executable
+$(OUTDIR)/debug_%.o: $(SRCDIR)/%.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(DEBUG) -c $< -o $@
 
 else
 ### If the system is Fedora, only reset the files
@@ -74,7 +79,6 @@ clean:
 	pkill -f net367
 
 endif
-
 
 # Define starting files for TestDir0
 TD0_FILES = testmsg0 testmsg00
