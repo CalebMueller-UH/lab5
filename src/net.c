@@ -246,7 +246,7 @@ void create_node_list() {
   g_node_list = NULL;
   for (i = 0; i < net_node_num; i++) {
     p = (struct Net_node *)malloc(sizeof(struct Net_node));
-    p->id = i;
+    p->id = net_node_list[i].id;
     p->type = net_node_list[i].type;
     p->next = g_node_list;
     g_node_list = p;
@@ -367,11 +367,11 @@ int load_net_data_file(char *confFile) {
       } else {
         colorPrint(RED, " net.c: Unidentified Node Type\n");
       }
-      if (i != node_id) {
-        colorPrint(PURPLE, " net.c: Incorrect node id\n");
-        fclose(fp);
-        return (-1);
-      }
+      // if (i != node_id) {
+      //   colorPrint(PURPLE, " net.c: Incorrect node id\n");
+      //   fclose(fp);
+      //   return (-1);
+      // }
     }
   }
   int link_num;
