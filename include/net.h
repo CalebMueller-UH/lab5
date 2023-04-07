@@ -9,7 +9,8 @@
 
 enum NetNodeType { /* Types of network nodes */
                    HOST,
-                   SWITCH
+                   SWITCH,
+                   DNS
 };
 
 enum NetLinkType { /* Types of network links */
