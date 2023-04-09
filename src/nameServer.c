@@ -14,7 +14,9 @@
 #include "net.h"
 #include "packet.h"
 
-#define MAX_NUM_NAMES 256
+#define MAX_NUM_NAMES 255
+
+// create static dns number (100)
 
 // Used for searchRoutingTableForValidID when port is unknown
 #define UNKNOWN -1
@@ -130,7 +132,7 @@
 //   }
 // }
 
-void name_server_main(int switch_id)
+void name_server_main(int name_id)
 {
   ////// Initialize state of switch ////// //entry point
 
@@ -138,7 +140,7 @@ void name_server_main(int switch_id)
   struct Net_port *node_port_list;
   struct Net_port **node_port_array; // Array of pointers to node ports
   int node_port_array_size;          // Number of node ports
-  node_port_list = net_get_port_list(switch_id);
+  node_port_list = net_get_port_list(name_id);
 
   /*  Count the number of network link ports */
   node_port_array_size = 0;
@@ -162,8 +164,8 @@ void name_server_main(int switch_id)
   }
 
   /* Initialize the job queue */
-  struct JobQueue switch_q;
-  job_queue_init(&switch_q);
+  struct JobQueue name_q;
+  job_queue_init(&name_q);
 
   ////// Initialize Name Table //////
   char nameTable[MAX_NUM_NAMES][MAX_NAME_LEN];
@@ -177,109 +179,89 @@ void name_server_main(int switch_id)
   //   routingTable[i] = NULL;
   // }
 
-  //   while (1)
-  //   {
-  //     ////////////////////////////////////////////////////////////////////////////
-  //     ////////////////////////////// PACKET HANDLER //////////////////////////////
+  while (1)
+  {
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////// PACKET HANDLER //////////////////////////////
 
-  //     for (int portNum = 0; portNum < node_port_array_size; portNum++)
-  //     {
-  //       struct Packet *received_packet =
-  //           (struct Packet *)malloc(sizeof(struct Packet));
-  //       int n = packet_recv(node_port_array[portNum], received_packet);
-  //       if (n > 0)
-  //       {
-  // #ifdef DEBUG
-  //         colorPrint(
-  //             YELLOW,
-  //             "DEBUG: id:%d switch_main: Switch received packet on port:%d "
-  //             "src:%d dst:%d\n",
-  //             switch_id, portNum, received_packet->src, received_packet->dst);
-  // #endif
+    for (int portNum = 0; portNum < node_port_array_size; portNum++)
+    {
+      struct Packet *received_packet =
+          (struct Packet *)malloc(sizeof(struct Packet));
+      int n = packet_recv(node_port_array[portNum], received_packet);
+      if (n > 0)
+      {
+#ifdef DEBUG
+        colorPrint(
+            YELLOW,
+            "DEBUG: id:%d switch_main: Switch received packet on port:%d "
+            "src:%d dst:%d\n",
+            name_id, portNum, received_packet->src, received_packet->dst);
+#endif
 
-  //         struct Job *swJob = job_create_empty();
-  //         swJob->packet = received_packet;
+        struct Job *nsJob = job_create_empty();
+        nsJob->packet = received_packet;
 
-  //         // Ensure that sender of received packet is in the routing table
-  //         if (searchRoutingTableForValidID(routingTable, received_packet->src,
-  //                                          portNum) == UNKNOWN)
-  //         {
-  //           // Sender was not found in routing table
-  //           addToRoutingTable(routingTable, received_packet->src, portNum);
-  //         }
+        // switch statement that differeniates from registration, and query
+        switch (received_packet->type)
+        {
+        case PKT_DNS_REGISTRATION:
+          nsJob->type = JOB_DNS_REGISTER;
+        case PKT_DNS_QUERY:
+          nsJob->type = JOB_DNS_QUERY;
+        }
+        nsJob->state = JOB_PENDING_STATE;
+        job_enqueue(name_id, &name_q, nsJob);
+      }
+      else
+      {
+        // Nothing to receive on port, so discard malloc'd packet
+        free(received_packet);
+        received_packet = NULL;
+      }
+    }
 
-  //         // Search for destination in routing table
-  //         int dstIndex = searchRoutingTableForValidID(
-  //             routingTable, received_packet->dst, UNKNOWN);
-  //         if (dstIndex < 0)
-  //         {
-  //           // destination of received packet is not in routing table...
-  //           // enqueue job to broadcast packet to all connected hosts
-  //           swJob->type = JOB_BROADCAST_PKT;
-  //           job_enqueue(switch_id, &switch_q, swJob);
-  //         }
-  //         else
-  //         {
-  //           // destination of received packet has been found in routing table...
-  //           // enqueue job to forward packet to the associated port
-  //           swJob->type = JOB_FORWARD_PKT;
-  //           job_enqueue(switch_id, &switch_q, swJob);
-  //         }
-  //       }
-  //       else
-  //       {
-  //         // Nothing to receive on port, so discard malloc'd packet
-  //         free(received_packet);
-  //         received_packet = NULL;
-  //       }
-  //     }
+    ////////////////////////////// PACKET HANDLER //////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    // -------------------------------------------------------------------------
+    ////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////// JOB HANDLER ///////////////////////////////
 
-  //     ////////////////////////////// PACKET HANDLER //////////////////////////////
-  //     ////////////////////////////////////////////////////////////////////////////
-  //     // -------------------------------------------------------------------------
-  //     ////////////////////////////////////////////////////////////////////////////
-  //     //////////////////////////////// JOB HANDLER ///////////////////////////////
+    if (job_queue_length(&name_q) > 0)
+    {
+      /* Get a new job from the job queue */
+      struct Job *job_from_queue = job_dequeue(name_id, &name_q);
 
-  //     if (job_queue_length(&switch_q) > 0)
-  //     {
-  //       /* Get a new job from the job queue */
-  //       struct Job *job_from_queue = job_dequeue(switch_id, &switch_q);
+      //////////// EXECUTE FETCHED JOB ////////////
+      switch (job_from_queue->type)
+      {
+      case JOB_DNS_REGISTER:
+        break;
+      case JOB_DNS_QUERY:
+        break;
+      }
 
-  //       //////////// EXECUTE FETCHED JOB ////////////
-  //       switch (job_from_queue->type)
-  //       {
-  //       case JOB_BROADCAST_PKT:
-  //         broadcastToAllButSender(job_from_queue, routingTable, node_port_array,
-  //                                 node_port_array_size);
-  //         break;
-  //       case JOB_FORWARD_PKT:
-  //         int dstPort = searchRoutingTableForValidID(
-  //             routingTable, job_from_queue->packet->dst, UNKNOWN);
-  //         packet_send(node_port_array[dstPort], job_from_queue->packet);
-  //         break;
-  //       }
+      free(job_from_queue->packet);
+      job_from_queue->packet = NULL;
+      free(job_from_queue);
+      job_from_queue = NULL;
+    }
 
-  //       free(job_from_queue->packet);
-  //       job_from_queue->packet = NULL;
-  //       free(job_from_queue);
-  //       job_from_queue = NULL;
-  //     }
+    //////////////////////////////// JOB HANDLER ///////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
-  //     //////////////////////////////// JOB HANDLER ///////////////////////////////
-  //     ////////////////////////////////////////////////////////////////////////////
+    /* The host goes to sleep for 10 ms */
+    usleep(LOOP_SLEEP_TIME_US);
+  } /* End of while loop */
 
-  //     /* The host goes to sleep for 10 ms */
-  //     usleep(LOOP_SLEEP_TIME_US);
-  //   } /* End of while loop */
-
-  //   /* Free dynamically allocated memory */
-  //   for (int i = 0; i < node_port_array_size; i++)
-  //   {
-  //     free(node_port_array[i]);
-  //     node_port_array[i] = NULL;
-  //   }
-  //   free(node_port_array);
-  //   node_port_array = NULL;
-  //   free(routingTable);
-  //   routingTable = NULL;
+  /* Free dynamically allocated memory */
+  for (int i = 0; i < node_port_array_size; i++)
+  {
+    free(node_port_array[i]);
+    node_port_array[i] = NULL;
+  }
+  free(node_port_array);
+  node_port_array = NULL;
+  free(nameTable);
+  //  nameTable = NULL;
 }
