@@ -15,6 +15,10 @@
 #include "net.h"
 #include "packet.h"
 
+#ifdef DEBUG
+#define SWITCH_DEBUG
+#endif
+
 #define MAX_NUM_ROUTES 100
 
 #define MAX_ADDRESS 255
@@ -30,7 +34,7 @@
 // Returns routing table index of valid id, or -1 if unsuccessful
 //  **Note that routing table index is the port
 int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
   char portMsg[100];
   if (port == UNKNOWN) {
     snprintf(portMsg, 100, "unknown port");
@@ -49,7 +53,7 @@ int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
         struct TableEntry *t = rt[i];
         while (t != NULL) {
           if (t->id == id) {
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
             colorPrint(BLUE, "\tFound host%d on port%d\n", id, i);
 #endif
             return i;
@@ -72,7 +76,7 @@ int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
     }
   }
 
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
   colorPrint(BLUE, "\tUnable to find host%d in routing table\n", id);
 #endif
 
@@ -80,7 +84,7 @@ int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port) {
 }
 
 void addToRoutingTable(struct TableEntry **rt, int id, int port) {
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
   colorPrint(BLUE, "\tAdding host%d to routing table on port%d\n", id, port);
 #endif
   struct TableEntry *newEntry =
@@ -140,7 +144,7 @@ void periodicTreePacketSender(struct Net_port **arr, const int arrSize,
   static time_t timeLast = 0;
   time_t timeNow = time(NULL);
   if (timeNow - timeLast > PERIODIC_LOCALROOTID_WAITTIME_SEC) {
-    // #ifdef DEBUG
+    // #ifdef SWITCH_DEBUG
     //     colorPrint(BLUE, "Sending Compare Packet\n");
     // #endif
 
@@ -183,7 +187,7 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
   // Find the start of the isSenderChild field
   char *packetIsSenderChild = strchr(packetSenderType, ':') + 1;
 
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
   colorPrint(BLUE, "Switch%d received Tree Packet:\n", switch_id);
   colorPrint(BLUE,
              "\t packetRootID:%d packetRootDist:%d packetSenderType:%c, "
@@ -195,7 +199,7 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
   // Update localRootID, localRootDist, and localParent
   if (*packetSenderType == 'S') {
     if (packetRootID < *localRootID) {
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
       colorPrint(BLUE, "\t\tSwitch%d's localRootID updated from %d to %d\n",
                  switch_id, *localRootID, packetRootID);
 #endif
@@ -203,7 +207,7 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
       *localParentID = receivePort;
       *localRootDist = packetRootDist + 1;
     } else if (packetRootID == *localRootID) {
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
       colorPrint(BLUE,
                  "\t\tSwitch%d's localRootID is equal to the received "
                  "packetRootID (%d)\n",
@@ -226,7 +230,7 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
       localPortTree[receivePort] = YES;
     } else {
       if (localPortTree[receivePort] != NO) {
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
         colorPrint(BOLD_RED, "Switch%d updating localPortTree[%d]=NO (msg1)\n",
                    switch_id, receivePort);
 #endif
@@ -236,7 +240,7 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
 
   } else {
     if (localPortTree[receivePort] != NO) {
-#ifdef DEBUG
+#ifdef SWITCH_DEBUG
       colorPrint(BOLD_RED, "Switch%d updating localPortTree[%d]=NO (msg2)\n",
                  switch_id, receivePort);
 #endif
@@ -310,12 +314,13 @@ void switch_main(int switch_id) {
           (struct Packet *)malloc(sizeof(struct Packet));
       int n = packet_recv(node_port_array[portNum], received_packet);
       if (n > 0) {
-#ifdef DEBUG
-        colorPrint(
-            YELLOW,
-            "DEBUG: id:%d switch_main: Switch received packet on port:%d "
-            "src:%d dst:%d\n",
-            switch_id, portNum, received_packet->src, received_packet->dst);
+#ifdef SWITCH_DEBUG
+        colorPrint(YELLOW,
+                   "SWITCH_DEBUG: id:%d switch_main: Switch received packet on "
+                   "port:%d "
+                   "src:%d dst:%d\n",
+                   switch_id, portNum, received_packet->src,
+                   received_packet->dst);
 #endif
 
         struct Job *swJob = job_create_empty();

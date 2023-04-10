@@ -14,6 +14,10 @@
 #include "net.h"
 #include "socket.h"
 
+#ifdef DEBUG
+// #define PACKET_DEBUG
+#endif
+
 /* Receives a network packet through a pipe or socket by reading a message
  * buffer and then parsing it into a packet. */
 int packet_recv(struct Net_port *port, struct Packet *p) {
@@ -28,8 +32,8 @@ int packet_recv(struct Net_port *port, struct Packet *p) {
                           port->remoteDomain);
   }
   if (bytesRead > 0) {
-#ifdef DEBUG
-    // printPacket(p);
+#ifdef PACKET_DEBUG
+    printPacket(p);
 #endif
     p->src = (char)pkt[0];
     p->dst = (char)pkt[1];
@@ -65,8 +69,8 @@ void packet_send(struct Net_port *port, struct Packet *p) {
                           port->remotePort, pkt, p->length + 4);
   }
 
-#ifdef DEBUG
-  // printPacket(p);
+#ifdef PACKET_DEBUG
+  printPacket(p);
 #endif
 }
 

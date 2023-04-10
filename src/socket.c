@@ -12,6 +12,10 @@ socket.t
 
 #include "color.h"
 
+#ifdef DEBUG
+// #define SOCKET_DEBUG
+#endif
+
 int sock_server_init(const char* localDomain, const int localPort) {
   int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (sock_fd < 0) {
@@ -82,7 +86,7 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
       perror("\t");
       return -1;
     } else {
-#ifdef DEBUG
+#ifdef SOCKET_DEBUG
       colorPrint(MAGENTA, "SOCK_RECV: accepted connection from %s:%d\n",
                  inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
 #endif
@@ -110,7 +114,7 @@ int sock_recv(const int sockfd, char* buffer, const int bufferMax,
             // exit loop
   }
 
-#ifdef DEBUG
+#ifdef SOCKET_DEBUG
   colorPrint(MAGENTA, "SOCK_RECV: received %d bytes from %s:%d\n", bytesRead,
              inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
 #endif
@@ -171,7 +175,7 @@ int sock_send(const char* localDomain, const char* remoteDomain,
 
   close(sock_fd);
 
-#ifdef DEBUG
+#ifdef SOCKET_DEBUG
   colorPrint(MAGENTA, "SOCK_SEND: sent %d bytes to %s:%d from local port\n",
              bytesSent, remoteDomain, remotePort,
              ntohs(local_addr_assigned.sin_port));

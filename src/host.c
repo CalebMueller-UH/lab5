@@ -15,6 +15,10 @@
 #include "net.h"
 #include "packet.h"
 
+#ifdef DEBUG
+// #define HOST_DEBUG
+#endif
+
 // Helper Function Forward Declarations
 void commandDownloadHandler(int host_id, struct JobQueue *hostq,
                             char *hostDirectory, int dst, char *fname,
@@ -210,9 +214,9 @@ void host_main(int host_id) {
       n = packet_recv(node_port_array[portNum], inPkt);
       // if portNum has received a packet, translate the packet into a job
       if ((n > 0) && ((int)inPkt->dst == host_id)) {
-#ifdef DEBUG
+#ifdef HOST_DEBUG
         colorPrint(YELLOW,
-                   "DEBUG: id:%d host_main packet_handler received "
+                   "HOST_DEBUG: id:%d host_main packet_handler received "
                    "packet: \n\t",
                    host_id);
         printPacket(inPkt);
@@ -295,12 +299,13 @@ void host_main(int host_id) {
           }  //////////////// End of case JOB_DOWNLOAD
 
           default:
-#ifdef DEBUG
-            colorPrint(YELLOW,
-                       "DEBUG: id:%d host_main: job_handler defaulted with "
-                       "job type: "
-                       "%s\n",
-                       host_id, get_job_type_literal(job_from_queue->type));
+#ifdef HOST_DEBUG
+            colorPrint(
+                YELLOW,
+                "HOST_DEBUG: id:%d host_main: job_handler defaulted with "
+                "job type: "
+                "%s\n",
+                host_id, get_job_type_literal(job_from_queue->type));
 #endif
         }  // End of switch (job_from_queue->type)
       }    // End of if (job_queue_length(&hostq) > 0)

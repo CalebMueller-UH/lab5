@@ -12,6 +12,10 @@
 #include "extensionFns.h"
 #include "packet.h"
 
+#ifdef DEBUG
+// #define JOB_DEBUG
+#endif
+
 /* Takes an enumeration value representing a job type and returns the
  * corresponding string representation. */
 char *get_job_type_literal(enum JobType t) {
@@ -57,8 +61,8 @@ char *get_job_state_literal(enum JobState s) {
 
 /* Adds a new job to the end of a job queue. */
 void job_enqueue(int host_id, struct JobQueue *jq, struct Job *jobToEnqueue) {
-#ifdef DEBUG
-  colorPrint(GREEN, "DEBUG: id:%d job_enqueue: type: %s\n", host_id,
+#ifdef JOB_DEBUG
+  colorPrint(GREEN, "JOB_DEBUG: id:%d job_enqueue: type: %s\n", host_id,
              get_job_type_literal(jobToEnqueue->type));
 #endif
 
@@ -80,8 +84,8 @@ struct Job *job_dequeue(int host_id, struct JobQueue *jq) {
   if (jq->occ == 0) return (NULL);
   j = jq->head;
 
-#ifdef DEBUG
-  colorPrint(RED, "DEBUG: id:%d job_dequeue: type: %s\n", host_id,
+#ifdef JOB_DEBUG
+  colorPrint(RED, "JOB_DEBUG: id:%d job_dequeue: type: %s\n", host_id,
              get_job_type_literal(j->type));
 #endif
 
