@@ -135,23 +135,26 @@ int createTreePayload(char *dst, int packetRootID, int packetRootDist,
 
 void periodicTreePacketSender(struct Net_port **arr, const int arrSize,
                               const int switch_id, const int localRootID,
-                              const int localRootDist) {
+                              const int localRootDist,
+                              const int localParentID) {
   static time_t timeLast = 0;
   time_t timeNow = time(NULL);
   if (timeNow - timeLast > PERIODIC_LOCALROOTID_WAITTIME_SEC) {
-#ifdef DEBUG
-    colorPrint(BLUE, "Sending Compare Packet\n");
-#endif
-    // Create a string to write to the comparrison packet payload
-    char compPayload[PACKET_PAYLOAD_MAX];
-    int compPayloadLen =
-        createTreePayload(compPayload, localRootID, localRootDist, 'S', 'Y');
+    // #ifdef DEBUG
+    //     colorPrint(BLUE, "Sending Compare Packet\n");
+    // #endif
 
-    // Create a localRootID comparrison packet
-    struct Packet *compPkt =
-        createPacket(switch_id, 255, PKT_TREE_PKT, compPayloadLen, compPayload);
     // Broadcast packet to all connected hosts
     for (int i = 0; i < arrSize; i++) {
+      // Create a string to write to the comparrison packet payload
+      char compPayload[PACKET_PAYLOAD_MAX];
+      int compPayloadLen =
+          createTreePayload(compPayload, localRootID, localRootDist, 'S',
+                            (localParentID == i) ? 'Y' : 'N');
+
+      // Create a localRootID comparrison packet
+      struct Packet *compPkt = createPacket(switch_id, 255, PKT_TREE_PKT,
+                                            compPayloadLen, compPayload);
       packet_send(arr[i], compPkt);
     }
     timeLast = timeNow;
@@ -163,6 +166,7 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
                       int *localParentID, int *localPortTree) {
   char *payload = pkt->payload;
 
+  /* Parsing Packet for various fields */
   // Find the start of the localRootID field
   char *packetRootID_str = payload + JIDLEN + 1;
   // Convert the localRootID field string to an integer
@@ -175,38 +179,36 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
 
   // Find the start of the senderType field
   char *packetSenderType = strchr(packetRootDist_str, ':') + 1;
-  // Skip the senderType field
 
   // Find the start of the isSenderChild field
   char *packetIsSenderChild = strchr(packetSenderType, ':') + 1;
-  // Convert the isSenderChild field string to an integer
-  int p_isSenderChild = atoi(packetIsSenderChild);
 
 #ifdef DEBUG
+  colorPrint(BLUE, "Switch%d received Tree Packet:\n", switch_id);
   colorPrint(BLUE,
-             "Switch%d received Tree Packet: localRootID=%d, packetRootID=%d\n",
-             switch_id, *localRootID, packetRootID);
-  if (packetRootID < *localRootID) {
-    colorPrint(BLUE, "\tSwitch%d's localRootID updated from %d to %d\n",
-               switch_id, *localRootID, packetRootID);
-  } else if (packetRootID == *localRootID) {
-    colorPrint(
-        BLUE,
-        "\tSwitch%d's localRootID is equal to the received packetRootID (%d)\n",
-        switch_id, packetRootID);
-  } else {
-    colorPrint(BLUE, "\tSwitch%d's localRootID remains unchanged at %d\n",
-               switch_id, *localRootID);
-  }
+             "\t packetRootID:%d packetRootDist:%d packetSenderType:%c, "
+             "packetIsSenderChild:%c\n",
+             packetRootID, packetRootDist, *packetSenderType,
+             *packetIsSenderChild);
 #endif
 
   // Update localRootID, localRootDist, and localParent
   if (*packetSenderType == 'S') {
     if (packetRootID < *localRootID) {
+#ifdef DEBUG
+      colorPrint(BLUE, "\t\tSwitch%d's localRootID updated from %d to %d\n",
+                 switch_id, *localRootID, packetRootID);
+#endif
       *localRootID = packetRootID;
       *localParentID = receivePort;
       *localRootDist = packetRootDist + 1;
     } else if (packetRootID == *localRootID) {
+#ifdef DEBUG
+      colorPrint(BLUE,
+                 "\t\tSwitch%d's localRootID is equal to the received "
+                 "packetRootID (%d)\n",
+                 switch_id, packetRootID);
+#endif
       if (*localRootDist > packetRootDist + 1) {
         *localParentID = receivePort;
         *localRootDist = packetRootDist + 1;
@@ -218,20 +220,33 @@ void handleTreePacket(const int receivePort, struct Packet *pkt,
   if (*packetSenderType == 'H') {
     localPortTree[receivePort] = YES;
   } else if (*packetSenderType == 'S') {
-    if (*localParentID = receivePort) {
+    if (*localParentID == receivePort) {
       localPortTree[receivePort] = YES;
     } else if (*packetIsSenderChild == 'Y') {
       localPortTree[receivePort] = YES;
     } else {
+      if (localPortTree[receivePort] != NO) {
+#ifdef DEBUG
+        colorPrint(BOLD_RED, "Switch%d updating localPortTree[%d]=NO (msg1)\n",
+                   switch_id, receivePort);
+#endif
+        localPortTree[receivePort] = NO;
+      }
+    }
+
+  } else {
+    if (localPortTree[receivePort] != NO) {
+#ifdef DEBUG
+      colorPrint(BOLD_RED, "Switch%d updating localPortTree[%d]=NO (msg2)\n",
+                 switch_id, receivePort);
+#endif
       localPortTree[receivePort] = NO;
     }
-  } else {
-    localPortTree[receivePort] = NO;
   }
 
   // Assign the localRootDist and isSenderChild variables
   *localRootDist = packetRootDist;
-  *localParentID = (p_isSenderChild) ? switch_id : packetRootID;
+  *localParentID = (*packetIsSenderChild == 'Y') ? switch_id : packetRootID;
 }  // End of handleTreePacket()
 
 void switch_main(int switch_id) {
@@ -276,10 +291,10 @@ void switch_main(int switch_id) {
   ////// Initialize spanning tree variables //////
   int localRootID = switch_id;
   int localRootDist = 0;
-  int localParentID = switch_id;
+  int localParentID = -1;
   int localPortTree[MAX_ADDRESS];
   for (int i = 0; i <= MAX_ADDRESS; i++) {
-    localPortTree[i] = NO;
+    localPortTree[i] = YES;
   }
 
   while (1) {
@@ -288,7 +303,7 @@ void switch_main(int switch_id) {
 
     // Periodically broadcast localRootID Comparrison Packets
     periodicTreePacketSender(node_port_array, node_port_array_size, switch_id,
-                             localRootID, localRootDist);
+                             localRootID, localRootDist, localParentID);
 
     for (int portNum = 0; portNum < node_port_array_size; portNum++) {
       struct Packet *received_packet =
@@ -307,32 +322,37 @@ void switch_main(int switch_id) {
         swJob->packet = received_packet;
 
         if (received_packet->type == PKT_TREE_PKT) {
-          // compare the received localRootID of the received packet against the
-          // local value, and update if the received value is lower in value
+          // compare the received localRootID of the received packet against
+          // the local value, and update if the received value is lower in
+          // value
           handleTreePacket(portNum, received_packet, switch_id, &localRootID,
                            &localRootDist, &localParentID, localPortTree);
         } else {
-          // Ensure that sender of received packet is in the routing table
-          if (searchRoutingTableForValidID(routingTable, received_packet->src,
-                                           portNum) == UNKNOWN) {
-            // Sender was not found in routing table
-            addToRoutingTable(routingTable, received_packet->src, portNum);
-          }
+          // Only forward packets if the received packet comes from a node that
+          // is within the tree (localPortTree[portNum]=YES)
+          if (localPortTree[portNum] == YES) {
+            // Ensure that sender of received packet is in the routing table
+            if (searchRoutingTableForValidID(routingTable, received_packet->src,
+                                             portNum) == UNKNOWN) {
+              // Sender was not found in routing table
+              addToRoutingTable(routingTable, received_packet->src, portNum);
+            }
 
-          // Search for destination in routing table
-          int dstIndex = searchRoutingTableForValidID(
-              routingTable, received_packet->dst, UNKNOWN);
-          if (dstIndex < 0) {
-            // destination of received packet is not in routing table...
-            // enqueue job to broadcast packet to all connected hosts
-            swJob->type = JOB_BROADCAST_PKT;
-            job_enqueue(switch_id, &switch_q, swJob);
+            // Search for destination in routing table
+            int dstIndex = searchRoutingTableForValidID(
+                routingTable, received_packet->dst, UNKNOWN);
+            if (dstIndex < 0) {
+              // destination of received packet is not in routing table...
+              // enqueue job to broadcast packet to all connected hosts
+              swJob->type = JOB_BROADCAST_PKT;
+              job_enqueue(switch_id, &switch_q, swJob);
 
-          } else {
-            // destination of received packet has been found in routing table...
-            // enqueue job to forward packet to the associated port
-            swJob->type = JOB_FORWARD_PKT;
-            job_enqueue(switch_id, &switch_q, swJob);
+            } else {
+              // destination of received packet has been found in routing
+              // table... enqueue job to forward packet to the associated port
+              swJob->type = JOB_FORWARD_PKT;
+              job_enqueue(switch_id, &switch_q, swJob);
+            }
           }
         }
       } else {
