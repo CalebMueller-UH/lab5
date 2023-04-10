@@ -16,6 +16,7 @@ typedef enum {
   PKT_DOWNLOAD_RESPONSE,
   PKT_UPLOAD,
   PKT_UPLOAD_END,
+  PKT_TREE_PKT,
   PKT_INVALID_TYPE
 } packet_type;
 
