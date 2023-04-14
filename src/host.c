@@ -275,6 +275,11 @@ void host_main(int host_id)
           pktUploadEnd(host_id, inPkt, &hostq);
           break;
 
+        case PKT_DNS_RESPONSE:
+          // DNS response recieved
+          sendMsgToManager(man_port->send_fd, inPkt->payload);
+          break;
+
         ////////////////
         default:
         }
