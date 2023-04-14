@@ -24,6 +24,8 @@ constants.h
 // (Not necessarily tied to a measure of time)
 #define TIMETOLIVE 10
 
+#define STATIC_DNS_ID 100
+
 // The number of payload space available after including
 // a job id, the ':' delimiter, and a null terminator
 #define MAX_RESPONSE_LEN (PACKET_PAYLOAD_MAX - 2 - JIDLEN)

@@ -69,14 +69,16 @@ void main(int argc, char **argv)
         /* Execute host routine */
         host_main(p_node->id);
       }
-      else if (p_node->type = SWITCH)
+      else if (p_node->type == SWITCH)
       {
         /* Execute switch routine */
         switch_main(p_node->id);
       }
-      else if (p_node->type = DNS)
+      else if (p_node->type == DNS)
       {
         /* Execute dns routine */
+        colorPrint(BOLD_RED, "Name Server Initializing\n");
+
         name_server_main(p_node->id);
       }
       return;

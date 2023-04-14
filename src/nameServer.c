@@ -16,124 +16,68 @@
 
 #define MAX_NUM_NAMES 255
 
-// create static dns number (100)
-
-// Used for searchRoutingTableForValidID when port is unknown
+// Used for register_name_to_table when ID is unfound
 #define UNKNOWN -1
 
-// Searches the routing table for a matching valid TableEntry matching id
-// Returns routing table index of valid id, or -1 if unsuccessful
-//  **Note that routing table index is the port
-// int searchRoutingTableForValidID(struct TableEntry **rt, int id, int port)
-// {
-// #ifdef DEBUG
-//   char portMsg[100];
-//   if (port == UNKNOWN)
-//   {
-//     snprintf(portMsg, 100, "unknown port");
-//   }
-//   else
-//   {
-//     snprintf(portMsg, 100, "port%d", port);
-//   }
-//   colorPrint(BLUE, "Searching routing table for host%d on %s\n", id, portMsg);
-// #endif
+void register_name_to_table(struct Packet *pkt, char **nametable);
 
-//   if (port == UNKNOWN)
-//   {
-//     // Port was not given...
-//     // Scan through the indices (ports) of the routing table
-//     for (int i = 0; i < MAX_NUM_ROUTES; i++)
-//     {
-//       // If there are entries for that port
-//       if (rt[i] != NULL)
-//       {
-//         struct TableEntry *t = rt[i];
-//         while (t != NULL)
-//         {
-//           if (t->id == id)
-//           {
-// #ifdef DEBUG
-//             colorPrint(BLUE, "\tFound host%d on port%d\n", id, i);
-// #endif
-//             return i;
-//           }
-//           t = t->next;
-//         }
-//       }
-//     }
-//   }
-//   else
-//   {
-//     // Port was specified...
-//     // Look in the routing table at that port for a matching id
-//     if (rt[port] != NULL)
-//     {
-//       struct TableEntry *t = rt[port];
-//       while (t != NULL)
-//       {
-//         if (t->id == id)
-//         {
-//           return port;
-//         }
-//         t = t->next;
-//       }
-//     }
-//   }
+void init_nametable(char **nametable)
+{
+  for (int i = 0; i <= MAX_NUM_NAMES; i++)
+  {
+    nametable[i] = malloc(PACKET_PAYLOAD_MAX + 1);
+    nametable[i][0] = '\0';
+  }
+}
 
-// #ifdef DEBUG
-//   colorPrint(BLUE, "\tUnable to find host%d in routing table\n", id);
-// #endif
+////// Function that puts register names onto the nametable //////
+void register_name_to_table(struct Packet *pkt, char **nametable)
+{
+  colorPrint(BOLD_RED, "register_name_to_table\n");
+  int index = (int)pkt->src; // Convert the source character to an integer index
+  int length = pkt->length;
+  if (index < 0 || index >= PACKET_PAYLOAD_MAX || length <= 0)
+  {
+    return; // Invalid input, do nothing
+  }
+  for (int i = 0; i <= MAX_NUM_NAMES; i++)
+  {
+    nametable[i] = malloc(PACKET_PAYLOAD_MAX + 1);
+    nametable[i][0] = '\0';
+  }
+  // char *name = nametable + index * (PACKET_PAYLOAD_MAX + 1); // Calculate the address of the name in the pre-allocated memory
+  // strncpy(name, pkt->payload, length);                       // Copy the name from the packet payload
+  // name[length] = '\0';                                       // Add null terminator to the name
+}
 
-//   return -1;
-// }
+////// Function that searches the nametable for an ID //////
 
-// void addToRoutingTable(struct TableEntry **rt, int id, int port)
-// {
-// #ifdef DEBUG
-//   colorPrint(BLUE, "\tAdding host%d to routing table on port%d\n", id, port);
-// #endif
-//   struct TableEntry *newEntry =
-//       malloc(sizeof(struct TableEntry)); // Memory allocation added here
-//   newEntry->id = id;
-//   newEntry->next = rt[port];
-//   rt[port] = newEntry; // Assignment changed to address of new entry instead
-//                        // of its value
-// }
+int retrieve_id_from_table(struct Packet *pkt, char **nametable)
+{
+  colorPrint(BOLD_RED, "retrieve_id_from_table\n");
+  char *colon_pos = strchr(pkt->payload, ':');
 
-// /*
-// This function takes a job struct , a table entry, an array of Net_port
-// pointers and the size of the array as parameters. It then iterates through the
-// port_array and sends the job's packet to each port in the array, except for the
-// port that corresponds to the job->packet->src
-// */
-// void broadcastToAllButSender(struct Job *job, struct TableEntry **rt,
-//                              struct Net_port **port_array,
-//                              int port_array_size)
-// {
-//   int senderPort = searchRoutingTableForValidID(rt, job->packet->src, UNKNOWN);
+  if (colon_pos != NULL)
+  {
+    char message[MAX_RESPONSE_LEN + 1];
+    strcpy(message, colon_pos + 1);
+    printf("The output of this message is %s\n", message);
+  }
 
-//   if (senderPort < 0)
-//   {
-//     fprintf(
-//         stderr,
-//         "Error: broadcastToAllButSender unable to find value for senderPort\n");
-//     return;
-//   }
-
-//   // Iterate through all connected ports and broadcast packet
-//   // to all except senderPort
-//   for (int i = 0; i < port_array_size; i++)
-//   {
-//     if (i != senderPort)
-//     {
-//       packet_send(port_array[i], job->packet);
-//     }
-//   }
-// }
+  // for (int i = 0; i <= MAX_NUM_NAMES; i++)
+  // {
+  //   if (nametable[i] != NULL && strcmp(name, nametable[i]) == 0)
+  //   {
+  //     return i; // Found a matching name, return its index
+  //   }
+  // }
+  // return UNKNOWN; // No matching name found
+}
 
 void name_server_main(int name_id)
 {
+
+  colorPrint(BOLD_RED, "Name Server Initializing\n");
   ////// Initialize state of switch ////// //entry point
 
   // Initialize node_port_array
@@ -168,16 +112,8 @@ void name_server_main(int name_id)
   job_queue_init(&name_q);
 
   ////// Initialize Name Table //////
-  char nameTable[MAX_NUM_NAMES][MAX_NAME_LEN];
-  for (int i = 0; i < MAX_NUM_NAMES; i++)
-  {
-    memset(nameTable[i], 0, MAX_NAME_LEN);
-  }
-  // struct TableEntry **routingTable = (struct TableEntry **)malloc(
-  //     sizeof(struct TableEntry *) * MAX_NUM_ROUTES);
-  // for (int i = 0; i < MAX_NUM_ROUTES; i++) {
-  //   routingTable[i] = NULL;
-  // }
+  char **nametable = malloc((MAX_NUM_NAMES + 1) * sizeof(char *));
+  init_nametable(nametable);
 
   while (1)
   {
@@ -194,7 +130,7 @@ void name_server_main(int name_id)
 #ifdef DEBUG
         colorPrint(
             YELLOW,
-            "DEBUG: id:%d switch_main: Switch received packet on port:%d "
+            "DEBUG: id:%d name_server_main: Switch received packet on port:%d "
             "src:%d dst:%d\n",
             name_id, portNum, received_packet->src, received_packet->dst);
 #endif
@@ -207,9 +143,12 @@ void name_server_main(int name_id)
         {
         case PKT_DNS_REGISTRATION:
           nsJob->type = JOB_DNS_REGISTER;
+          break;
         case PKT_DNS_QUERY:
           nsJob->type = JOB_DNS_QUERY;
+          break;
         }
+        ////// Enqueues job //////
         nsJob->state = JOB_PENDING_STATE;
         job_enqueue(name_id, &name_q, nsJob);
       }
@@ -236,11 +175,14 @@ void name_server_main(int name_id)
       switch (job_from_queue->type)
       {
       case JOB_DNS_REGISTER:
+        register_name_to_table(job_from_queue->packet, nametable);
         break;
       case JOB_DNS_QUERY:
+        retrieve_id_from_table(job_from_queue->packet, nametable);
         break;
       }
 
+      ////// Empties job queue after completion //////
       free(job_from_queue->packet);
       job_from_queue->packet = NULL;
       free(job_from_queue);
@@ -262,6 +204,5 @@ void name_server_main(int name_id)
   }
   free(node_port_array);
   node_port_array = NULL;
-  free(nameTable);
-  //  nameTable = NULL;
+  free(nametable);
 }
