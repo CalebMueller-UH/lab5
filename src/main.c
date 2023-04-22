@@ -77,7 +77,6 @@ void main(int argc, char **argv)
       else if (p_node->type == DNS)
       {
         /* Execute dns routine */
-        colorPrint(BOLD_RED, "Name Server Initializing\n");
 
         name_server_main(p_node->id);
       }

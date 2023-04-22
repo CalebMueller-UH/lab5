@@ -277,7 +277,12 @@ void host_main(int host_id)
 
         case PKT_DNS_RESPONSE:
           // DNS response recieved
-          sendMsgToManager(man_port->send_fd, inPkt->payload);
+          // sendMsgToManager(man_port->send_fd, inPkt->payload);
+          char *responseMsg = malloc(sizeof(char) * MAX_MSG_LENGTH);
+          memset(responseMsg, 0, MAX_MSG_LENGTH);
+          sendMsgToManager(man_port->send_fd, responseMsg);
+          free(responseMsg);
+
           break;
 
         ////////////////
