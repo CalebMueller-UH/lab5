@@ -23,7 +23,7 @@
 
 #define MAX_ADDRESS 255
 
-#define PERIODIC_LOCALROOTID_WAITTIME_SEC 3
+#define PERIODIC_LOCALROOTID_WAITTIME_SEC 5
 
 // Used for searchRoutingTableForValidID when port is unknown
 #define UNKNOWN -1
@@ -102,8 +102,8 @@ port_array and sends the job's packet to each port in the array, except for the
 port that corresponds to the job->packet->src
 */
 void broadcastToAllButSender(struct Job *job, struct TableEntry **rt,
-                             struct Net_port **port_array,
-                             int port_array_size) {
+                             struct Net_port **port_array, int port_array_size,
+                             int *localPortTree) {
   int senderPort = searchRoutingTableForValidID(rt, job->packet->src, UNKNOWN);
 
   if (senderPort < 0) {
@@ -113,10 +113,11 @@ void broadcastToAllButSender(struct Job *job, struct TableEntry **rt,
     return;
   }
 
-  // Iterate through all connected ports and broadcast packet
-  // to all except senderPort
+  // Iterate through all connected ports
+  // broadcast packet to all except senderPort
   for (int i = 0; i < port_array_size; i++) {
-    if (i != senderPort) {
+    // Only send packet to nodes within the tree (localPortTree[portNum]=YES)
+    if (i != senderPort && localPortTree[i] == YES) {
       packet_send(port_array[i], job->packet);
     }
   }
@@ -162,6 +163,7 @@ void periodicTreePacketSender(struct Net_port **arr, const int arrSize,
       packet_send(arr[i], compPkt);
     }
     timeLast = timeNow;
+    free(compPayloadLen);
   }
 }  // End of periodicTreePacketSender()
 
@@ -333,33 +335,30 @@ void switch_main(int switch_id) {
           handleTreePacket(portNum, received_packet, switch_id, &localRootID,
                            &localRootDist, &localParentID, localPortTree);
         } else {
-          // Only forward packets if the received packet comes from a node that
-          // is within the tree (localPortTree[portNum]=YES)
-          if (localPortTree[portNum] == YES) {
-            // Ensure that sender of received packet is in the routing table
-            if (searchRoutingTableForValidID(routingTable, received_packet->src,
-                                             portNum) == UNKNOWN) {
-              // Sender was not found in routing table
-              addToRoutingTable(routingTable, received_packet->src, portNum);
-            }
+          // Ensure that sender of received packet is in the routing table
+          if (searchRoutingTableForValidID(routingTable, received_packet->src,
+                                           portNum) == UNKNOWN) {
+            // Sender was not found in routing table
+            addToRoutingTable(routingTable, received_packet->src, portNum);
+          }
 
-            // Search for destination in routing table
-            int dstIndex = searchRoutingTableForValidID(
-                routingTable, received_packet->dst, UNKNOWN);
-            if (dstIndex < 0) {
-              // destination of received packet is not in routing table...
-              // enqueue job to broadcast packet to all connected hosts
-              swJob->type = JOB_BROADCAST_PKT;
-              job_enqueue(switch_id, &switch_q, swJob);
+          // Search for destination in routing table
+          int dstIndex = searchRoutingTableForValidID(
+              routingTable, received_packet->dst, UNKNOWN);
+          if (dstIndex < 0) {
+            // destination of received packet is not in routing table...
+            // enqueue job to broadcast packet to all connected hosts
+            swJob->type = JOB_BROADCAST_PKT;
+            job_enqueue(switch_id, &switch_q, swJob);
 
-            } else {
-              // destination of received packet has been found in routing
-              // table... enqueue job to forward packet to the associated port
-              swJob->type = JOB_FORWARD_PKT;
-              job_enqueue(switch_id, &switch_q, swJob);
-            }
+          } else {
+            // destination of received packet has been found in routing
+            // table... enqueue job to forward packet to the associated port
+            swJob->type = JOB_FORWARD_PKT;
+            job_enqueue(switch_id, &switch_q, swJob);
           }
         }
+
       } else {
         // Nothing to receive on port, so discard malloc'd packet
         free(received_packet);
@@ -381,12 +380,14 @@ void switch_main(int switch_id) {
       switch (job_from_queue->type) {
         case JOB_BROADCAST_PKT:
           broadcastToAllButSender(job_from_queue, routingTable, node_port_array,
-                                  node_port_array_size);
+                                  node_port_array_size, localPortTree);
           break;
         case JOB_FORWARD_PKT:
           int dstPort = searchRoutingTableForValidID(
               routingTable, job_from_queue->packet->dst, UNKNOWN);
-          packet_send(node_port_array[dstPort], job_from_queue->packet);
+          if (localPortTree[dstPort] == YES) {
+            packet_send(node_port_array[dstPort], job_from_queue->packet);
+          }
           break;
       }
 
