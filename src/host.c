@@ -12,6 +12,7 @@
 #include "constants.h"
 #include "job.h"
 #include "manager.h"
+#include "nameServer.h"
 #include "net.h"
 #include "packet.h"
 
@@ -65,6 +66,11 @@ void sendMsgToManager(int fd, char msg[MAX_MSG_LENGTH]);
 
 int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p);
 
+int resolveHostname(char *name, char **nametable);
+
+int requestIDFromDNS(const int hostId, char *nameToResolve, char **nametable,
+                     struct Net_port **arr, int arrSize);
+
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
@@ -105,15 +111,18 @@ void host_main(int host_id) {
   /* Initialize request list */
   struct Request *requestList = NULL;
 
+  ////// Initialize Name Table //////
+  char **nametable = malloc((MAX_NUM_NAMES + 1) * sizeof(char *));
+  init_nametable(nametable);
+
   while (1) {
     ////////////////////////////////////////////////////////////////
     ////////////////////////////////
     //////////////// COMMAND HANDLER
 
     char man_cmd;
-    int dst;
-
     int n = get_man_command(man_port, man_msg, &man_cmd);
+
     /* Execute command */
     if (n > 0) {
       char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
@@ -143,7 +152,24 @@ void host_main(int host_id) {
         case 'p': {
           ////// Have active Host ping another host //////
           // Get destination from man_msg
-          sscanf(man_msg, "%d", &dst);
+          // Handle commands issued with an ID number or domain name
+          char man_dst[PACKET_PAYLOAD_MAX];
+          sscanf(man_msg, "%s", man_dst);
+          int dst = resolveHostname(man_dst, nametable);
+          printf("man_dst:%s dst:%d\n", man_dst, dst);
+
+          if (dst < 0) {
+            // Unable to resolve hostname in local cache
+            // Send a DNS Query to the server to retrieve the id associated with
+            // that domain name
+            requestIDFromDNS(host_id, man_dst, nametable, node_port_array,
+                             node_port_array_size);
+            while (1) {
+              continue;
+            }
+          }
+
+          // sscanf(man_msg, "%d", &dst);
 
           // Check to see if pinging self; issue warning
           if (dst == host_id) {
@@ -907,3 +933,32 @@ int sendPacketTo(struct Net_port **arr, int arrSize, struct Packet *p) {
     }
   }
 }  // End of sendPacketTo
+
+int resolveHostname(char *name, char **nametable) {
+  // Try to convert name to integer
+  int value = atoi(name);
+
+  // Check if the conversion was successful
+  if (value != 0 || name[0] == '0') {
+    return value;
+  }
+
+  // Search nametable for matching entry
+  for (int i = 0; i < MAX_NUM_NAMES; i++) {
+    if (nametable[i] != NULL && strcmp(name, nametable[i]) == 0) {
+      return i;
+    }
+  }
+
+  // No match found
+  return -1;
+}  // End of resolveHostname
+
+int requestIDFromDNS(const int hostId, char *nameToResolve, char **nametable,
+                     struct Net_port **arr, int arrSize) {
+  int nameLen = strlen(nameToResolve);
+  struct Packet *p = createPacket(hostId, STATIC_DNS_ID, PKT_DNS_QUERY, nameLen,
+                                  nameToResolve);
+  sendPacketTo(arr, arrSize, p);
+  free(p);
+}

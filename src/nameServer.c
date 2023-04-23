@@ -15,8 +15,6 @@
 #include "net.h"
 #include "packet.h"
 
-#define MAX_NUM_NAMES 255
-
 // Used for register_name_to_table when ID is unfound
 #define UNKNOWN -1
 
@@ -148,6 +146,7 @@ void name_server_main(int name_id) {
             "DEBUG: id:%d name_server_main: Switch received packet on port:%d "
             "src:%d dst:%d\n",
             name_id, portNum, received_packet->src, received_packet->dst);
+        printPacket(received_packet);
 #endif
 
         struct Job *nsJob = job_create_empty();

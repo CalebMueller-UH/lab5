@@ -29,3 +29,6 @@ constants.h
 // The number of payload space available after including
 // a job id, the ':' delimiter, and a null terminator
 #define MAX_RESPONSE_LEN (PACKET_PAYLOAD_MAX - 2 - JIDLEN)
+
+// Maximum number of allowable Domain Name aliases
+#define MAX_NUM_NAMES 255

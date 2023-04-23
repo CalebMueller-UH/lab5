@@ -11,10 +11,6 @@
 struct Net_port;
 struct Job;
 
-// struct TableEntry {
-//   int id;
-//   char alias[MAX_ALIAS_LEN];
-//   struct TableEntry *next;
-//};
+void init_nametable(char **nametable);
 
 void name_server_main(int switch_id);
