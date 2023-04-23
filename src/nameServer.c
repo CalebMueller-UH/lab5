@@ -62,7 +62,7 @@ void register_name_to_table(struct Packet *pkt, char **nametable,
   colorPrint(BOLD_RED, "%s was registered to index %d\n", nametable[pkt->src],
              pkt->src);
 
-  const char *remsg = "Name Registered";
+  const char *remsg = "Domain Name Registered!";
   const int remsgLen = strlen(remsg) + 1;
 
   pkt->dst = pkt->src;
