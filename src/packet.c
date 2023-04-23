@@ -119,6 +119,8 @@ char *get_packet_type_literal(int pktType) {
       return "PKT_DOWNLOAD_REQ";
     case PKT_DOWNLOAD_RESPONSE:
       return "PKT_DOWNLOAD_RESPONSE";
+    case PKT_DNS_QUERY_RESPONSE:
+      return "PKT_DNS_QUERY_RESPONSE";
     case PKT_UPLOAD:
       return "PKT_UPLOAD";
     case PKT_UPLOAD_END:

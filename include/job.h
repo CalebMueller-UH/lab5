@@ -4,20 +4,20 @@
 
 #pragma once
 
-#include <stdio.h> // For FILE type
+#include <stdio.h>  // For FILE type
 
 #include "constants.h"
 
-#define JIDLEN 4 // Job id (jid) length
+#define JIDLEN 4  // Job id (jid) length
 
-enum JobType
-{
+enum JobType {
   JOB_SEND_PKT,
   JOB_BROADCAST_PKT,
   JOB_FORWARD_PKT,
   JOB_SEND_REQUEST,
   JOB_SEND_RESPONSE,
   JOB_WAIT_FOR_RESPONSE,
+  JOB_WAIT_FOR_DNS_QUERY_RESPONSE,
   JOB_UPLOAD,
   JOB_DOWNLOAD,
   JOB_DNS_REGISTER,
@@ -25,8 +25,7 @@ enum JobType
   JOB_INVALID_TYPE = -1
 };
 
-enum JobState
-{
+enum JobState {
   JOB_PENDING_STATE,
   JOB_COMPLETE_STATE,
   JOB_READY_STATE,
@@ -34,15 +33,13 @@ enum JobState
   JOB_INVALID_STATE = -1
 };
 
-struct JobQueue
-{
+struct JobQueue {
   struct Job *head;
   struct Job *tail;
   int occ;
 };
 
-struct Job
-{
+struct Job {
   char jid[JIDLEN];
   char errorMsg[MAX_MSG_LENGTH];
   int timeToLive;

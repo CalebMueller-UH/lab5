@@ -4,8 +4,10 @@ manager.c
 
 #include "manager.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "color.h"
@@ -288,27 +290,22 @@ int fileExists(const char *path) {
 }
 
 /*
-Function reads a manager port command using read(), removes the 1st non-space
-character and stores it in c. The rest of the message is copied to msg, with a
-null terminator added at the end. The function returns the number of bytes read.
+    Reads a message from the specified port and returns the entire message
+    as a string, including any leading whitespace. The command character
+    is returned separately as a parameter. Returns the number of bytes
+    read, or -1 if an error occurs.
 */
-int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
+int get_man_msg(struct Man_port_at_host *port, char msg[]) {
   int n;
   int i;
   int portNum;
 
   n = read(port->recv_fd, msg, MAX_MSG_LENGTH); /* Get command from manager */
-  if (n > 0) { /* Remove the first char from "msg" */
-    for (i = 0; msg[i] == ' ' && i < n; i++)
-      ;
-    *c = msg[i];
-    i++;
-    for (; msg[i] == ' ' && i < n; i++)
-      ;
-    for (portNum = 0; portNum + i < n; portNum++) {
-      msg[portNum] = msg[portNum + i];
+  if (n > 0) {
+    /* Remove leading white space */
+    while (isspace(msg[0])) {
+      memmove(msg, msg + 1, n--);
     }
-    msg[portNum] = '\0';
   }
   return n;
 }

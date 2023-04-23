@@ -69,30 +69,18 @@ void register_name_to_table(struct Packet *pkt, char **nametable,
   pkt->length = remsgLen;
   strncpy(pkt->payload, remsg, PACKET_PAYLOAD_MAX);
   sendPacketTo2(arr, arrSize, pkt);
-  free(pkt);
 }
 
 ////// Function that searches the nametable for an ID //////
 
-int retrieve_id_from_table(struct Packet *pkt, char **nametable) {
-  colorPrint(BOLD_RED, "retrieve_id_from_table\n");
-  printPacket(pkt);
-  char *colon_pos = strchr(pkt->payload, ':');
-
-  if (colon_pos != NULL) {
-    char message[MAX_RESPONSE_LEN + 1];
-    strcpy(message, colon_pos + 1);
-    printf("The output of this message is %s\n", message);
+int retrieve_id_from_table(char *name, char **nametable) {
+  for (int i = 0; i < MAX_NUM_NAMES; i++) {
+    if (strncmp(name, nametable[i], PACKET_PAYLOAD_MAX) == 0) {
+      return i;
+    }
   }
-
-  // for (int i = 0; i <= MAX_NUM_NAMES; i++)
-  // {
-  //   if (nametable[i] != NULL && strcmp(name, nametable[i]) == 0)
-  //   {
-  //     return i; // Found a matching name, return its index
-  //   }
-  // }
-  // return UNKNOWN; // No matching name found
+  // name wasn't found, return error
+  return -1;
 }
 
 void name_server_main(int name_id) {
@@ -141,11 +129,12 @@ void name_server_main(int name_id) {
       int n = packet_recv(node_port_array[portNum], received_packet);
       if (n > 0) {
 #ifdef DEBUG
-        colorPrint(
-            YELLOW,
-            "DEBUG: id:%d name_server_main: Switch received packet on port:%d "
-            "src:%d dst:%d\n",
-            name_id, portNum, received_packet->src, received_packet->dst);
+        colorPrint(YELLOW,
+                   "DEBUG: id:%d name_server_main: DNS Server received packet "
+                   "on port:%d "
+                   "src:%d dst:%d\n",
+                   name_id, portNum, received_packet->src,
+                   received_packet->dst);
         printPacket(received_packet);
 #endif
 
@@ -188,7 +177,29 @@ void name_server_main(int name_id) {
                                  node_port_array, node_port_array_size);
           break;
         case JOB_DNS_QUERY:
-          retrieve_id_from_table(job_from_queue->packet, nametable);
+          // Grab the domain name from the DNS Query
+          char dname[PACKET_PAYLOAD_MAX];
+          strncpy(dname, job_from_queue->packet->payload, PACKET_PAYLOAD_MAX);
+
+          // Getting id number from nametable with matching name
+          int id = retrieve_id_from_table(dname, nametable);
+
+          // Construct a response packet with id result
+          struct Packet *queryResponsePkt =
+              createPacket(STATIC_DNS_ID, job_from_queue->packet->src,
+                           PKT_DNS_QUERY_RESPONSE, 0, NULL);
+
+          // Payload syntax: domainName:id
+          snprintf(queryResponsePkt->payload, PACKET_PAYLOAD_MAX, "%s:%d",
+                   dname, id);
+
+          // Update length
+          queryResponsePkt->length = strlen(queryResponsePkt->payload);
+
+          sendPacketTo2(node_port_array, node_port_array_size,
+                        queryResponsePkt);
+
+          free(queryResponsePkt);
           break;
       }
 

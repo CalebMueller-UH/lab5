@@ -7,8 +7,7 @@
 #include "constants.h"
 
 /* Types of packets */
-typedef enum
-{
+typedef enum {
   PKT_PING_REQ,
   PKT_UPLOAD_REQ,
   PKT_DOWNLOAD_REQ,
@@ -20,12 +19,12 @@ typedef enum
   PKT_UPLOAD_END,
   PKT_INVALID_TYPE,
   PKT_DNS_QUERY,
+  PKT_DNS_QUERY_RESPONSE,
   PKT_DNS_REGISTRATION,
   PKT_DNS_RESPONSE
 } packet_type;
 
-struct Packet
-{
+struct Packet {
   char src;
   char dst;
   char type;
