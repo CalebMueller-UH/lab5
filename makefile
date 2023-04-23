@@ -91,6 +91,8 @@ clear:
 # Rule to regenerate object files and executables
 regen: clear clean all
 
+regen_d: clear clean $(DEBUG_EXECUTABLE)
+
 # Rule to run the non-debug executable with the default configuration
 run: $(EXECUTABLE)
 	./$(EXECUTABLE) $(DEFAULT_CONFIG)
