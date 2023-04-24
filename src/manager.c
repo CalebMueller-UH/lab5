@@ -4,8 +4,10 @@ manager.c
 
 #include "manager.h"
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "color.h"
@@ -16,7 +18,9 @@ manager.c
 void man_print_command_prompt(int curr_host) {
   usleep(200000);
   /* Display command options */
-  colorPrint(BOLD_CYAN, "\nCommands (Current host ID = %d):\n", curr_host);
+  colorPrint(BOLD_CYAN, "\nCommands (Current host ID = ");
+  colorPrint(BOLD_GREEN, "%d", curr_host);
+  colorPrint(BOLD_CYAN, "):\n", curr_host);
   colorPrint(CYAN, "   (s) Display host's state\n");
   colorPrint(CYAN, "   (m) Set host's main directory\n");
   colorPrint(CYAN, "   (h) Display all hosts\n");
@@ -24,6 +28,7 @@ void man_print_command_prompt(int curr_host) {
   colorPrint(CYAN, "   (p) Ping a host\n");
   colorPrint(CYAN, "   (u) Upload a file to a host\n");
   colorPrint(CYAN, "   (d) Download a file from a host\n");
+  colorPrint(CYAN, "   (a) Register a domain name of host%d\n", curr_host);
   colorPrint(CYAN, "   (q) Quit\n");
   colorPrint(CYAN, "   Enter Command: ");
 }
@@ -45,6 +50,7 @@ char man_get_user_cmd(int curr_host) {
       case 'p':
       case 'u':
       case 'd':
+      case 'a':
       case 'q':
         return cmd;
       default:
@@ -61,7 +67,7 @@ void change_host(struct Man_port_at_man *list,
 
   // display_host(list, *curr_host);
   colorPrint(BOLD_CYAN, "Enter new host: ");
-  scanf("%d", &new_host_id);
+  scanf(" %d", &new_host_id);
   printf("\n");
 
   /* Find the port of the new host, and then set it as the curr_host */
@@ -97,9 +103,9 @@ void display_host(struct Man_port_at_man *list,
  * Then display on the console.
  */
 void display_host_state(struct Man_port_at_man *curr_host) {
-  char msg[MAX_MSG_LENGTH];
-  char reply[MAX_MSG_LENGTH];
-  char dir[MAX_FILENAME_LENGTH];
+  char msg[MAX_MSG_LENGTH] = {0};
+  char reply[MAX_MSG_LENGTH] = {0};
+  char dir[MAX_FILENAME_LENGTH] = {0};
   int host_id;
   int n;
 
@@ -112,18 +118,18 @@ void display_host_state(struct Man_port_at_man *curr_host) {
     n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
   }
   reply[n] = '\0';
-  sscanf(reply, "%s %d", dir, &host_id);
+  sscanf(reply, " %s %d", dir, &host_id);
   colorPrint(CYAN, "Host %d state: \n", host_id);
   colorPrint(CYAN, "    Directory = %s\n", dir);
 }
 
 void set_host_dir(struct Man_port_at_man *curr_host) {
-  char name[MAX_FILENAME_LENGTH];
-  char msg[MAX_MSG_LENGTH];
+  char name[MAX_FILENAME_LENGTH] = {0};
+  char msg[MAX_MSG_LENGTH] = {0};
   int n;
 
   colorPrint(CYAN, "Enter directory name: ");
-  scanf("%s", name);
+  scanf(" %s", name);
   n = snprintf(msg, MAX_MSG_LENGTH, "m %s", name);
   write(curr_host->send_fd, msg, n);
 }
@@ -141,14 +147,17 @@ void set_host_dir(struct Man_port_at_man *curr_host) {
  */
 
 void ping(struct Man_port_at_man *curr_host) {
-  char msg[MAX_MSG_LENGTH];
-  char reply[MAX_MSG_LENGTH];
-  int host_to_ping;
+  char msg[MAX_MSG_LENGTH] = {0};
+  char reply[MAX_MSG_LENGTH] = {0};
+  char host_to_ping[MAX_NAME_LEN] = {0};
   int n;
 
   colorPrint(CYAN, "Enter id of host to ping: ");
-  scanf("%d", &host_to_ping);
-  n = snprintf(msg, MAX_MSG_LENGTH, "p %d", host_to_ping);
+  scanf(" %s", host_to_ping);
+  int hostToPingLen = strnlen(host_to_ping, MAX_MSG_LENGTH);
+  host_to_ping[hostToPingLen] = '\0';
+
+  n = snprintf(msg, MAX_MSG_LENGTH, "p %s", host_to_ping);
 
   write(curr_host->send_fd, msg, n);
 
@@ -159,7 +168,7 @@ void ping(struct Man_port_at_man *curr_host) {
   }
   reply[n] = '\0';
   printf("%s\n", reply);
-}
+}  // End of ping()
 
 /*
  * Command host to send a file to another host.
@@ -176,20 +185,22 @@ void ping(struct Man_port_at_man *curr_host) {
  */
 int file_upload(struct Man_port_at_man *curr_host) {
   int n;
-  int host_id;
-  char name[MAX_FILENAME_LENGTH];
-  char msg[MAX_MSG_LENGTH];
+  char hostname[MAX_NAME_LEN] = {0};
+  char fname[MAX_FILENAME_LENGTH] = {0};
+  char msg[MAX_MSG_LENGTH] = {0};
 
-  colorPrint(CYAN, "Enter file name to upload: ");
-  scanf("%s", name);
-  colorPrint(CYAN, "Enter host id of destination:  ");
-  scanf("%d", &host_id);
+  colorPrint(CYAN, "Enter destination hostname:  ");
+  scanf(" %s", hostname);
 
-  n = snprintf(msg, MAX_MSG_LENGTH, "u %d %s", host_id, name);
+  colorPrint(CYAN, "Enter filename you would like to upload: ");
+  scanf(" %s", fname);
+
+  n = snprintf(msg, MAX_MSG_LENGTH, "u %s %s", hostname, fname);
+
   write(curr_host->send_fd, msg, n);
   usleep(LOOP_SLEEP_TIME_US);
 
-  char reply[MAX_MSG_LENGTH];
+  char reply[MAX_MSG_LENGTH] = {0};
   n = 0;
   while (n <= 0) {
     usleep(LOOP_SLEEP_TIME_US);
@@ -198,7 +209,7 @@ int file_upload(struct Man_port_at_man *curr_host) {
 
   reply[n] = '\0';
   printf("%s\n", reply);
-}
+}  // End of file_upload()
 
 /*
  * Command host to download a file to another host.
@@ -215,20 +226,22 @@ int file_upload(struct Man_port_at_man *curr_host) {
  */
 int file_download(struct Man_port_at_man *curr_host) {
   int n;
-  int host_id;
-  char name[MAX_FILENAME_LENGTH];
-  char msg[MAX_MSG_LENGTH];
+  char hostname[MAX_NAME_LEN] = {0};
+  char fname[MAX_FILENAME_LENGTH] = {0};
+  char msg[MAX_MSG_LENGTH] = {0};
 
-  colorPrint(CYAN, "Enter file name to download: ");
-  scanf("%s", name);
-  colorPrint(CYAN, "Enter host id that has this file:  ");
-  scanf("%d", &host_id);
+  colorPrint(CYAN, "Enter destination hostname:  ");
+  scanf(" %s", hostname);
 
-  n = snprintf(msg, MAX_MSG_LENGTH, "d %d %s", host_id, name);
+  colorPrint(CYAN, "Enter filename you would like to download: ");
+  scanf(" %s", fname);
+
+  n = snprintf(msg, MAX_MSG_LENGTH, "d %s %s", hostname, fname);
+
   write(curr_host->send_fd, msg, n);
   usleep(LOOP_SLEEP_TIME_US);
 
-  char reply[MAX_MSG_LENGTH];
+  char reply[MAX_MSG_LENGTH] = {0};
   n = 0;
   while (n <= 0) {
     usleep(LOOP_SLEEP_TIME_US);
@@ -237,7 +250,37 @@ int file_download(struct Man_port_at_man *curr_host) {
 
   reply[n] = '\0';
   printf("%s\n", reply);
-}
+}  // End of file_download()
+
+int register_host(struct Man_port_at_man *curr_host) {
+  int n = 0;
+  char hostname[MAX_NAME_LEN] = {0};
+  char msg[MAX_MSG_LENGTH] = {0};
+
+  colorPrint(CYAN, "Enter hostname you would like to register to this host: ");
+  scanf(" %s", hostname);
+
+  // Copy the hostname string into the message buffer using strncpy()
+  strncpy(msg, "a ", MAX_MSG_LENGTH - 1);
+  strncat(msg, hostname, MAX_MSG_LENGTH - 1 - 2);
+
+  // Ensure that the message buffer is null-terminated
+  msg[MAX_MSG_LENGTH - 1] = '\0';
+
+  n = strlen(msg);
+  write(curr_host->send_fd, msg, n);
+  usleep(LOOP_SLEEP_TIME_US);
+
+  char reply[MAX_MSG_LENGTH] = {0};
+  n = 0;
+  while (n <= 0) {
+    usleep(LOOP_SLEEP_TIME_US);
+    n = read(curr_host->recv_fd, reply, MAX_MSG_LENGTH);
+  }
+
+  reply[n] = '\0';
+  printf("%s\n", reply);
+}  // End of register_host()
 
 int isValidDirectory(const char *path) {
   DIR *hostDirectory = opendir(path);
@@ -260,27 +303,22 @@ int fileExists(const char *path) {
 }
 
 /*
-Function reads a manager port command using read(), removes the 1st non-space
-character and stores it in c. The rest of the message is copied to msg, with a
-null terminator added at the end. The function returns the number of bytes read.
+    Reads a message from the specified port and returns the entire message
+    as a string, including any leading whitespace. The command character
+    is returned separately as a parameter. Returns the number of bytes
+    read, or -1 if an error occurs.
 */
-int get_man_command(struct Man_port_at_host *port, char msg[], char *c) {
+int get_man_msg(struct Man_port_at_host *port, char msg[]) {
   int n;
   int i;
   int portNum;
 
   n = read(port->recv_fd, msg, MAX_MSG_LENGTH); /* Get command from manager */
-  if (n > 0) { /* Remove the first char from "msg" */
-    for (i = 0; msg[i] == ' ' && i < n; i++)
-      ;
-    *c = msg[i];
-    i++;
-    for (; msg[i] == ' ' && i < n; i++)
-      ;
-    for (portNum = 0; portNum + i < n; portNum++) {
-      msg[portNum] = msg[portNum + i];
+  if (n > 0) {
+    /* Remove leading white space */
+    while (isspace(msg[0])) {
+      memmove(msg, msg + 1, n--);
     }
-    msg[portNum] = '\0';
   }
   return n;
 }
@@ -290,7 +328,7 @@ void reply_display_host_state(struct Man_port_at_host *port,
                               char hostDirectory[], int dir_valid,
                               int host_id) {
   int n;
-  char reply_msg[MAX_MSG_LENGTH];
+  char reply_msg[MAX_MSG_LENGTH] = {0};
 
   if (isValidDirectory(hostDirectory)) {
     n = snprintf(reply_msg, MAX_MSG_LENGTH, "%s %d", hostDirectory, host_id);
@@ -344,6 +382,9 @@ void man_main() {
         break;
       case 'd': /* Download a file from a host */
         file_download(curr_host);
+        break;
+      case 'a': /* Download a file from a host */
+        register_host(curr_host);
         break;
       case 'q': /* Quit */
         return;

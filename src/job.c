@@ -38,6 +38,10 @@ char *get_job_type_literal(enum JobType t) {
       return "JOB_DOWNLOAD";
     case JOB_INVALID_TYPE:
       return "JOB_INVALID_TYPE";
+    case JOB_DNS_REGISTER:
+      return "JOB_DNS_REGISTER";
+    case JOB_DNS_QUERY:
+      return "JOB_DNS_QUERY";
   };
   return "UNKNOWN_JobType";
 }

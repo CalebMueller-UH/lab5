@@ -13,11 +13,13 @@
 #include "manager.h"
 #include "net.h"
 #include "switch.h"
+#include "nameServer.h"
 
 #define BCAST_ADDR 100
 #define STRING_MAX 100
 
-void main(int argc, char **argv) {
+void main(int argc, char **argv)
+{
   pid_t pid; /* Process id */
   int k = 0;
   int status;
@@ -30,15 +32,20 @@ void main(int argc, char **argv) {
    *   - links, creates/implements the links, e.g., using pipes or sockets
    */
 
-  if (argc > 1) {
+  if (argc > 1)
+  {
     // ./net367 called with argument -> net_init with provided arg
-    if (net_init(argv[1]) != 0) {
+    if (net_init(argv[1]) != 0)
+    {
       fprintf(stderr, "Error initializing network at net_init(%s)\n", argv[1]);
       return;
     }
-  } else {
+  }
+  else
+  {
     // ./net367 not called with argument -> net_init with NULL
-    if (net_init(NULL) != 0) {
+    if (net_init(NULL) != 0)
+    {
       fprintf(stderr, "Error initializing network at net_init(NULL)\n");
       return;
     }
@@ -47,18 +54,31 @@ void main(int argc, char **argv) {
   node_list = net_get_node_list(); /* Returns the list of nodes */
 
   /* Create nodes, which are child processes */
-  for (p_node = node_list; p_node != NULL; p_node = p_node->next) {
+  for (p_node = node_list; p_node != NULL; p_node = p_node->next)
+  {
     pid = fork();
-    if (pid == -1) {
+    if (pid == -1)
+    {
       fprintf(stderr, "Error: main.c: node_list fork() failed\n");
       return;
-    } else if (pid == 0) { /* The child process, which is a node  */
-      if (p_node->type == HOST) {
+    }
+    else if (pid == 0)
+    { /* The child process, which is a node  */
+      if (p_node->type == HOST)
+      {
         /* Execute host routine */
         host_main(p_node->id);
-      } else if (p_node->type = SWITCH) {
+      }
+      else if (p_node->type == SWITCH)
+      {
         /* Execute switch routine */
         switch_main(p_node->id);
+      }
+      else if (p_node->type == DNS)
+      {
+        /* Execute dns routine */
+
+        name_server_main(p_node->id);
       }
       return;
     }

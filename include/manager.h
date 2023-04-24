@@ -49,7 +49,7 @@ Function reads a manager port command using read(), removes the 1st non-space
 character and stores it in c. The rest of the message is copied to msg, with a
 null terminator added at the end. The function returns the number of bytes read.
 */
-int get_man_command(struct Man_port_at_host *port, char msg[], char *c);
+int get_man_msg(struct Man_port_at_host *port, char msg[]);
 
 /* Send back state of the host to the manager as a text message */
 void reply_display_host_state(struct Man_port_at_host *port,

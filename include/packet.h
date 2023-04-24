@@ -11,13 +11,18 @@ typedef enum {
   PKT_PING_REQ,
   PKT_UPLOAD_REQ,
   PKT_DOWNLOAD_REQ,
+  PKT_DNS_REQ,
   PKT_PING_RESPONSE,
   PKT_UPLOAD_RESPONSE,
   PKT_DOWNLOAD_RESPONSE,
   PKT_UPLOAD,
   PKT_UPLOAD_END,
   PKT_TREE_PKT,
-  PKT_INVALID_TYPE
+  PKT_INVALID_TYPE,
+  PKT_DNS_QUERY,
+  PKT_DNS_QUERY_RESPONSE,
+  PKT_DNS_REGISTRATION,
+  PKT_DNS_REGISTRATION_RESPONSE
 } packet_type;
 
 struct Packet {
@@ -39,6 +44,8 @@ struct Packet *createPacket(int src, int dst, int type, int length,
                             char *payload);
 
 struct Packet *createEmptyPacket();
+
+struct Packet *deepcopy_packet(const struct Packet *original);
 
 void packet_delete(struct Packet *p);
 

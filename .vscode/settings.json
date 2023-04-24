@@ -18,6 +18,7 @@
         "inet.h": "c",
         "stddef.h": "c",
         "stat.h": "c",
-        "wait.h": "c"
+        "wait.h": "c",
+        "unordered_map": "c"
     }
 }

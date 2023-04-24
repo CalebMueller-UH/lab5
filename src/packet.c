@@ -63,7 +63,6 @@ void packet_send(struct Net_port *port, struct Packet *p) {
 
   if (port->type == PIPE) {
     bytesSent = write(port->send_fd, pkt, p->length + 4);
-
   } else if (port->type == SOCKET) {
     bytesSent = sock_send(port->localDomain, port->remoteDomain,
                           port->remotePort, pkt, p->length + 4);
@@ -101,6 +100,16 @@ struct Packet *createEmptyPacket() {
   return p;
 }
 
+struct Packet *deepcopy_packet(const struct Packet *original) {
+  struct Packet *copy = createEmptyPacket();
+  copy->src = original->src;
+  copy->dst = original->dst;
+  copy->type = original->type;
+  copy->length = original->length;
+  memcpy(copy->payload, original->payload, PACKET_PAYLOAD_MAX);
+  return copy;
+}
+
 void packet_delete(struct Packet *p) {
   if (p == NULL) {
     fprintf(stderr, "packet_delete called on NULL packet\n");
@@ -125,16 +134,32 @@ char *get_packet_type_literal(int pktType) {
       return "PKT_DOWNLOAD_REQ";
     case PKT_DOWNLOAD_RESPONSE:
       return "PKT_DOWNLOAD_RESPONSE";
+    case PKT_DNS_QUERY_RESPONSE:
+      return "PKT_DNS_QUERY_RESPONSE";
     case PKT_UPLOAD:
       return "PKT_UPLOAD";
     case PKT_UPLOAD_END:
       return "PKT_UPLOAD_END";
+    case PKT_DNS_REGISTRATION:
+      return "PKT_DNS_REGISTRATION";
+    case PKT_DNS_REGISTRATION_RESPONSE:
+      return "PKT_DNS_REGISTRATION_RESPONSE";
+    case PKT_DNS_QUERY:
+      return "PKT_DNS_QUERY";
   }
 }
 
 /* Prints the contents of a packet with its source, destination, type,
  * length, and payload. */
 void printPacket(struct Packet *p) {
+  if (p == NULL) {
+    printf("Error: packet pointer is NULL\n");
+    return;
+  }
+  if (p->payload == NULL) {
+    printf("Error: packet payload pointer is NULL\n");
+    return;
+  }
   colorPrint(ORANGE, "src:%d dst:%d type: %s len:%d payload:%s\n", p->src,
              p->dst, get_packet_type_literal(p->type), p->length, p->payload);
 }
