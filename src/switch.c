@@ -16,7 +16,7 @@
 #include "packet.h"
 
 #ifdef DEBUG
-#define SWITCH_DEBUG
+// #define SWITCH_DEBUG
 #endif
 
 #define MAX_NUM_ROUTES 100
@@ -163,7 +163,6 @@ void periodicTreePacketSender(struct Net_port **arr, const int arrSize,
       packet_send(arr[i], compPkt);
     }
     timeLast = timeNow;
-    free(compPayloadLen);
   }
 }  // End of periodicTreePacketSender()
 

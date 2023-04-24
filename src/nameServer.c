@@ -15,6 +15,10 @@
 #include "net.h"
 #include "packet.h"
 
+#ifdef DEBUG
+#define NAMESERVERDEBUG
+#endif
+
 // Used for registerNameToTable when ID can't be found
 #define UNKNOWN -1
 
@@ -47,13 +51,13 @@ void name_server_main(int name_id) {
           (struct Packet *)malloc(sizeof(struct Packet));
       int n = packet_recv(nsc->node_port_array[portNum], received_packet);
       if (n > 0) {
-#ifdef DEBUG
-        colorPrint(YELLOW,
-                   "DEBUG: id:%d name_server_main: DNS Server received packet "
-                   "on port:%d "
-                   "src:%d dst:%d\n",
-                   nsc->_id, portNum, received_packet->src,
-                   received_packet->dst);
+#ifdef NAMESERVERDEBUG
+        colorPrint(
+            GREY,
+            "\nDEBUG: id:%d name_server_main: DNS Server received packet "
+            "on port:%d "
+            "src:%d dst:%d\n",
+            nsc->_id, portNum, received_packet->src, received_packet->dst);
         printPacket(received_packet);
 #endif
 
@@ -68,6 +72,9 @@ void name_server_main(int name_id) {
           case PKT_DNS_QUERY:
             nsJob->type = JOB_DNS_QUERY;
             break;
+          default:
+            // fprintf(stderr, "DNS Server received a packet of unknown
+            // type\n");
         }
         ////// Enqueues job //////
         nsJob->state = JOB_PENDING_STATE;
@@ -233,7 +240,7 @@ int registerNameToTable(struct NameServerContext *nsc, struct Packet *pkt) {
   // Update nametable to [src]::domainName
   strncpy(nsc->nametable[pkt->src], dname, dnameLen);
 
-#ifdef DEBUG
+#ifdef NAMESERVERDEBUG
   colorPrint(BOLD_GREY, "\t%s was registered to host%d\n",
              nsc->nametable[pkt->src], pkt->src);
 #endif

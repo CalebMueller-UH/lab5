@@ -124,28 +124,36 @@ char *get_packet_type_literal(int pktType) {
   switch (pktType) {
     case PKT_PING_REQ:
       return "PKT_PING_REQ";
-    case PKT_PING_RESPONSE:
-      return "PKT_PING_RESPONSE";
     case PKT_UPLOAD_REQ:
       return "PKT_UPLOAD_REQ";
-    case PKT_UPLOAD_RESPONSE:
-      return "PKT_UPLOAD_RESPONSE";
     case PKT_DOWNLOAD_REQ:
       return "PKT_DOWNLOAD_REQ";
+    case PKT_DNS_REQ:
+      return "PKT_DNS_REQ";
+    case PKT_PING_RESPONSE:
+      return "PKT_PING_RESPONSE";
+    case PKT_UPLOAD_RESPONSE:
+      return "PKT_UPLOAD_RESPONSE";
     case PKT_DOWNLOAD_RESPONSE:
       return "PKT_DOWNLOAD_RESPONSE";
-    case PKT_DNS_QUERY_RESPONSE:
-      return "PKT_DNS_QUERY_RESPONSE";
     case PKT_UPLOAD:
       return "PKT_UPLOAD";
     case PKT_UPLOAD_END:
       return "PKT_UPLOAD_END";
+    case PKT_TREE_PKT:
+      return "PKT_TREE_PKT";
+    case PKT_INVALID_TYPE:
+      return "PKT_INVALID_TYPE";
+    case PKT_DNS_QUERY:
+      return "PKT_DNS_QUERY";
+    case PKT_DNS_QUERY_RESPONSE:
+      return "PKT_DNS_QUERY_RESPONSE";
     case PKT_DNS_REGISTRATION:
       return "PKT_DNS_REGISTRATION";
     case PKT_DNS_REGISTRATION_RESPONSE:
       return "PKT_DNS_REGISTRATION_RESPONSE";
-    case PKT_DNS_QUERY:
-      return "PKT_DNS_QUERY";
+    default:
+      return "UNKNOWN_PACKET_TYPE";
   }
 }
 

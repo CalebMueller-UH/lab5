@@ -313,15 +313,18 @@ int get_man_msg(struct Man_port_at_host *port, char msg[]) {
   int i;
   int portNum;
 
-  n = read(port->recv_fd, msg, MAX_MSG_LENGTH); /* Get command from manager */
+  n = read(port->recv_fd, msg,
+           MAX_MSG_LENGTH - 1); /* Get command from manager */
   if (n > 0) {
+    msg[n] = '\0'; /* Null-terminate the msg buffer */
+
     /* Remove leading white space */
     while (isspace(msg[0])) {
       memmove(msg, msg + 1, n--);
     }
   }
   return n;
-}
+}  // End of get_man_msg()
 
 /* Send back state of the host to the manager as a text message */
 void reply_display_host_state(struct Man_port_at_host *port,

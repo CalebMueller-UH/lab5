@@ -18,7 +18,7 @@
 #include "packet.h"
 
 #ifdef DEBUG
-// #define HOST_DEBUG
+#define HOST_DEBUG
 #endif
 
 struct HostContext {
@@ -261,8 +261,10 @@ void commandHandler(struct HostContext *host) {
     fprintf(stderr, "Failed to parse man_msg\n");
   }
 
+#ifdef HOST_DEBUG
   printf("man_msg: %s\n", host->man_msg);
   printf("cmd: %c\tdstStr: %s\tfname:%s\n", cmd, dstStr, fname);
+#endif
 
   int needsDst = 0;
   switch (cmd) {
