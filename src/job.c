@@ -147,6 +147,7 @@ struct Job *job_create_empty() {
   j->timeToLive = 0;
   j->fp = NULL;
   memset(j->filepath, 0, sizeof(j->filepath));
+  j->fileOffset = 0;
   j->type = JOB_INVALID_TYPE;
   j->state = JOB_INVALID_STATE;
   j->packet = NULL;

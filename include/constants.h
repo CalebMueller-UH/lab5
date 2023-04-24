@@ -25,7 +25,7 @@ constants.h
 
 // Number of wait cycles a typical packet is assigned
 // (Not necessarily tied to a measure of time)
-#define TIMETOLIVE 10
+#define TIMETOLIVE 10000
 
 #define STATIC_DNS_ID 100
 

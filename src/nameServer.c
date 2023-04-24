@@ -16,7 +16,7 @@
 #include "packet.h"
 
 #ifdef DEBUG
-#define NAMESERVERDEBUG
+// #define NAMESERVERDEBUG
 #endif
 
 // Used for registerNameToTable when ID can't be found
@@ -260,7 +260,6 @@ int retrieveIdFromTable(struct NameServerContext *nsc, struct Packet *pkt) {
 
   for (int i = 0; i < MAX_NUM_NAMES; i++) {
     if (strncmp(dname, nsc->nametable[i], PACKET_PAYLOAD_MAX) == 0) {
-      printf("found a match! %d\n", i);
       return i;
     }
   }

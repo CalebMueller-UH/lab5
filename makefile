@@ -81,7 +81,7 @@ clean:
 endif
 
 # Define starting files for TestDir0
-TD0_FILES = testmsg0 testmsg00
+TD0_FILES = testmsg0 testmsg00 loremipsum
 # Define starting files for TestDir1
 TD1_FILES = bigTest haha.txt testmsg1 testmsg1B 
 

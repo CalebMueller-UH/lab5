@@ -175,6 +175,7 @@ void host_main(int host_id) {
           }  //////////////// End of case JOB_WAIT_FOR_RESPONSE
 
           case JOB_UPLOAD: {
+            jobUploadSendHandler(host, job_from_queue);
             break;
           }  //////////////// End of case JOB_UPLOAD
 
@@ -262,8 +263,8 @@ void commandHandler(struct HostContext *host) {
   }
 
 #ifdef HOST_DEBUG
-  printf("man_msg: %s\n", host->man_msg);
-  printf("cmd: %c\tdstStr: %s\tfname:%s\n", cmd, dstStr, fname);
+  colorPrint(GREY, "man_msg: %s\n", host->man_msg);
+  colorPrint(GREY, "cmd: %c\tdstStr: %s\tfname:%s\n", cmd, dstStr, fname);
 #endif
 
   int needsDst = 0;
@@ -320,7 +321,7 @@ void commandHandler(struct HostContext *host) {
       if (dst == host->_id) {
         memset(responseMsg, '\0', MAX_MSG_LENGTH);
         colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
-                      "PING ACKNOWLEDGED!");
+                      "Pinging Self...");
         sendMsgToManager(host->man_port->send_fd, responseMsg);
         break;
       }
@@ -614,36 +615,45 @@ void jobUploadSendHandler(struct HostContext *host,
   // Get the file size
   fseek(fp, 0L, SEEK_END);
   long fileSize = ftell(fp);
-  fseek(fp, 0L, SEEK_SET);
+
+  // Set the file position to the current offset
+  fseek(fp, job_from_queue->fileOffset, SEEK_SET);
 
   // Allocate a buffer for reading data from the file
-  int bufferSize = MAX_RESPONSE_LEN - 1;
+  int bufferSize = MAX_RESPONSE_LEN;
   char *buffer = (char *)malloc(sizeof(char) * bufferSize);
 
-  // Read and send the file in chunks
-  while (fileSize > 0) {
-    int chunkSize = fileSize < bufferSize ? fileSize : bufferSize;
-    int bytesRead = fread(buffer, sizeof(char), chunkSize, fp);
-    if (bytesRead <= 0) {
-      break;
-    }
+  // Read and send one chunk of the file
+  int chunkSize = fileSize - job_from_queue->fileOffset < bufferSize
+                      ? fileSize - job_from_queue->fileOffset
+                      : bufferSize;
+  int bytesRead = fread(buffer, sizeof(char), chunkSize, fp);
 
-    buffer[bytesRead] = '\0';
-
+  if (bytesRead > 0) {
     struct Packet *p = createPacket(src, dst, PKT_UPLOAD, 0, buffer);
     struct Job *j = job_create(id, 0, JOB_SEND_PKT, JOB_COMPLETE_STATE, p);
     job_enqueue(host->_id, *host->jobq, j);
 
-    fileSize -= bytesRead;
-    usleep(5000);
-  }
+    // Update the file offset
+    job_from_queue->fileOffset += bytesRead;
 
-  usleep(10000);
-  // Notify the receiver that the file transfer is complete
-  struct Packet *finPkt = createPacket(src, dst, PKT_UPLOAD_END, 0, NULL);
-  struct Job *finJob =
-      job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_COMPLETE_STATE, finPkt);
-  job_enqueue(host->_id, *host->jobq, finJob);
+    // If there's still data left to send, create a new job with the updated
+    // file offset
+    if (job_from_queue->fileOffset < fileSize) {
+      struct Job *nextJob =
+          job_create(id, TIMETOLIVE, JOB_UPLOAD, JOB_PENDING_STATE,
+                     job_from_queue->packet);
+      nextJob->fp = fp;
+      nextJob->fileOffset = job_from_queue->fileOffset;
+      job_enqueue(host->_id, *host->jobq, nextJob);
+    } else {
+      // Notify the receiver that the file transfer is complete
+      struct Packet *finPkt = createPacket(src, dst, PKT_UPLOAD_END, 0, NULL);
+      struct Job *finJob =
+          job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_COMPLETE_STATE, finPkt);
+      job_enqueue(host->_id, *host->jobq, finJob);
+    }
+  }
 
   // Free allocated memory
   free(id);
@@ -920,7 +930,6 @@ void pktIncomingResponse(struct HostContext *host, struct Packet *inPkt) {
 
       case PKT_DNS_QUERY_RESPONSE:
         int msgVal = atoi(msg);
-        printf("msgVal: %d\n", msgVal);
         if (msgVal < 0) {
           waitJob->state = JOB_ERROR_STATE;
         } else {

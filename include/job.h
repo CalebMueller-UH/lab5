@@ -42,6 +42,7 @@ struct Job {
   int timeToLive;
   FILE *fp;
   char filepath[MAX_FILENAME_LENGTH * 2];
+  long fileOffset;
   enum JobType type;
   enum JobState state;
   struct Packet *packet;
