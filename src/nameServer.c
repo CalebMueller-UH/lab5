@@ -47,13 +47,13 @@ void init_nametable(char **nametable) {
 ////// Function that puts register names onto the nametable //////
 void register_name_to_table(struct Packet *pkt, char **nametable,
                             struct Net_port **arr, int arrSize) {
-  colorPrint(BOLD_RED, "register_name_to_table\n");
-  printPacket(pkt);
   int index =
       (int)pkt->src;  // Convert the source character to an integer index
   int length = pkt->length;
   if (index < 0 || index >= PACKET_PAYLOAD_MAX || length <= 0) {
     return;  // Invalid input, do nothing
+    fprintf(stderr,
+            "nameServer register_name_to_table encountered invalid index\n");
   }
 
   strncpy(nametable[pkt->src], pkt->payload, pkt->length);
@@ -178,8 +178,8 @@ void name_server_main(int name_id) {
           break;
         case JOB_DNS_QUERY:
           // Grab the domain name from the DNS Query
-          char dname[PACKET_PAYLOAD_MAX];
-          strncpy(dname, job_from_queue->packet->payload, PACKET_PAYLOAD_MAX);
+          char dname[MAX_NAME_LEN];
+          strncpy(dname, job_from_queue->packet->payload, MAX_NAME_LEN);
 
           // Getting id number from nametable with matching name
           int id = retrieve_id_from_table(dname, nametable);

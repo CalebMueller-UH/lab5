@@ -13,6 +13,9 @@ constants.h
 // Maximum manager message length
 #define MAX_MSG_LENGTH 1000
 
+// Number of decimal digits of a job id
+#define JIDLEN 4
+
 // How much time to sleep between between loop executions to simulate
 // asynchronous execution (in microseconds)
 #define LOOP_SLEEP_TIME_US 100000
@@ -29,6 +32,9 @@ constants.h
 // The number of payload space available after including
 // a job id, the ':' delimiter, and a null terminator
 #define MAX_RESPONSE_LEN (PACKET_PAYLOAD_MAX - 2 - JIDLEN)
+
+// Maximum length that a domain name can have
+#define MAX_NAME_LEN (MAX_RESPONSE_LEN - 4)
 
 // Maximum number of allowable Domain Name aliases
 #define MAX_NUM_NAMES 255

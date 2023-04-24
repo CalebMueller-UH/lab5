@@ -8,8 +8,6 @@
 
 #include "constants.h"
 
-#define JIDLEN 4  // Job id (jid) length
-
 enum JobType {
   JOB_SEND_PKT,
   JOB_BROADCAST_PKT,

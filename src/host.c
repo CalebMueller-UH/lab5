@@ -21,7 +21,7 @@ struct HostContext {
   int _id;
   char *linkedDirPath;
   struct Man_port_at_host *man_port;
-  struct JobQueue *jobq;
+  struct JobQueue **jobq;
   struct Net_port **node_port_array;
   int node_port_array_size;
   struct Net_port *node_port_list;
@@ -32,49 +32,17 @@ struct HostContext {
 struct HostContext *init_host_context(int host_id);
 
 int parse_man_msg(char *msg, char *cmd, char *dstStr, char *fname) {
-  int msg_length = strlen(msg);
-  int dstStr_index = 0;
-  int fname_index = 0;
-  int state = 0;  // 0: parsing cmd, 1: parsing dstStr, 2: parsing fname
+  *fname = '\0';  // Initialize fname to the empty string
 
-  for (int i = 0; i < msg_length; i++) {
-    char ch = msg[i];
-
-    if (state == 0) {
-      if (isalpha(ch)) {
-        *cmd = ch;
-        state = 1;
-      }
-    } else if (state == 1) {
-      if (ch == ' ') {
-        dstStr[dstStr_index] = '\0';
-        state = 2;
-      } else {
-        dstStr[dstStr_index++] = ch;
-      }
-    } else if (state == 2) {
-      if (ch == ' ') {
-        break;
-      } else {
-        fname[fname_index++] = ch;
-      }
-    }
-  }
-
-  if (state < 1) {
-    return 0;
-  }
-
-  if (state == 1) {
-    fname[0] = '\0';
+  int result = sscanf(msg, "%c %255s %255s", cmd, dstStr, fname);
+  if (result >= 2) {
+    return 1;  // Return 1 to indicate success
   } else {
-    fname[fname_index] = '\0';
+    return 0;  // Return 0 to indicate failure
   }
+}
 
-  return 1;
-}  // End of parse_man_msg()
-
-void sendPingRequest(struct HostContext *h);
+void commandHandler(struct HostContext *host);
 
 // Helper Function Forward Declarations
 void commandDownloadHandler(int host_id, struct JobQueue *hostq,
@@ -131,7 +99,7 @@ int resolveHostname(char *name, char **nametable);
 int requestIDFromDNS(const int hostId, char *nameToResolve, char **nametable,
                      struct Net_port **arr, int arrSize);
 
-void updateNametable(char *payload, char **nametable);
+int updateNametable(char *payload, struct HostContext *host);
 
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
@@ -139,47 +107,7 @@ void host_main(int host_id) {
   ////// Initialize state of host //////
   struct HostContext *host = init_host_context(host_id);
 
-  // ////// Initialize state of host //////
-  // char hostDirectory[MAX_FILENAME_LENGTH];
-  // // char man_reply_msg[MAX_MSG_LENGTH];
-
-  // /* Initialize pipes, Get link port to the manager */
-  // struct Man_port_at_host *man_port;  // Port to the manager
-  // man_port = net_get_host_port(host_id);
-
-  // // Initialize node_port_array
-  // struct Net_port *node_port_list;
-  // node_port_list = net_get_port_list(host_id);
-  // /*  Count the number of network link ports */
-  // struct Net_port **node_port_array;  // Array of pointers to node ports
-  // int node_port_array_size = 0;       // Number of node ports
-  // for (struct Net_port *p = node_port_list; p != NULL; p = p->next) {
-  //   node_port_array_size++;
-  // }
-  // /* Create memory space for the array */
-  // node_port_array = (struct Net_port **)malloc(node_port_array_size *
-  //                                              sizeof(struct Net_port *));
-  // /* Load ports into the array */
-  // {
-  //   struct Net_port *p = node_port_list;
-  //   for (int portNum = 0; portNum < node_port_array_size; portNum++) {
-  //     node_port_array[portNum] = p;
-  //     p = p->next;
-  //   }
-  // }
-
-  // /* Initialize the job queue */
-  // struct JobQueue hostq;
-  // job_queue_init(&hostq);
-
-  // /* Initialize request list */
-  // // struct Request *requestList = NULL;
-
-  // ////// Initialize Name Table //////
-  // char **nametable = malloc((MAX_NUM_NAMES + 1) * sizeof(char *));
-  // init_nametable(nametable);
-
-  // char man_msg[MAX_MSG_LENGTH];
+  printf("host_main host->_id:%d\n", host->_id);
 
   while (1) {
     ////////////////////////////////////////////////////////////////
@@ -189,132 +117,13 @@ void host_main(int host_id) {
     // Attempt to retrieve issued command from manager
     int n = get_man_msg(host->man_port, host->man_msg);
     if (n > 0) {
+      printf("while(1) host->_id:%d\n", host->_id);
+
       // Received a man_msg...
-
-      char cmd;
-      char dstStr[PACKET_PAYLOAD_MAX];
-      char fname[MAX_FILENAME_LENGTH];
-
-      parse_man_msg(host->man_msg, &cmd, dstStr, fname);
-
-      int dst = resolveHostname(dstStr, host->nametable);
-      if (dst < 0) {
-        // Unable to resolve hostname in local cache
-        // Send a DNS Query to the server to retrieve the id associated with
-        // that domain name
-        requestIDFromDNS(host->_id, dstStr, host->nametable,
-                         host->node_port_array, host->node_port_array_size);
-      } else {
-        // Host Name WAS able to be resolved
-        char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
-
-        switch (cmd) {
-          case 's': {
-            // Display host state
-            reply_display_host_state(host->man_port, host->linkedDirPath,
-                                     isValidDirectory(host->linkedDirPath),
-                                     host->_id);
-            break;
-          }  //////////////// End of case 's'
-
-          case 'm': {
-            // Change Active Host's hostDirectory
-            size_t len = strnlen(host->man_msg, MAX_FILENAME_LENGTH - 1);
-            if (isValidDirectory(host->man_msg)) {
-              memcpy(host->linkedDirPath, host->man_msg, len);
-              host->linkedDirPath[len] = '\0';  // add null character
-              colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
-                         host->_id, host->man_msg);
-            } else {
-              colorPrint(BOLD_RED, "%s is not a valid directory\n",
-                         host->man_msg);
-            }
-            break;
-          }  //////////////// End of case 'm'
-
-          case 'p': {
-            ////// Have active Host ping another host //////
-            // Check to see if pinging self
-            if (dst == host->_id) {
-              memset(responseMsg, '\0', MAX_MSG_LENGTH);
-              colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
-                            "PING ACKNOWLEDGED!");
-              sendMsgToManager(host->man_port->send_fd, responseMsg);
-              break;
-            }
-
-            // Create ping request packet
-            struct Packet *preqPkt =
-                createPacket(host->_id, dst, PKT_PING_REQ, 0, NULL);
-
-            // Create send request job
-            struct Job *sendReqJob = job_create(
-                NULL, TIMETOLIVE, JOB_SEND_REQUEST, JOB_PENDING_STATE, preqPkt);
-            // Enqueue job
-            job_enqueue(host->_id, host->jobq, sendReqJob);
-            break;
-          }  //////////////// End of case 'p'
-
-          case 'u': {
-            // Upload a file from active host to another host
-            // Get dst and fname from man_msg
-            char *dummy;
-            char fname[MAX_FILENAME_LENGTH] = {0};
-            printf("man_msg at upload:%s\n", host->man_msg);
-            sscanf(host->man_msg, "%s %s", dummy, fname);
-            int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
-            fname[fnameLen] = '\0';
-            commandUploadHandler(host->_id, host->jobq, host->linkedDirPath,
-                                 dst, fname, host->man_port->send_fd);
-            break;
-          }  //////////////// End of case 'u'
-
-          case 'd': {
-            // Download a file from another host to active host
-            int dummy;
-            char fname[MAX_FILENAME_LENGTH] = {0};
-            sscanf(host->man_msg, "%d %s", &dummy, fname);
-            int fnameLen = strnlen(fname, MAX_FILENAME_LENGTH);
-            fname[fnameLen] = '\0';
-            commandDownloadHandler(host->_id, host->jobq, host->linkedDirPath,
-                                   dst, fname, host->man_port->send_fd);
-
-            break;
-          }  //////////////// End of case 'd'
-
-          case 'a': {
-            // Function that finds name from host
-            int dummy;
-            char dnsName[MAX_RESPONSE_LEN] = {0};
-            sscanf(host->man_msg, "%d %s", &dummy, dnsName);
-            int dnsNameLen = strnlen(dnsName, MAX_FILENAME_LENGTH);
-            dnsName[dnsNameLen] = '\0';
-
-            // register own domain name in local cache
-            memcpy(host->nametable[host->_id], dnsName, PACKET_PAYLOAD_MAX);
-
-            //
-            struct Packet *registerPkt =
-                createPacket(host->_id, STATIC_DNS_ID, PKT_DNS_REGISTRATION, 0,
-                             dnsName);  // might have to add &%
-
-            sendPacketTo(host->node_port_array, host->node_port_array_size,
-                         registerPkt);
-
-            break;
-          }  //////////////// End of case 'a'
-
-          default:;
-          SKIP_COMMAND_HANDLER:
-        }
-        if (responseMsg) {
-          free(responseMsg);
-        }
-      }
-    }  // End of command
+      commandHandler(host);
+    }
 
     //////////////// COMMAND HANDLER
-
     ////////////////////////////////
     ////////////////////////////////////////////////////////////////
     // -------------------------------------------------------------
@@ -339,22 +148,22 @@ void host_main(int host_id) {
           case PKT_PING_REQ:
           case PKT_UPLOAD_REQ:
           case PKT_DOWNLOAD_REQ:
-            pktIncomingRequest(host_id, host->jobq, inPkt);
+            pktIncomingRequest(host_id, *host->jobq, inPkt);
             break;
 
             ////////////////
           case PKT_PING_RESPONSE:
           case PKT_UPLOAD_RESPONSE:
           case PKT_DOWNLOAD_RESPONSE:
-            pktIncomingResponse(inPkt, host->jobq);
+            pktIncomingResponse(inPkt, *host->jobq);
             break;
 
           case PKT_UPLOAD:
-            pktUploadReceive(host_id, inPkt, host->jobq);
+            pktUploadReceive(host_id, inPkt, *host->jobq);
             break;
 
           case PKT_UPLOAD_END:
-            pktUploadEnd(host_id, inPkt, host->jobq);
+            pktUploadEnd(host_id, inPkt, *host->jobq);
             break;
 
           case PKT_DNS_RESPONSE:
@@ -367,7 +176,8 @@ void host_main(int host_id) {
             break;
 
           case PKT_DNS_QUERY_RESPONSE:
-            updateNametable(inPkt->payload, host->nametable);
+            updateNametable(inPkt->payload, host);
+            commandHandler(host);
             break;
 
           ////////////////
@@ -383,22 +193,22 @@ void host_main(int host_id) {
       ////////////////////////////////
       //////////////// JOB HANDLER
 
-      if (job_queue_length(host->jobq) > 0) {
+      if (job_queue_length(*host->jobq) > 0) {
         /* Get a new job from the job queue */
-        struct Job *job_from_queue = job_dequeue(host_id, host->jobq);
+        struct Job *job_from_queue = job_dequeue(host_id, *host->jobq);
 
         //////////////////// EXECUTE FETCHED JOB ////////////////////
         switch (job_from_queue->type) {
           ////////////////
           case JOB_SEND_REQUEST: {
-            jobSendRequestHandler(host_id, host->jobq, job_from_queue,
+            jobSendRequestHandler(host_id, *host->jobq, job_from_queue,
                                   host->node_port_array,
                                   host->node_port_array_size);
             break;
           }  //////////////// End of JOB_SEND_REQUEST
 
           case JOB_SEND_RESPONSE: {
-            jobSendResponseHandler(host_id, host->jobq, host->linkedDirPath,
+            jobSendResponseHandler(host_id, *host->jobq, host->linkedDirPath,
                                    job_from_queue, host->node_port_array,
                                    host->node_port_array_size,
                                    host->man_port->send_fd);
@@ -414,7 +224,7 @@ void host_main(int host_id) {
 
           case JOB_WAIT_FOR_RESPONSE: {
             jobWaitForResponseHandler(
-                host_id, job_from_queue, host->jobq, host->linkedDirPath,
+                host_id, job_from_queue, *host->jobq, host->linkedDirPath,
                 host->node_port_array, host->node_port_array_size,
                 host->man_port->send_fd);
             break;
@@ -463,7 +273,10 @@ struct HostContext *init_host_context(int host_id) {
       (struct HostContext *)malloc(sizeof(struct HostContext));
 
   host_context->_id = host_id;
-  snprintf(host_context->linkedDirPath, MAX_FILENAME_LENGTH, "Host%d", host_id);
+
+  printf("init_host_context host->_id:%d\n", host_context->_id);
+
+  host_context->linkedDirPath = NULL;
 
   host_context->man_port = net_get_host_port(host_id);
 
@@ -486,13 +299,140 @@ struct HostContext *init_host_context(int host_id) {
     }
   }
 
-  job_queue_init(host_context->jobq);
+  // Allocate memory for the JobQueue struct
+  host_context->jobq = (struct JobQueue **)malloc(sizeof(struct JobQueue *));
+  *host_context->jobq = (struct JobQueue *)malloc(sizeof(struct JobQueue));
+
+  // Initialize the JobQueue struct
+  job_queue_init(*host_context->jobq);
 
   host_context->nametable = malloc((MAX_NUM_NAMES + 1) * sizeof(char *));
   init_nametable(host_context->nametable);
 
   return host_context;
 }  // End of init_host_context()
+
+void commandHandler(struct HostContext *host) {
+  char cmd;
+  char dstStr[PACKET_PAYLOAD_MAX];
+  char fname[MAX_FILENAME_LENGTH];
+
+  if (parse_man_msg(host->man_msg, &cmd, dstStr, fname)) {
+#ifdef DEBUG
+    printf("cmd: %c\ndstStr: %s\nfname: %s\n", cmd, dstStr, fname);
+#endif
+  } else {
+    fprintf(stderr, "Failed to parse man_msg\n");
+  }
+
+  int dst;
+  if (cmd != 'a') {
+    dst = resolveHostname(dstStr, host->nametable);
+  }
+
+  if (dst < 0) {
+    // Unable to resolve hostname in local cache
+    // Send a DNS Query to the server to retrieve the id associated with
+    // that domain name
+    requestIDFromDNS(host->_id, dstStr, host->nametable, host->node_port_array,
+                     host->node_port_array_size);
+
+    return;
+  } else {
+    // Host Name WAS able to be resolved
+    char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
+
+    switch (cmd) {
+      case 's': {
+        // Display host state
+        reply_display_host_state(host->man_port, host->linkedDirPath,
+                                 isValidDirectory(host->linkedDirPath),
+                                 host->_id);
+        break;
+      }  //////////////// End of case 's'
+
+      case 'm': {
+        // Change Active Host's hostDirectory
+        size_t len = strnlen(host->man_msg, MAX_FILENAME_LENGTH - 1);
+        if (isValidDirectory(host->man_msg)) {
+          memcpy(host->linkedDirPath, host->man_msg, len);
+          host->linkedDirPath[len] = '\0';  // add null character
+          colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
+                     host->_id, host->man_msg);
+        } else {
+          colorPrint(BOLD_RED, "%s is not a valid directory\n", host->man_msg);
+        }
+        break;
+      }  //////////////// End of case 'm'
+
+      case 'p': {
+        ////// Have active Host ping another host //////
+        // Check to see if pinging self
+        if (dst == host->_id) {
+          memset(responseMsg, '\0', MAX_MSG_LENGTH);
+          colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
+                        "PING ACKNOWLEDGED!");
+          sendMsgToManager(host->man_port->send_fd, responseMsg);
+          break;
+        }
+
+        // Create ping request packet
+        struct Packet *preqPkt =
+            createPacket(host->_id, dst, PKT_PING_REQ, 0, NULL);
+
+        // Create send request job
+        struct Job *sendReqJob = job_create(NULL, TIMETOLIVE, JOB_SEND_REQUEST,
+                                            JOB_PENDING_STATE, preqPkt);
+        // Enqueue job
+        job_enqueue(host->_id, *host->jobq, sendReqJob);
+        break;
+      }  //////////////// End of case 'p'
+
+      case 'u': {
+        // Upload a file from active host to another host
+        commandUploadHandler(host->_id, *host->jobq, host->linkedDirPath, dst,
+                             fname, host->man_port->send_fd);
+        break;
+      }  //////////////// End of case 'u'
+
+      case 'd': {
+        // Download a file from another host to active host
+        commandDownloadHandler(host->_id, *host->jobq, host->linkedDirPath, dst,
+                               fname, host->man_port->send_fd);
+
+        break;
+      }  //////////////// End of case 'd'
+
+      case 'a': {
+        // Register a domain name to the active host through manager interface
+        char dnsName[MAX_NAME_LEN];
+        strncpy(dnsName, dstStr, MAX_NAME_LEN);
+
+        int dnsNameLen = strnlen(dnsName, MAX_FILENAME_LENGTH);
+        dnsName[dnsNameLen] = '\0';
+
+        // register own domain name in local cache
+        memcpy(host->nametable[host->_id], dnsName, PACKET_PAYLOAD_MAX);
+
+        // Create a registration packet to send to DNS Server
+        struct Packet *registerPkt =
+            createPacket(host->_id, STATIC_DNS_ID, PKT_DNS_REGISTRATION,
+                         dnsNameLen, dnsName);
+        // Send the packet to DNS Server
+        sendPacketTo(host->node_port_array, host->node_port_array_size,
+                     registerPkt);
+
+        free(registerPkt);
+        break;
+      }  //////////////// End of case 'a'
+
+      default:;
+    }
+    if (responseMsg) {
+      free(responseMsg);
+    }
+  }
+}  // End of commandHandler()
 
 void commandDownloadHandler(int host_id, struct JobQueue *hostq,
                             char *hostDirectory, int dst, char *fname,
@@ -1085,22 +1025,33 @@ int requestIDFromDNS(const int hostId, char *nameToResolve, char **nametable,
   free(p);
 }
 
-void updateNametable(char *payload, char **nametable) {
+int updateNametable(char *payload, struct HostContext *host) {
   char name[PACKET_PAYLOAD_MAX];
   int id;
 
   // Error Checking
   if (sscanf(payload, "%99[^:]:%d", name, &id) != 2) {
-    // payload has invalid format
-    return;
+    // Invalid payload format
+    fprintf(stderr, "Invalid payload format provided to updateNameTable\n");
+    return -1;
   }
   if (id >= MAX_NUM_NAMES) {
-    return;
+    // Invalid id provided
+    fprintf(stderr, "Invalid id provided to updateNameTable\n");
+    return -1;
+  }
+  if (id < 0) {
+    // DNS didn't find queried name
+    char nameNotFound[MAX_MSG_LENGTH];
+    colorSnprintf(nameNotFound, MAX_MSG_LENGTH, BOLD_RED,
+                  "DNS unable to find provided name");
+    sendMsgToManager(host->man_port->send_fd, nameNotFound);
+    return -1;
   }
 
   // Update the nametable
   int nameLen = strlen(name);
   if (nameLen > 0) {
-    strcpy(nametable[id], name);
+    strcpy(host->nametable[id], name);
   }
 }

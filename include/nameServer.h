@@ -5,8 +5,6 @@
 
 #include "constants.h"
 
-#define MAX_NAME_LEN MAX_RESPONSE_LEN
-
 // Forward declarations
 struct Net_port;
 struct Job;
