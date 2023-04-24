@@ -28,8 +28,6 @@ char *get_job_type_literal(enum JobType t) {
       return "JOB_SEND_RESPONSE";
     case JOB_WAIT_FOR_RESPONSE:
       return "JOB_WAIT_FOR_RESPONSE";
-    case JOB_WAIT_FOR_DNS_QUERY_RESPONSE:
-      return "JOB_WAIT_FOR_DNS_QUERY_RESPONSE";
     case JOB_UPLOAD:
       return "JOB_UPLOAD";
     case JOB_DOWNLOAD:

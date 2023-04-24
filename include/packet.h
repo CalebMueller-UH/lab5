@@ -21,7 +21,7 @@ typedef enum {
   PKT_DNS_QUERY,
   PKT_DNS_QUERY_RESPONSE,
   PKT_DNS_REGISTRATION,
-  PKT_DNS_RESPONSE
+  PKT_DNS_REGISTRATION_RESPONSE
 } packet_type;
 
 struct Packet {
@@ -43,6 +43,8 @@ struct Packet *createPacket(int src, int dst, int type, int length,
                             char *payload);
 
 struct Packet *createEmptyPacket();
+
+struct Packet *deepcopy_packet(const struct Packet *original);
 
 void packet_delete(struct Packet *p);
 

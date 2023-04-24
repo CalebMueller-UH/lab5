@@ -95,6 +95,16 @@ struct Packet *createEmptyPacket() {
   return p;
 }
 
+struct Packet *deepcopy_packet(const struct Packet *original) {
+  struct Packet *copy = createEmptyPacket();
+  copy->src = original->src;
+  copy->dst = original->dst;
+  copy->type = original->type;
+  copy->length = original->length;
+  memcpy(copy->payload, original->payload, PACKET_PAYLOAD_MAX);
+  return copy;
+}
+
 void packet_delete(struct Packet *p) {
   if (p == NULL) {
     fprintf(stderr, "packet_delete called on NULL packet\n");
@@ -127,8 +137,8 @@ char *get_packet_type_literal(int pktType) {
       return "PKT_UPLOAD_END";
     case PKT_DNS_REGISTRATION:
       return "PKT_DNS_REGISTRATION";
-    case PKT_DNS_RESPONSE:
-      return "PKT_DNS_RESPONSE";
+    case PKT_DNS_REGISTRATION_RESPONSE:
+      return "PKT_DNS_REGISTRATION_RESPONSE";
     case PKT_DNS_QUERY:
       return "PKT_DNS_QUERY";
   }

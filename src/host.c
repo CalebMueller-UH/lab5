@@ -29,6 +29,7 @@ struct HostContext {
   char man_msg[MAX_MSG_LENGTH];
 };
 
+// Forward Declarations of host.c specific functions:
 void commandDownloadHandler(struct HostContext *host, int dst,
                             char fname[MAX_FILENAME_LENGTH]);
 void commandHandler(struct HostContext *host);
@@ -55,15 +56,14 @@ int sendPacketTo(struct Net_port **node_port_array, int node_port_array_size,
                  struct Packet *p);
 int resolveHostname(struct HostContext *host, char *name);
 int requestIDFromDNS(struct HostContext *host, char *nameToResolve);
-int updateNametable(struct HostContext *host, char *payload);
+int updateNametable(struct HostContext *host, int hostId,
+                    char name[MAX_NAME_LEN]);
 
 ////////////////////////////////////////////////
 ////////////////// HOST MAIN ///////////////////
 void host_main(int host_id) {
   ////// Initialize state of host //////
   struct HostContext *host = initHostContext(host_id);
-
-  printf("host_main host->_id:%d\n", host->_id);
 
   while (1) {
     ////////////////////////////////////////////////////////////////
@@ -111,6 +111,8 @@ void host_main(int host_id) {
           case PKT_PING_RESPONSE:
           case PKT_UPLOAD_RESPONSE:
           case PKT_DOWNLOAD_RESPONSE:
+          case PKT_DNS_REGISTRATION_RESPONSE:
+          case PKT_DNS_QUERY_RESPONSE:
             pktIncomingResponse(host, inPkt);
             break;
 
@@ -122,22 +124,12 @@ void host_main(int host_id) {
             pktUploadEnd(host, inPkt);
             break;
 
-          case PKT_DNS_RESPONSE:
-            // DNS response recieved
-            char manBuff[MAX_MSG_LENGTH];
-            colorSnprintf(manBuff, MAX_MSG_LENGTH - 1, BOLD_GREEN, "\n%s",
-                          inPkt->payload);
-            sendMsgToManager(host->man_port->send_fd, manBuff);
-            free(inPkt);
-            break;
-
-          case PKT_DNS_QUERY_RESPONSE:
-            updateNametable(host, inPkt->payload);
-            // commandHandler(host);
-            break;
-
-          ////////////////
+            ////////////////
           default:
+            fprintf(
+                stderr,
+                "Packet handler on host%d encountered an unknown packet type\n",
+                host->_id);
         }
       }
 
@@ -261,118 +253,125 @@ void commandHandler(struct HostContext *host) {
   char dstStr[PACKET_PAYLOAD_MAX];
   char fname[MAX_FILENAME_LENGTH];
 
-  if (parseManMsg(host->man_msg, &cmd, dstStr, fname)) {
-#ifdef DEBUG
-    printf("cmd: %c\ndstStr: %s\nfname: %s\n", cmd, dstStr, fname);
-#endif
-  } else {
+  if (!parseManMsg(host->man_msg, &cmd, dstStr, fname)) {
     fprintf(stderr, "Failed to parse man_msg\n");
   }
 
+  printf("man_msg: %s\n", host->man_msg);
+  printf("cmd: %c\tdstStr: %s\tfname:%s\n", cmd, dstStr, fname);
+
+  int needsDst = 0;
+  switch (cmd) {
+    case 's':
+    case 'm':
+    case 'a':
+      break;
+    default:
+      needsDst = 1;
+  }
+
   int dst;
-  if (cmd != 'a') {
+  if (needsDst == 1) {
     dst = resolveHostname(host, dstStr);
-  }
-
-  if (dst < 0) {
-    // Unable to resolve hostname in local cache
-    // Send a DNS Query to the server to retrieve the id associated with
-    // that domain name
-    requestIDFromDNS(host, dstStr);
-
-    return;
-  } else {
-    // Host Name WAS able to be resolved
-    char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
-
-    switch (cmd) {
-      case 's': {
-        // Display host state
-        reply_display_host_state(host->man_port, host->linkedDirPath,
-                                 isValidDirectory(host->linkedDirPath),
-                                 host->_id);
-        break;
-      }  //////////////// End of case 's'
-
-      case 'm': {
-        // Change Active Host's local file directory
-        size_t len = strnlen(host->man_msg, MAX_FILENAME_LENGTH - 1);
-        if (isValidDirectory(host->man_msg)) {
-          memcpy(host->linkedDirPath, host->man_msg, len);
-          host->linkedDirPath[len] = '\0';  // add null character
-          colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n",
-                     host->_id, host->man_msg);
-        } else {
-          colorPrint(BOLD_RED, "%s is not a valid directory\n", host->man_msg);
-        }
-        break;
-      }  //////////////// End of case 'm'
-
-      case 'p': {
-        ////// Have active Host ping another host //////
-        // Check to see if pinging self
-        if (dst == host->_id) {
-          memset(responseMsg, '\0', MAX_MSG_LENGTH);
-          colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
-                        "PING ACKNOWLEDGED!");
-          sendMsgToManager(host->man_port->send_fd, responseMsg);
-          break;
-        }
-
-        // Create ping request packet
-        struct Packet *preqPkt =
-            createPacket(host->_id, dst, PKT_PING_REQ, 0, NULL);
-
-        // Create send request job
-        struct Job *sendReqJob = job_create(NULL, TIMETOLIVE, JOB_SEND_REQUEST,
-                                            JOB_PENDING_STATE, preqPkt);
-        // Enqueue job
-        job_enqueue(host->_id, *host->jobq, sendReqJob);
-        break;
-      }  //////////////// End of case 'p'
-
-      case 'u': {
-        // Upload a file from active host to another host
-        commandUploadHandler(host, dst, fname);
-        break;
-      }  //////////////// End of case 'u'
-
-      case 'd': {
-        // Download a file from another host to active host
-        commandDownloadHandler(host, dst, fname);
-
-        break;
-      }  //////////////// End of case 'd'
-
-      case 'a': {
-        // Register a domain name to the active host through manager interface
-        char dnsName[MAX_NAME_LEN];
-        strncpy(dnsName, dstStr, MAX_NAME_LEN);
-
-        int dnsNameLen = strnlen(dnsName, MAX_FILENAME_LENGTH);
-        dnsName[dnsNameLen] = '\0';
-
-        // register own domain name in local cache
-        memcpy(host->nametable[host->_id], dnsName, PACKET_PAYLOAD_MAX);
-
-        // Create a registration packet to send to DNS Server
-        struct Packet *registerPkt =
-            createPacket(host->_id, STATIC_DNS_ID, PKT_DNS_REGISTRATION,
-                         dnsNameLen, dnsName);
-        // Send the packet to DNS Server
-        sendPacketTo(host->node_port_array, host->node_port_array_size,
-                     registerPkt);
-
-        free(registerPkt);
-        break;
-      }  //////////////// End of case 'a'
-
-      default:;
-    }
-    if (responseMsg) {
-      free(responseMsg);
+    if (dst < 0) {
+      // Unable to resolve hostname in local cache
+      // Send a DNS Query to the server to retrieve the id associated with
+      // that domain name
+      requestIDFromDNS(host, dstStr);
+      return;
     }
   }
+
+  // Host Name WAS able to be resolved
+  char *responseMsg = (char *)malloc(sizeof(char) * MAX_MSG_LENGTH);
+
+  switch (cmd) {
+    case 's': {
+      // Display host state
+      reply_display_host_state(host->man_port, host->linkedDirPath,
+                               isValidDirectory(host->linkedDirPath),
+                               host->_id);
+      break;
+    }  //////////////// End of case 's'
+
+    case 'm': {
+      // Change Active Host's local file directory
+      size_t len = strnlen(dstStr, MAX_FILENAME_LENGTH - 1);
+      if (isValidDirectory(dstStr)) {
+        memcpy(host->linkedDirPath, dstStr, len);
+        host->linkedDirPath[len] = '\0';  // add null character
+        colorPrint(BOLD_GREEN, "Host%d's main directory set to %s\n", host->_id,
+                   host->man_msg);
+      } else {
+        colorPrint(BOLD_RED, "%s is not a valid directory\n", host->man_msg);
+      }
+      break;
+    }  //////////////// End of case 'm'
+
+    case 'p': {
+      ////// Have active Host ping another host //////
+      // Check to see if pinging self
+      if (dst == host->_id) {
+        memset(responseMsg, '\0', MAX_MSG_LENGTH);
+        colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
+                      "PING ACKNOWLEDGED!");
+        sendMsgToManager(host->man_port->send_fd, responseMsg);
+        break;
+      }
+
+      // Create ping request packet
+      struct Packet *preqPkt =
+          createPacket(host->_id, dst, PKT_PING_REQ, 0, NULL);
+
+      // Create send request job
+      struct Job *sendReqJob = job_create(NULL, TIMETOLIVE, JOB_SEND_REQUEST,
+                                          JOB_PENDING_STATE, preqPkt);
+      // Enqueue job
+      job_enqueue(host->_id, *host->jobq, sendReqJob);
+      break;
+    }  //////////////// End of case 'p'
+
+    case 'u': {
+      // Upload a file from active host to another host
+      commandUploadHandler(host, dst, fname);
+      break;
+    }  //////////////// End of case 'u'
+
+    case 'd': {
+      // Download a file from another host to active host
+      commandDownloadHandler(host, dst, fname);
+
+      break;
+    }  //////////////// End of case 'd'
+
+    case 'a': {
+      // Register a domain name to the active host through manager interface
+      char dnsName[MAX_NAME_LEN];
+      strncpy(dnsName, dstStr, MAX_NAME_LEN);
+
+      int dnsNameLen = strnlen(dnsName, MAX_FILENAME_LENGTH);
+      dnsName[dnsNameLen] = '\0';
+
+      // register own domain name in local cache
+      memcpy(host->nametable[host->_id], dnsName, PACKET_PAYLOAD_MAX);
+
+      // Create a registration packet to send to DNS Server
+      struct Packet *registerPkt = createPacket(
+          host->_id, STATIC_DNS_ID, PKT_DNS_REGISTRATION, dnsNameLen, dnsName);
+      // Create send DNS Register request job
+      struct Job *sendRegReqJob = job_create(NULL, TIMETOLIVE, JOB_SEND_REQUEST,
+                                             JOB_PENDING_STATE, registerPkt);
+      // Enqueue job
+      job_enqueue(host->_id, *host->jobq, sendRegReqJob);
+      break;
+    }  //////////////// End of case 'a'
+
+    default:;
+  }
+  if (responseMsg) {
+    free(responseMsg);
+  }
+
 }  // End of commandHandler()
 
 void commandUploadHandler(struct HostContext *host, int dst, char *fname) {
@@ -421,7 +420,8 @@ struct HostContext *initHostContext(int host_id) {
 
   host_context->_id = host_id;
 
-  host_context->linkedDirPath = NULL;
+  host_context->linkedDirPath =
+      (char *)malloc(sizeof(char) * MAX_FILENAME_LENGTH);
 
   host_context->man_port = net_get_host_port(host_id);
 
@@ -665,6 +665,10 @@ void jobWaitForResponseHandler(struct HostContext *host,
         colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
                       "Download request timed out!");
         break;
+      case PKT_DNS_REGISTRATION:
+        colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
+                      "DNS Registration Timed Out!");
+        break;
       case PKT_DNS_QUERY:
         colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
                       "DNS Query Timed Out!");
@@ -674,6 +678,7 @@ void jobWaitForResponseHandler(struct HostContext *host,
     // Send expiration notice to waiting manager
     sendMsgToManager(host->man_port->send_fd, responseMsg);
 
+    // Discard expired job and packet
     job_delete(host->_id, job_from_queue);
 
   } else {  // Handle pending job
@@ -681,10 +686,11 @@ void jobWaitForResponseHandler(struct HostContext *host,
     job_from_queue->timeToLive--;
 
     if (job_from_queue->state == JOB_PENDING_STATE) {
-      // Re-enqueue job while ttl > 0
+      // Re-enqueue job while pending and ttl > 0
       job_enqueue(host->_id, *host->jobq, job_from_queue);
+
     } else {
-      // Handle non-expired jobs according to their contained packet type
+      // Handle non-expired non-pending jobs according to their packet type
       switch (job_from_queue->packet->type) {
         case PKT_PING_REQ:
           if (job_from_queue->state == JOB_COMPLETE_STATE) {
@@ -731,21 +737,38 @@ void jobWaitForResponseHandler(struct HostContext *host,
           }
           break;
 
-          // case PKT_DNS_QUERY:
-          // if (job_from_queue->state == JOB_READY_STATE) {
-          //   commandHandler()
-          // } else if (job_from_queue->state == JOB_ERROR_STATE) {
-          //   colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED, "%s",
-          //                 job_from_queue->errorMsg);
-          //   sendMsgToManager(host->man_port->send_fd, responseMsg);
-          //   job_delete(host->_id, job_from_queue);
-          // } else if (job_from_queue->state == JOB_COMPLETE_STATE) {
-          //   colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
-          //                 "Download Complete");
-          //   sendMsgToManager(host->man_port->send_fd, responseMsg);
-          //   job_delete(host->_id, job_from_queue);
-          // }
-          // break;
+        case PKT_DNS_REGISTRATION:
+          if (job_from_queue->state == JOB_READY_STATE) {
+            colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_GREEN,
+                          "Domain name registered!");
+            sendMsgToManager(host->man_port->send_fd, responseMsg);
+          } else if (job_from_queue->state == JOB_ERROR_STATE) {
+            colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
+                          "Domain name could not be registered...");
+            sendMsgToManager(host->man_port->send_fd, responseMsg);
+          }
+          job_delete(host->_id, job_from_queue);
+          break;
+
+        case PKT_DNS_QUERY:
+          if (job_from_queue->state == JOB_READY_STATE) {
+            // Get domain name from original packet
+            char *id = (char *)malloc(sizeof(char) * (JIDLEN + 1));
+            char *dname = (char *)malloc(sizeof(char) * MAX_NAME_LEN);
+            parsePacket(job_from_queue->packet->payload, id, dname);
+            // get resolved hostId from query response
+            int resolvedHostId = atoi(job_from_queue->errorMsg);
+            // Update local cache with host id belonging to domain name
+            updateNametable(host, resolvedHostId, dname);
+            // Rerun command handler with domain name in local cache
+            commandHandler(host);
+          } else if (job_from_queue->state == JOB_ERROR_STATE) {
+            colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED,
+                          "Domain name could not be resolved...");
+            sendMsgToManager(host->man_port->send_fd, responseMsg);
+          }
+          job_delete(host->_id, job_from_queue);
+          break;
       }
     }
   }
@@ -871,13 +894,32 @@ void pktIncomingResponse(struct HostContext *host, struct Packet *inPkt) {
 
       case PKT_DOWNLOAD_RESPONSE:
         if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
-          // banana
           FILE *fp = fopen(waitJob->filepath, "w");
           waitJob->fp = fp;
           waitJob->state = JOB_READY_STATE;
         } else {
           strncpy(waitJob->errorMsg, msg, strnlen(msg, MAX_RESPONSE_LEN));
           waitJob->state = JOB_ERROR_STATE;
+        }
+        break;
+
+      case PKT_DNS_REGISTRATION_RESPONSE:
+        if (strncmp(msg, "OK", sizeof("OK")) == 0) {
+          waitJob->state = JOB_READY_STATE;
+        } else {
+          strncpy(waitJob->errorMsg, msg, strnlen(msg, MAX_RESPONSE_LEN));
+          waitJob->state = JOB_ERROR_STATE;
+        }
+        break;
+
+      case PKT_DNS_QUERY_RESPONSE:
+        int msgVal = atoi(msg);
+        printf("msgVal: %d\n", msgVal);
+        if (msgVal < 0) {
+          waitJob->state = JOB_ERROR_STATE;
+        } else {
+          waitJob->state = JOB_READY_STATE;
+          strncpy(waitJob->errorMsg, msg, strnlen(msg, MAX_RESPONSE_LEN));
         }
         break;
     }
@@ -995,41 +1037,33 @@ int resolveHostname(struct HostContext *host, char *name) {
 
 int requestIDFromDNS(struct HostContext *host, char *nameToResolve) {
   int nameLen = strlen(nameToResolve);
+
+  // Create DNS Query Packet
   struct Packet *p = createPacket(host->_id, STATIC_DNS_ID, PKT_DNS_QUERY,
                                   nameLen, nameToResolve);
-  sendPacketTo(host->node_port_array, host->node_port_array_size, p);
-  free(p);
+  // Create DNS Query Job
+  struct Job *j =
+      job_create(NULL, TIMETOLIVE, JOB_SEND_PKT, JOB_PENDING_STATE, p);
+  job_enqueue(host->_id, *host->jobq, j);
+
+  // Create a deep copy of DNS Query Packet to keep as reference
+  struct Packet *p2 = deepcopy_packet(p);
+  // Create a job for waiting for response
+  struct Job *j2 = job_create(j->jid, TIMETOLIVE, JOB_WAIT_FOR_RESPONSE,
+                              JOB_PENDING_STATE, p2);
+  job_enqueue(host->_id, *host->jobq, j2);
+  return 0;
 }  // End of requestIDFromDNS()
 
-int updateNametable(struct HostContext *host, char *payload) {
-  char name[PACKET_PAYLOAD_MAX];
-  int id;
-
-  // Error Checking
-  if (sscanf(payload, "%99[^:]:%d", name, &id) == 2) {
-    return 0;
-  } else {
-    // Invalid payload format
-    fprintf(stderr, "Invalid payload format provided to updateNameTable\n");
-    return -1;
-  }
-  if (id >= MAX_NUM_NAMES) {
-    // Invalid id provided
-    fprintf(stderr, "Invalid id provided to updateNameTable\n");
-    return -1;
-  }
-  if (id < 0) {
-    // DNS didn't find queried name
-    return -1;
-  }
-
+int updateNametable(struct HostContext *host, int hostId,
+                    char name[MAX_NAME_LEN]) {
   // Update the nametable
-  int nameLen = strlen(name);
-  if (nameLen > 0) {
-    strcpy(host->nametable[id], name);
+  strcpy(host->nametable[hostId], name);
+
 #ifdef DEBUG
-    colorPrint(GREY, "Nametable for host%d updated:\n\t\t[%d] : \"%s\" \n",
-               host->_id, id, name);
+  colorPrint(GREY, "\tlocal cache nametable for host%d updated: [%d]::\"%s\"\n",
+             host->_id, hostId, name);
 #endif
-  }
+
+  return 0;
 }  // End of updateNametable()
