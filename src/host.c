@@ -627,6 +627,10 @@ void jobUploadSendHandler(struct HostContext *host,
   int chunkSize = fileSize - job_from_queue->fileOffset < bufferSize
                       ? fileSize - job_from_queue->fileOffset
                       : bufferSize;
+
+  // Clear the buffer before reading new data
+  memset(buffer, 0, bufferSize * sizeof(char));
+
   int bytesRead = fread(buffer, sizeof(char), chunkSize, fp);
 
   if (bytesRead > 0) {

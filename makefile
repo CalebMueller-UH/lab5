@@ -5,6 +5,7 @@ DEFAULT_CONFIG = socketchain.config
 CC = gcc
 CFLAGS = -g -static
 DEBUG = -DDEBUG
+GDBFLAG = -ggdb3
 
 # Define source and header directories
 SRCDIR = src
@@ -62,7 +63,7 @@ $(OUTDIR)/%.o: $(SRCDIR)/%.c
 
 # Rule to build object files for debug executable
 $(OUTDIR)/debug_%.o: $(SRCDIR)/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) $(DEBUG) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) $(DEBUG) $(GDBFLAG) -c $< -o $@
 
 else
 ### If the system is Fedora, only reset the files
