@@ -11,10 +11,7 @@ socket.t
 #include <unistd.h>
 
 #include "color.h"
-
-#ifdef DEBUG
-// #define SOCKET_DEBUG
-#endif
+#include "debug.h"
 
 int sock_server_init(const char* localDomain, const int localPort) {
   int sock_fd = socket(AF_INET, SOCK_STREAM, 0);

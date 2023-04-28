@@ -11,19 +11,16 @@
 
 #include "color.h"
 #include "constants.h"
+#include "debug.h"
 #include "job.h"
 #include "net.h"
 #include "packet.h"
-
-#ifdef DEBUG
-// #define SWITCH_DEBUG
-#endif
 
 #define MAX_NUM_ROUTES 100
 
 #define MAX_ADDRESS 255
 
-#define PERIODIC_LOCALROOTID_WAITTIME_SEC 5
+#define PERIODIC_LOCALROOTID_WAITTIME_SEC 1
 
 // Used for searchRoutingTableForValidID when port is unknown
 #define UNKNOWN -1

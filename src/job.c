@@ -12,10 +12,6 @@
 #include "extensionFns.h"
 #include "packet.h"
 
-#ifdef DEBUG
-// #define JOB_DEBUG
-#endif
-
 /* Takes an enumeration value representing a job type and returns the
  * corresponding string representation. */
 char *get_job_type_literal(enum JobType t) {
@@ -126,10 +122,8 @@ struct Job *job_create(const char *jid, int timeToLive, enum JobType type,
 
 void job_delete(int host_id, struct Job *j) {
   j->fp = NULL;
-  if (j->packet) {
-    free(j->packet);
-    j->packet = NULL;
-  }
+  packet_delete(j->packet);
+  j->packet = NULL;
   j->next = NULL;
   free(j);
 }

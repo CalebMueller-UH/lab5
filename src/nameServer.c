@@ -10,14 +10,11 @@
 
 #include "color.h"
 #include "constants.h"
+#include "debug.h"
 #include "host.h"
 #include "job.h"
 #include "net.h"
 #include "packet.h"
-
-#ifdef DEBUG
-// #define NAMESERVERDEBUG
-#endif
 
 // Used for registerNameToTable when ID can't be found
 #define UNKNOWN -1
@@ -51,7 +48,7 @@ void name_server_main(int name_id) {
           (struct Packet *)malloc(sizeof(struct Packet));
       int n = packet_recv(nsc->node_port_array[portNum], received_packet);
       if (n > 0) {
-#ifdef NAMESERVERDEBUG
+#ifdef NAMESERVER_DEBUG
         colorPrint(
             GREY,
             "\nDEBUG: id:%d name_server_main: DNS Server received packet "
@@ -240,7 +237,7 @@ int registerNameToTable(struct NameServerContext *nsc, struct Packet *pkt) {
   // Update nametable to [src]::domainName
   strncpy(nsc->nametable[pkt->src], dname, dnameLen);
 
-#ifdef NAMESERVERDEBUG
+#ifdef NAMESERVER_DEBUG
   colorPrint(BOLD_GREY, "\t%s was registered to host%d\n",
              nsc->nametable[pkt->src], pkt->src);
 #endif

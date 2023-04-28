@@ -11,15 +11,12 @@
 
 #include "color.h"
 #include "constants.h"
+#include "debug.h"
 #include "job.h"
 #include "manager.h"
 #include "nameServer.h"
 #include "net.h"
 #include "packet.h"
-
-#ifdef DEBUG
-#define HOST_DEBUG
-#endif
 
 struct HostContext {
   int _id;
@@ -97,7 +94,7 @@ void host_main(int host_id) {
       n = packet_recv(host->node_port_array[portNum], inPkt);
       // if portNum has received a packet, translate the packet into a job
       if ((n > 0) && ((int)inPkt->dst == host->_id)) {
-#ifdef HOST_DEBUG
+#ifdef HOST_PACKETHANDLER_DEBUG
         colorPrint(YELLOW,
                    "HOST_DEBUG: id:%d host_main packet_handler received "
                    "packet: \n\t",
@@ -134,6 +131,7 @@ void host_main(int host_id) {
                 stderr,
                 "Packet handler on host%d encountered an unknown packet type\n",
                 host->_id);
+            free(inPkt);
         }
       }
 
@@ -262,7 +260,7 @@ void commandHandler(struct HostContext *host) {
     fprintf(stderr, "Failed to parse man_msg\n");
   }
 
-#ifdef HOST_DEBUG
+#ifdef HOST_MANMSG_DEBUG
   colorPrint(GREY, "man_msg: %s\n", host->man_msg);
   colorPrint(GREY, "cmd: %c\tdstStr: %s\tfname:%s\n", cmd, dstStr, fname);
 #endif
@@ -600,6 +598,7 @@ void jobSendUploadResponseHandler(struct HostContext *host,
   free(id);
   free(fname);
   free(payloadMsg);
+  job_delete(host->_id, job_from_queue);
 }  // End of jobSendUploadResponseHandler()
 
 void jobUploadSendHandler(struct HostContext *host,
@@ -897,12 +896,12 @@ void pktIncomingResponse(struct HostContext *host, struct Packet *inPkt) {
   struct Job *waitJob = job_queue_find_id(*host->jobq, id);
   if (waitJob != NULL) {
     // job id was found in queue
-
     switch (inPkt->type) {
       case PKT_PING_RESPONSE:
         // Ping request acknowledged
         waitJob->state = JOB_COMPLETE_STATE;
         break;
+
       case PKT_UPLOAD_RESPONSE:
         if (strncmp(msg, "Ready", sizeof("Ready")) == 0) {
           waitJob->state = JOB_READY_STATE;
@@ -950,9 +949,9 @@ void pktIncomingResponse(struct HostContext *host, struct Packet *inPkt) {
   }
 
   // Clean up packet and dynamic vars
-  packet_delete(inPkt);
   free(id);
   free(msg);
+  packet_delete(inPkt);
 }  // End of pktIncomingResponse()
 
 void pktUploadEnd(struct HostContext *host, struct Packet *pkt) {
@@ -984,6 +983,12 @@ void pktUploadReceive(struct HostContext *host, struct Packet *pkt) {
     if (rjob->fp == NULL) {
       // Open the file in append mode if it hasn't been opened already
       rjob->fp = fopen(rjob->filepath, "ab");
+    } else {
+      fprintf(
+          stderr,
+          "Host%d: pktUploadReceive attempted to acces NULL fp from job ID: "
+          "%s\n",
+          host->_id, rjob->jid);
     }
 
     if (rjob->fp != NULL) {
@@ -1000,6 +1005,7 @@ void pktUploadReceive(struct HostContext *host, struct Packet *pkt) {
 
   free(id);
   free(msg);
+  packet_delete(pkt);
 }  // End of pktUploadReceive()
 
 // Send a message back to manager
@@ -1079,7 +1085,7 @@ int updateNametable(struct HostContext *host, int hostId,
   // Update the nametable
   strcpy(host->nametable[hostId], name);
 
-#ifdef DEBUG
+#ifdef HOST_DEBUG
   colorPrint(GREY, "\tlocal cache nametable for host%d updated: [%d]::\"%s\"\n",
              host->_id, hostId, name);
 #endif
