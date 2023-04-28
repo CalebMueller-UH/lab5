@@ -21,11 +21,11 @@ constants.h
 #define LOOP_SLEEP_TIME_US 10000
 
 // Largest allowable packet size of packet payload
-#define PACKET_PAYLOAD_MAX 30
+#define PACKET_PAYLOAD_MAX 100
 
 // Number of wait cycles a typical packet is assigned
 // (Not necessarily tied to a measure of time)
-#define TIMETOLIVE 10
+#define TIMETOLIVE 20
 
 #define STATIC_DNS_ID 100
 

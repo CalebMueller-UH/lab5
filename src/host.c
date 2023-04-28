@@ -22,12 +22,12 @@ struct HostContext {
   int _id;
   char *linkedDirPath;
   struct Man_port_at_host *man_port;
+  char man_msg[MAX_MSG_LENGTH];
   struct JobQueue **jobq;
+  struct Net_port *node_port_list;
   struct Net_port **node_port_array;
   int node_port_array_size;
-  struct Net_port *node_port_list;
   char **nametable;
-  char man_msg[MAX_MSG_LENGTH];
 };
 
 // Forward Declarations of host.c specific functions:
@@ -94,7 +94,7 @@ void host_main(int host_id) {
       n = packet_recv(host->node_port_array[portNum], inPkt);
       // if portNum has received a packet, translate the packet into a job
       if ((n > 0) && ((int)inPkt->dst == host->_id)) {
-#ifdef HOST_PACKETHANDLER_DEBUG
+#ifdef HOST_DEBUG_PACKET_RECEIPT
         colorPrint(YELLOW,
                    "HOST_DEBUG: id:%d host_main packet_handler received "
                    "packet: \n\t",
@@ -164,6 +164,7 @@ void host_main(int host_id) {
             sendPacketTo(host->node_port_array, host->node_port_array_size,
                          job_from_queue->packet);
             job_delete(host->_id, job_from_queue);
+            printf("Sending...\n");
             break;
           }  //////////////// End of case JOB_SEND_PKT
 
@@ -184,9 +185,7 @@ void host_main(int host_id) {
           default:
 #ifdef HOST_DEBUG
             colorPrint(YELLOW,
-                       "DEBUG: id:%d host_main: job_handler defaulted with "
-                       "job type: "
-                       "%s\n",
+                       "Host%d's job_handler encountered a job with %s\n",
                        host->_id, get_job_type_literal(job_from_queue->type));
 #endif
         }  // End of switch (job_from_queue->type)

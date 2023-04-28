@@ -48,7 +48,7 @@ void name_server_main(int name_id) {
           (struct Packet *)malloc(sizeof(struct Packet));
       int n = packet_recv(nsc->node_port_array[portNum], received_packet);
       if (n > 0) {
-#ifdef NAMESERVER_DEBUG
+#ifdef NAMESERVER_DEBUG_PACKET_RECEIPT
         colorPrint(
             GREY,
             "\nDEBUG: id:%d name_server_main: DNS Server received packet "
@@ -70,8 +70,6 @@ void name_server_main(int name_id) {
             nsJob->type = JOB_DNS_QUERY;
             break;
           default:
-            // fprintf(stderr, "DNS Server received a packet of unknown
-            // type\n");
         }
         ////// Enqueues job //////
         nsJob->state = JOB_PENDING_STATE;
