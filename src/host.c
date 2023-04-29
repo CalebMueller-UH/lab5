@@ -107,16 +107,23 @@ void host_main(int host_id) {
       n = packet_recv(host->node_port_array[portNum], inPkt);
       // if portNum has received a packet, translate the packet into a job
       if ((n > 0) && ((int)inPkt->dst == host->_id)) {
-        int packetIsOfRecognizedType = 1;
+        if (inPkt->type != PKT_CONTROL) {
+#ifdef HOST_DEBUG_PACKET_RECEIPT
+          colorPrint(MAGENTA, "Host%d received packet: ", host->_id);
+          printPacket(inPkt);
+#endif
+        }
 
         switch (inPkt->type) {
+          case PKT_CONTROL:
+            break;
+
           case PKT_PING_REQ:
           case PKT_UPLOAD_REQ:
           case PKT_DOWNLOAD_REQ:
             pktIncomingRequest(host, inPkt);
             break;
 
-            ////////////////
           case PKT_PING_RESPONSE:
           case PKT_UPLOAD_RESPONSE:
           case PKT_DOWNLOAD_RESPONSE:
@@ -133,25 +140,15 @@ void host_main(int host_id) {
             pktUploadEnd(host, inPkt);
             break;
 
-            ////////////////
           default:
-            packetIsOfRecognizedType = 0;
-            fprintf(
-                stderr,
-                "Packet handler on host%d encountered an unknown packet type\n",
-                host->_id);
+            fprintf(stderr, "Host%d received a packet of unknown type\n",
+                    host->_id);
             free(inPkt);
+            break;
         }  // end of switch
-
-        if (packetIsOfRecognizedType) {
-#ifdef HOST_DEBUG_PACKET_RECEIPT
-          colorPrint(YELLOW,
-                     "HOST_DEBUG: id:%d host_main packet_handler received "
-                     "packet: \n\t",
-                     host->_id);
-          printPacket(inPkt);
-#endif
-        }
+      } else {
+        // No packet addressed to host received
+        packet_delete(inPkt);
       }
 
       //////////////// PACKET HANDLER

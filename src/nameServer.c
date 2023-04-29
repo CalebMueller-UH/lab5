@@ -58,25 +58,21 @@ void name_server_main(int name_id) {
     }
 
     for (int portNum = 0; portNum < nsc->node_port_array_size; portNum++) {
-      struct Packet *received_packet =
-          (struct Packet *)malloc(sizeof(struct Packet));
-      int n = packet_recv(nsc->node_port_array[portNum], received_packet);
+      struct Packet *inPkt = (struct Packet *)malloc(sizeof(struct Packet));
+      int n = packet_recv(nsc->node_port_array[portNum], inPkt);
       if (n > 0) {
+        if (inPkt->type != PKT_CONTROL) {
 #ifdef NAMESERVER_DEBUG_PACKET_RECEIPT
-        colorPrint(
-            GREY,
-            "\nDEBUG: id:%d name_server_main: DNS Server received packet "
-            "on port:%d "
-            "src:%d dst:%d\n",
-            nsc->_id, portNum, received_packet->src, received_packet->dst);
-        printPacket(received_packet);
+          colorPrint(BOLD_ORANGE, "name_server received packet: ", nsc->_id);
+          printPacket(inPkt);
 #endif
+        }
 
         // switch statement that differeniates from registration, and query
-        switch (received_packet->type) {
+        switch (inPkt->type) {
           case PKT_DNS_REGISTRATION: {
             struct Job *nsJob = job_create_empty();
-            nsJob->packet = received_packet;
+            nsJob->packet = inPkt;
             nsJob->type = JOB_DNS_REGISTER;
             nsJob->state = JOB_PENDING_STATE;
             job_enqueue(name_id, *nsc->jobq, nsJob);
@@ -85,7 +81,7 @@ void name_server_main(int name_id) {
 
           case PKT_DNS_QUERY: {
             struct Job *nsJob = job_create_empty();
-            nsJob->packet = received_packet;
+            nsJob->packet = inPkt;
             nsJob->type = JOB_DNS_QUERY;
             nsJob->state = JOB_PENDING_STATE;
             job_enqueue(name_id, *nsc->jobq, nsJob);
@@ -95,8 +91,8 @@ void name_server_main(int name_id) {
 
       } else {
         // Nothing to receive on port, so discard malloc'd packet
-        packet_delete(received_packet);
-        received_packet = NULL;
+        packet_delete(inPkt);
+        inPkt = NULL;
       }
     }
 

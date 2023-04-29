@@ -91,9 +91,8 @@ void switch_main(int switch_id) {
         } else {
 // incoming packet is not a control packet
 #ifdef SWITCH_DEBUG_PACKET_RECEIPT
-          colorPrint(BLUE,
-                     "Switch%d received packet on port:%d src:%d dst:%d\n",
-                     sw->_id, portNum, inPkt->src, inPkt->dst);
+          colorPrint(BLUE, "Switch%d received packet: ", sw->_id);
+          printPacket(inPkt);
 #endif
           // Ensure that sender of received packet is in the routing table
           if (searchRoutingTableForValidID(sw, inPkt->src, portNum) ==
