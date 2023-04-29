@@ -17,6 +17,7 @@
 #include "nameServer.h"
 #include "net.h"
 #include "packet.h"
+#include "switch.h"
 
 struct HostContext {
   int _id;
@@ -87,6 +88,11 @@ void host_main(int host_id) {
     ////////////////////////////////////////////////////////////////
     ////////////////////////////////
     //////////////// PACKET HANDLER
+
+    // Periodically broadcast STP Control Packets
+    periodicControlPacketSender(9999, host->node_port_array,
+                                host->node_port_array_size, host->_id + 1000,
+                                9999, 9999, NULL, 'H');
 
     for (int portNum = 0; portNum < host->node_port_array_size; portNum++) {
       // Receive packets for all ports in node_port_array

@@ -25,7 +25,7 @@ constants.h
 
 // Number of wait cycles a typical packet is assigned
 // (Not necessarily tied to a measure of time)
-#define TIMETOLIVE 20
+#define TIMETOLIVE 100
 
 #define STATIC_DNS_ID 100
 
@@ -38,3 +38,5 @@ constants.h
 
 // Maximum number of allowable Domain Name aliases
 #define MAX_NUM_NAMES 255
+
+#define PERIODIC_CTRL_MSG_WAITTIME_SEC 1

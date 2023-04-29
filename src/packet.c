@@ -137,8 +137,8 @@ char *get_packet_type_literal(int pktType) {
       return "PKT_UPLOAD";
     case PKT_UPLOAD_END:
       return "PKT_UPLOAD_END";
-    case PKT_TREE_PKT:
-      return "PKT_TREE_PKT";
+    case PKT_CONTROL:
+      return "PKT_CONTROL";
     case PKT_INVALID_TYPE:
       return "PKT_INVALID_TYPE";
     case PKT_DNS_QUERY:

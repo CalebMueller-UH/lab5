@@ -19,6 +19,7 @@
         "stddef.h": "c",
         "stat.h": "c",
         "wait.h": "c",
-        "unordered_map": "c"
+        "unordered_map": "c",
+        "color.h": "c"
     }
 }

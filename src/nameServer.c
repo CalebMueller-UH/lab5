@@ -15,6 +15,7 @@
 #include "job.h"
 #include "net.h"
 #include "packet.h"
+#include "switch.h"
 
 // Used for registerNameToTable when ID can't be found
 #define UNKNOWN -1
@@ -43,6 +44,11 @@ void name_server_main(int name_id) {
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// PACKET HANDLER //////////////////////////////
 
+    // Periodically broadcast STP Control Packets
+    periodicControlPacketSender(9999, nsc->node_port_array,
+                                nsc->node_port_array_size, nsc->_id + 1000,
+                                9999, 9999, NULL, 'D');
+
     for (int portNum = 0; portNum < nsc->node_port_array_size; portNum++) {
       struct Packet *received_packet =
           (struct Packet *)malloc(sizeof(struct Packet));
@@ -58,25 +64,30 @@ void name_server_main(int name_id) {
         printPacket(received_packet);
 #endif
 
-        struct Job *nsJob = job_create_empty();
-        nsJob->packet = received_packet;
-
         // switch statement that differeniates from registration, and query
         switch (received_packet->type) {
-          case PKT_DNS_REGISTRATION:
+          case PKT_DNS_REGISTRATION: {
+            struct Job *nsJob = job_create_empty();
+            nsJob->packet = received_packet;
             nsJob->type = JOB_DNS_REGISTER;
+            nsJob->state = JOB_PENDING_STATE;
+            job_enqueue(name_id, *nsc->jobq, nsJob);
             break;
-          case PKT_DNS_QUERY:
+          }
+
+          case PKT_DNS_QUERY: {
+            struct Job *nsJob = job_create_empty();
+            nsJob->packet = received_packet;
             nsJob->type = JOB_DNS_QUERY;
+            nsJob->state = JOB_PENDING_STATE;
+            job_enqueue(name_id, *nsc->jobq, nsJob);
             break;
-          default:
+          }
         }
-        ////// Enqueues job //////
-        nsJob->state = JOB_PENDING_STATE;
-        job_enqueue(name_id, *nsc->jobq, nsJob);
+
       } else {
         // Nothing to receive on port, so discard malloc'd packet
-        free(received_packet);
+        packet_delete(received_packet);
         received_packet = NULL;
       }
     }

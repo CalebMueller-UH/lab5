@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include "color.h"
+#include "debug.h"
 #include "extensionFns.h"
 #include "packet.h"
 
@@ -62,8 +63,10 @@ char *get_job_state_literal(enum JobState s) {
 /* Adds a new job to the end of a job queue. */
 void job_enqueue(int host_id, struct JobQueue *jq, struct Job *jobToEnqueue) {
 #ifdef JOB_DEBUG
-  colorPrint(GREEN, "JOB_DEBUG: id:%d job_enqueue: type: %s\n", host_id,
-             get_job_type_literal(jobToEnqueue->type));
+  if (jobToEnqueue->type != JOB_WAIT_FOR_RESPONSE) {
+    colorPrint(GREEN, "JOB_DEBUG: id:%d job_enqueue: type: %s\n", host_id,
+               get_job_type_literal(jobToEnqueue->type));
+  }
 #endif
 
   if (jq->head == NULL) {
@@ -85,8 +88,10 @@ struct Job *job_dequeue(int host_id, struct JobQueue *jq) {
   j = jq->head;
 
 #ifdef JOB_DEBUG
-  colorPrint(RED, "JOB_DEBUG: id:%d job_dequeue: type: %s\n", host_id,
-             get_job_type_literal(j->type));
+  if (j->type != JOB_WAIT_FOR_RESPONSE) {
+    colorPrint(RED, "JOB_DEBUG: id:%d job_dequeue: type: %s\n", host_id,
+               get_job_type_literal(j->type));
+  }
 #endif
 
   jq->head = (jq->head)->next;
