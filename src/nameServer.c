@@ -40,14 +40,22 @@ void name_server_main(int name_id) {
   ////// Initialize Name Server //////
   struct NameServerContext *nsc = initNameServerContext(name_id);
 
+  unsigned int numCtrlMsgsSent = 0;
+  static long long timeLast = 0;
+
   while (1) {
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// PACKET HANDLER //////////////////////////////
 
     // Periodically broadcast STP Control Packets
-    periodicControlPacketSender(9999, nsc->node_port_array,
-                                nsc->node_port_array_size, nsc->_id + 1000,
-                                9999, 9999, NULL, 'D');
+    long long timeNow = current_time_ms();
+    if (timeNow - timeLast > PERIODIC_CTRL_MSG_WAITTIME_MS &&
+        numCtrlMsgsSent < ALLOWED_CONVERGENCE_ROUNDS) {
+      numCtrlMsgsSent++;
+      controlPacketSender_endpoint(nsc->_id, nsc->node_port_array,
+                                   nsc->node_port_array_size);
+      timeLast = timeNow;
+    }
 
     for (int portNum = 0; portNum < nsc->node_port_array_size; portNum++) {
       struct Packet *received_packet =

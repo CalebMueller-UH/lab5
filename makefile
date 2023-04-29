@@ -1,5 +1,5 @@
 # Select the configuration file to use as default for 'run'
-DEFAULT_CONFIG = socketchain.config
+DEFAULT_CONFIG = switchcycle.config
 
 # Define compiler and flags
 CC = gcc

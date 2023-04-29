@@ -13,9 +13,9 @@ struct TableEntry {
   struct TableEntry *next;
 };
 
-void periodicControlPacketSender(int id, struct Net_port **node_port_array,
-                                 int node_port_array_size, int localRootID,
-                                 int localRootDist, int localParentID,
-                                 int *localPortTree, const char nodeType);
+long long current_time_ms();
+
+void controlPacketSender_endpoint(int nodeId, struct Net_port **node_port_array,
+                                  int node_port_array_size);
 
 void switch_main(int switch_id);

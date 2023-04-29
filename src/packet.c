@@ -29,9 +29,6 @@ int packet_recv(struct Net_port *port, struct Packet *p) {
                           port->remoteDomain);
   }
   if (bytesRead > 0) {
-#ifdef PACKET_DEBUG
-    printPacket(p);
-#endif
     p->src = (char)pkt[0];
     p->dst = (char)pkt[1];
     p->type = (char)pkt[2];
@@ -64,10 +61,6 @@ void packet_send(struct Net_port *port, struct Packet *p) {
     bytesSent = sock_send(port->localDomain, port->remoteDomain,
                           port->remotePort, pkt, p->length + 4);
   }
-
-#ifdef PACKET_DEBUG
-  printPacket(p);
-#endif
 }
 
 /* createPacket:

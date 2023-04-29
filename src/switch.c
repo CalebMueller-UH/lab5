@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "color.h"
@@ -24,6 +24,8 @@
 #define YES 1
 #define NO 0
 
+#define DEFAULT_TREE_STATE NO
+
 struct SwitchNodeContext {
   int _id;
   struct Net_port **node_port_array;
@@ -36,6 +38,12 @@ struct SwitchNodeContext {
   int *localPortTree;
 };
 
+long long current_time_ms() {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (long long)(tv.tv_sec) * 1000 + (long long)(tv.tv_usec) / 1000;
+}
+
 void addToRoutingTable(struct SwitchNodeContext *sw, int id, int port);
 void broadcastToAllButSender(struct SwitchNodeContext *sw, struct Job *job);
 int createTreePayload(char *dst, int packetRootID, int packetRootDist,
@@ -43,6 +51,8 @@ int createTreePayload(char *dst, int packetRootID, int packetRootDist,
 void handleControlPacket(struct SwitchNodeContext *sw, const int receivePort,
                          struct Packet *pkt);
 struct SwitchNodeContext *initSwitchNodeContext(int switch_id);
+void controlPacketSender_switch(struct SwitchNodeContext *sw,
+                                const char nodeType);
 int searchRoutingTableForValidID(struct SwitchNodeContext *sw, int id,
                                  int port);
 int setLocalPortTreeState(struct SwitchNodeContext *sw, int portToSet,
@@ -52,14 +62,21 @@ void switch_main(int switch_id) {
   // Initialize Switch State
   struct SwitchNodeContext *sw = initSwitchNodeContext(switch_id);
 
+  unsigned int numCtrlMsgsSent = 0;
+  static long long timeLast = 0;
+
   while (1) {
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////// PACKET HANDLER //////////////////////////////
 
     // Periodically broadcast STP Control Packets
-    periodicControlPacketSender(
-        sw->_id, sw->node_port_array, sw->node_port_array_size, sw->localRootID,
-        sw->localRootDist, sw->localParentID, sw->localPortTree, 'S');
+    long long timeNow = current_time_ms();
+    if (timeNow - timeLast > PERIODIC_CTRL_MSG_WAITTIME_MS &&
+        numCtrlMsgsSent < ALLOWED_CONVERGENCE_ROUNDS) {
+      numCtrlMsgsSent++;
+      controlPacketSender_switch(sw, 'S');
+      timeLast = timeNow;
+    }
 
     for (int portNum = 0; portNum < sw->node_port_array_size; portNum++) {
       struct Packet *inPkt = (struct Packet *)malloc(sizeof(struct Packet));
@@ -68,47 +85,45 @@ void switch_main(int switch_id) {
       if (n > 0) {
         // Packet was received on port
 
-        switch (inPkt->type) {
-          case PKT_CONTROL:
-            handleControlPacket(sw, portNum, inPkt);
-            packet_delete(inPkt);
-            break;
-
-          default:
+        if (inPkt->type == PKT_CONTROL) {
+          handleControlPacket(sw, portNum, inPkt);
+          packet_delete(inPkt);
+        } else {
+// incoming packet is not a control packet
 #ifdef SWITCH_DEBUG_PACKET_RECEIPT
-            colorPrint(BLUE,
-                       "Switch%d received packet on port:%d src:%d dst:%d\n",
-                       sw->_id, portNum, inPkt->src, inPkt->dst);
+          colorPrint(BLUE,
+                     "Switch%d received packet on port:%d src:%d dst:%d\n",
+                     sw->_id, portNum, inPkt->src, inPkt->dst);
 #endif
-            // Ensure that sender of received packet is in the routing table
-            if (searchRoutingTableForValidID(sw, inPkt->src, portNum) ==
-                UNKNOWN) {
-              // Sender was not found in routing table
-              addToRoutingTable(sw, inPkt->src, portNum);
-            }
+          // Ensure that sender of received packet is in the routing table
+          if (searchRoutingTableForValidID(sw, inPkt->src, portNum) ==
+              UNKNOWN) {
+            // Sender was not found in routing table
+            addToRoutingTable(sw, inPkt->src, portNum);
+          }
 
-            // Create a job to enqueue with work
-            struct Job *swJob = job_create_empty();
-            swJob->packet = inPkt;
+          // Create a job to enqueue with work
+          struct Job *swJob = job_create_empty();
+          swJob->packet = inPkt;
 
-            // Search for destination in routing table
-            int dstIndex =
-                searchRoutingTableForValidID(sw, inPkt->dst, UNKNOWN);
-            if (dstIndex < 0) {
-              // destination of received packet is not in routing table...
-              // enqueue job to broadcast packet to all connected hosts
-              swJob->type = JOB_BROADCAST_PKT;
-              job_enqueue(sw->_id, *sw->jobq, swJob);
+          // Search for destination in routing table
+          int dstIndex = searchRoutingTableForValidID(sw, inPkt->dst, UNKNOWN);
+          if (dstIndex < 0) {
+            // destination of received packet is not in routing table...
+            // enqueue job to broadcast packet to all connected hosts
+            swJob->type = JOB_BROADCAST_PKT;
+            job_enqueue(sw->_id, *sw->jobq, swJob);
 
-            } else {
-              // destination of received packet has been found in routing
-              // table... enqueue job to forward packet to the associated port
-              swJob->type = JOB_FORWARD_PKT;
-              job_enqueue(sw->_id, *sw->jobq, swJob);
-            }
+          } else {
+            // destination of received packet has been found in routing
+            // table... enqueue job to forward packet to the associated port
+            swJob->type = JOB_FORWARD_PKT;
+            job_enqueue(sw->_id, *sw->jobq, swJob);
+          }
         }
+      }
 
-      } else {
+      else {
         // No packet was received on port, so discard packet
         packet_delete(inPkt);
       }
@@ -142,10 +157,10 @@ void switch_main(int switch_id) {
                   sw->_id);
       }
 
-      free(job_from_queue->packet);
-      job_from_queue->packet = NULL;
-      free(job_from_queue);
-      job_from_queue = NULL;
+      // free(job_from_queue->packet);
+      // job_from_queue->packet = NULL;
+      // free(job_from_queue);
+      // job_from_queue = NULL;
     }
 
     //////////////////////////////// JOB HANDLER ///////////////////////////////
@@ -194,21 +209,20 @@ void broadcastToAllButSender(struct SwitchNodeContext *sw, struct Job *job) {
   for (int i = 0; i < sw->node_port_array_size; i++) {
     if (i != senderPort && sw->localPortTree[i] == YES) {
       packet_send(sw->node_port_array[i], job->packet);
-      printf("switch%d sending to port%d\n", sw->_id, i);
+      // printf("switch%d sending to port%d\n", sw->_id, i);
     }
   }
 }  // End of broadcastToAllButSender
 
-int createTreePayload(char *dst, int packetRootID, int packetRootDist,
-                      char packetSenderType, char packetIsSenderChild) {
+int createTreePayload(char *buffer, int localRootID, int localRootDist,
+                      char senderType, char isSenderChild) {
   // Calculate the total length of the payload string
-  int payloadLength =
-      snprintf(NULL, 0, "9999:%d:%d:%c:%c", packetRootID, packetRootDist,
-               packetSenderType, packetIsSenderChild);
+  int payloadLength = snprintf(NULL, 0, "9999:%d:%d:%c:%c", localRootID,
+                               localRootDist, senderType, isSenderChild);
 
   // Create the payload string
-  snprintf(dst, payloadLength + 1, "9999:%d:%d:%c:%c", packetRootID,
-           packetRootDist, packetSenderType, packetIsSenderChild);
+  snprintf(buffer, payloadLength + 1, "9999:%d:%d:%c:%c", localRootID,
+           localRootDist, senderType, isSenderChild);
 
   // Return the length of the payload string
   return payloadLength;
@@ -237,20 +251,25 @@ void handleControlPacket(struct SwitchNodeContext *sw, const int receivePort,
   char *packetIsSenderChild = strchr(packetSenderType, ':') + 1;
 
 #ifdef SWITCH_DEBUG_CONTROL_MSG
-  colorPrint(
-      BLUE,
-      "\tSwitch%d packetRootID:%d packetRootDist:%d packetSenderType:%c, "
-      "packetIsSenderChild:%c\n",
-      sw->_id, packetRootID, packetRootDist, *packetSenderType,
-      *packetIsSenderChild);
+  colorPrint(BOLD_BLUE, "switch%d received: ", sw->_id);
+  printPacket(pkt);
+  colorPrint(BLUE,
+             "\n\tpacketRootID:%d packetRootDist:%d packetSenderType:%c, "
+             "packetIsSenderChild:%c\n",
+             packetRootID, packetRootDist, *packetSenderType,
+             *packetIsSenderChild);
 #endif
 
   // Update localRootID, localRootDist, and localParent
   if (*packetSenderType == 'S') {
     if (packetRootID < sw->localRootID) {
 #ifdef SWITCH_DEBUG
-      colorPrint(RED, "\t\tSwitch%d's localRootID updated from %d to %d\n",
-                 sw->_id, sw->localRootID, packetRootID);
+      colorPrint(RED,
+                 "\t\tSwitch%d's localRootID updated from %d to "
+                 "%d\n\t\t\tlocalParentID updated to %d\n"
+                 "\t\t\tlocalRootDist updated to %d",
+                 sw->_id, sw->localRootID, packetRootID, receivePort,
+                 packetRootDist + 1);
 #endif
       sw->localRootID = packetRootID;
       sw->localParentID = receivePort;
@@ -266,29 +285,33 @@ void handleControlPacket(struct SwitchNodeContext *sw, const int receivePort,
   }
 
   // Update status of receivePort whether it's the tree or not
-  if (*packetSenderType == 'H' || *packetSenderType == 'D') {
+  if (*packetSenderType == 'X') {
+    // packetSenderType is an endpoint
     if (sw->localPortTree[receivePort] != YES) {
       setLocalPortTreeState(sw, receivePort, YES);
     }
 
   } else if (*packetSenderType == 'S') {
+    // packetSenderType is another switch
     if (*packetIsSenderChild == 'Y') {
       if (sw->localPortTree[receivePort] != YES) {
         setLocalPortTreeState(sw, receivePort, YES);
       }
     } else {
-      if (sw->localPortTree[receivePort] != NO) {
-        // Tie-breaker: Prioritize lower node IDs when distances are equal
-        if (packetRootDist == sw->localRootDist - 1 && pkt->src < sw->_id) {
+      // Tie-breaker: Prioritize lower node IDs when distances are equal
+      if (packetRootDist < sw->localRootDist ||
+          (packetRootDist == sw->localRootDist - 1 && pkt->src < sw->_id)) {
+        if (sw->localPortTree[receivePort] != YES) {
           setLocalPortTreeState(sw, receivePort, YES);
-        } else {
+        }
+      } else {
+        if (sw->localPortTree[receivePort] != NO) {
           setLocalPortTreeState(sw, receivePort, NO);
         }
       }
     }
-  }
-
-  else {
+  } else {
+    // Catch all for any erroneous packetSenderType's
     if (sw->localPortTree[receivePort] != NO) {
       setLocalPortTreeState(sw, receivePort, NO);
     }
@@ -345,37 +368,50 @@ struct SwitchNodeContext *initSwitchNodeContext(int switch_id) {
   sw->localParentID = -1;
   sw->localPortTree = malloc(sizeof(int) * (MAX_ADDRESS + 1));
   for (int i = 0; i <= MAX_ADDRESS; i++) {
-    sw->localPortTree[i] = NO;
+    sw->localPortTree[i] = DEFAULT_TREE_STATE;
   }
 
   return sw;
 }  // End of initSwitchNodeContext()
 
-void periodicControlPacketSender(int id, struct Net_port **node_port_array,
-                                 int node_port_array_size, int localRootID,
-                                 int localRootDist, int localParentID,
-                                 int *localPortTree, const char nodeType) {
-  static time_t timeLast = 0;
-  time_t timeNow = time(NULL);
+void controlPacketSender_switch(struct SwitchNodeContext *sw,
+                                const char nodeType) {
+  // For each connected port, create a STP control packet and send it
+  for (int port = 0; port < sw->node_port_array_size; port++) {
+    // Create a STP packet payload
+    char ctrlPayload[PACKET_PAYLOAD_MAX];
+    int ctrlPayloadLen =
+        createTreePayload(ctrlPayload, sw->localRootID, sw->localRootDist,
+                          nodeType, (sw->localParentID == port) ? 'Y' : 'N');
 
-  if (timeNow - timeLast > PERIODIC_CTRL_MSG_WAITTIME_SEC) {
-    // For each connected port
-    for (int port = 0; port < node_port_array_size; port++) {
-      // Create a STP packet payload
-      char ctrlPayload[PACKET_PAYLOAD_MAX];
-      int ctrlPayloadLen =
-          createTreePayload(ctrlPayload, localRootID, localRootDist, nodeType,
-                            (localParentID == port) ? 'Y' : 'N');
-
-      // Create a STP control packet
-      struct Packet *ctrlPkt =
-          createPacket(id, 255, PKT_CONTROL, ctrlPayloadLen, ctrlPayload);
-      packet_send(node_port_array[port], ctrlPkt);
-    }
-
-    timeLast = timeNow;
+    struct Packet ctrlPkt;
+    ctrlPkt.src = sw->_id;
+    ctrlPkt.dst = 255;
+    ctrlPkt.type = PKT_CONTROL;
+    ctrlPkt.length = ctrlPayloadLen;
+    memcpy(ctrlPkt.payload, ctrlPayload, ctrlPayloadLen);
+    packet_send(sw->node_port_array[port], &ctrlPkt);
   }
-}  // End of periodicControlPacketSender()
+
+}  // End of controlPacketSender_switch()
+
+void controlPacketSender_endpoint(int nodeId, struct Net_port **node_port_array,
+                                  int node_port_array_size) {
+  // Create a STP packet payload
+  char ctrlPayload[PACKET_PAYLOAD_MAX];
+  int ctrlPayloadLen =
+      createTreePayload(ctrlPayload, nodeId + 10000, 10000, 'X', 'N');
+  // Create a STP control packet
+  struct Packet *ctrlPkt =
+      createPacket(nodeId, 255, PKT_CONTROL, ctrlPayloadLen, ctrlPayload);
+
+  // For each connected port
+  for (int port = 0; port < node_port_array_size; port++) {
+    packet_send(node_port_array[port], ctrlPkt);
+    packet_delete(ctrlPkt);
+  }
+
+}  // End of controlPacketSender_endpoint()
 
 // Searches the routing table for a matching valid TableEntry matching id
 // Returns routing table index of valid id, or -1 if unsuccessful

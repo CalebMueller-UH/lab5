@@ -5,7 +5,7 @@ constants.h
 #pragma once
 
 // Maximum expected filename length
-#define MAX_FILENAME_LENGTH 100
+#define MAX_FILENAME_LENGTH 94
 
 // Used for sockets
 #define MAX_DOMAIN_NAME_LENGTH 99
@@ -18,14 +18,14 @@ constants.h
 
 // How much time to sleep between between loop executions to simulate
 // asynchronous execution (in microseconds)
-#define LOOP_SLEEP_TIME_US 10000
+#define LOOP_SLEEP_TIME_US 100000
 
 // Largest allowable packet size of packet payload
 #define PACKET_PAYLOAD_MAX 100
 
 // Number of wait cycles a typical packet is assigned
 // (Not necessarily tied to a measure of time)
-#define TIMETOLIVE 100
+#define TIMETOLIVE 20
 
 #define STATIC_DNS_ID 100
 
@@ -39,4 +39,6 @@ constants.h
 // Maximum number of allowable Domain Name aliases
 #define MAX_NUM_NAMES 255
 
-#define PERIODIC_CTRL_MSG_WAITTIME_SEC 1
+#define PERIODIC_CTRL_MSG_WAITTIME_MS 500
+
+#define ALLOWED_CONVERGENCE_ROUNDS 15

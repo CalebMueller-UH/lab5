@@ -67,7 +67,19 @@ void host_main(int host_id) {
   ////// Initialize state of host //////
   struct HostContext *host = initHostContext(host_id);
 
+  unsigned int numCtrlMsgsSent = 0;
+  static long long timeLast = 0;
+
   while (1) {
+    // Periodically broadcast STP Control Packets
+    long long timeNow = current_time_ms();
+    if (timeNow - timeLast > PERIODIC_CTRL_MSG_WAITTIME_MS &&
+        numCtrlMsgsSent < ALLOWED_CONVERGENCE_ROUNDS) {
+      numCtrlMsgsSent++;
+      controlPacketSender_endpoint(host->_id, host->node_port_array,
+                                   host->node_port_array_size);
+      timeLast = timeNow;
+    }
     ////////////////////////////////////////////////////////////////
     ////////////////////////////////
     //////////////// COMMAND HANDLER
@@ -89,24 +101,14 @@ void host_main(int host_id) {
     ////////////////////////////////
     //////////////// PACKET HANDLER
 
-    // Periodically broadcast STP Control Packets
-    periodicControlPacketSender(9999, host->node_port_array,
-                                host->node_port_array_size, host->_id + 1000,
-                                9999, 9999, NULL, 'H');
-
     for (int portNum = 0; portNum < host->node_port_array_size; portNum++) {
       // Receive packets for all ports in node_port_array
       struct Packet *inPkt = createEmptyPacket();
       n = packet_recv(host->node_port_array[portNum], inPkt);
       // if portNum has received a packet, translate the packet into a job
       if ((n > 0) && ((int)inPkt->dst == host->_id)) {
-#ifdef HOST_DEBUG_PACKET_RECEIPT
-        colorPrint(YELLOW,
-                   "HOST_DEBUG: id:%d host_main packet_handler received "
-                   "packet: \n\t",
-                   host->_id);
-        printPacket(inPkt);
-#endif
+        int packetIsOfRecognizedType = 1;
+
         switch (inPkt->type) {
           case PKT_PING_REQ:
           case PKT_UPLOAD_REQ:
@@ -133,11 +135,22 @@ void host_main(int host_id) {
 
             ////////////////
           default:
+            packetIsOfRecognizedType = 0;
             fprintf(
                 stderr,
                 "Packet handler on host%d encountered an unknown packet type\n",
                 host->_id);
             free(inPkt);
+        }  // end of switch
+
+        if (packetIsOfRecognizedType) {
+#ifdef HOST_DEBUG_PACKET_RECEIPT
+          colorPrint(YELLOW,
+                     "HOST_DEBUG: id:%d host_main packet_handler received "
+                     "packet: \n\t",
+                     host->_id);
+          printPacket(inPkt);
+#endif
         }
       }
 
@@ -170,7 +183,6 @@ void host_main(int host_id) {
             sendPacketTo(host->node_port_array, host->node_port_array_size,
                          job_from_queue->packet);
             job_delete(host->_id, job_from_queue);
-            printf("Sending...\n");
             break;
           }  //////////////// End of case JOB_SEND_PKT
 
@@ -378,9 +390,9 @@ void commandHandler(struct HostContext *host) {
 
     default:;
   }
-  if (responseMsg) {
-    free(responseMsg);
-  }
+  // if (responseMsg) {
+  //   free(responseMsg);
+  // }
 
 }  // End of commandHandler()
 
@@ -550,6 +562,8 @@ void jobSendRequestHandler(struct HostContext *host,
     return;
   }
 
+  printf("jobSendRequestHandler: ");
+  printPacket(job_from_queue->packet);
   sendPacketTo(host->node_port_array, host->node_port_array_size,
                job_from_queue->packet);
 
@@ -603,7 +617,6 @@ void jobSendUploadResponseHandler(struct HostContext *host,
   free(id);
   free(fname);
   free(payloadMsg);
-  job_delete(host->_id, job_from_queue);
 }  // End of jobSendUploadResponseHandler()
 
 void jobUploadSendHandler(struct HostContext *host,
@@ -624,7 +637,7 @@ void jobUploadSendHandler(struct HostContext *host,
   fseek(fp, job_from_queue->fileOffset, SEEK_SET);
 
   // Allocate a buffer for reading data from the file
-  int bufferSize = MAX_RESPONSE_LEN;
+  int bufferSize = MAX_RESPONSE_LEN - 1;
   char *buffer = (char *)malloc(sizeof(char) * bufferSize);
 
   // Read and send one chunk of the file
@@ -804,7 +817,7 @@ int parseManMsg(char *msg, char *cmd, char *dstStr, char *fname) {
   *fname = '\0';  // Initialize fname to the empty string
 
   int result = sscanf(msg, "%c %255s %255s", cmd, dstStr, fname);
-  if (result >= 2) {
+  if (result >= 1) {
     return 1;  // Return 1 to indicate success
   } else {
     return 0;  // Return 0 to indicate failure
@@ -948,8 +961,7 @@ void pktIncomingResponse(struct HostContext *host, struct Packet *inPkt) {
     }
   } else {
     // job id was not found in queue
-    colorPrint(BOLD_YELLOW,
-               "Host%d received a response with an unrecognized job id\n",
+    colorPrint(GREY, "Host%d received a response with an unrecognized job id\n",
                inPkt->dst);
   }
 
@@ -988,13 +1000,15 @@ void pktUploadReceive(struct HostContext *host, struct Packet *pkt) {
     if (rjob->fp == NULL) {
       // Open the file in append mode if it hasn't been opened already
       rjob->fp = fopen(rjob->filepath, "ab");
-    } else {
-      fprintf(
-          stderr,
-          "Host%d: pktUploadReceive attempted to acces NULL fp from job ID: "
-          "%s\n",
-          host->_id, rjob->jid);
     }
+    // else {
+    //   fprintf(
+    //       stderr,
+    //       "Host%d: pktUploadReceive attempted to access NULL fp from job ID:
+    //       "
+    //       "%s\n",
+    //       host->_id, rjob->jid);
+    // }
 
     if (rjob->fp != NULL) {
       // Write message to the file
