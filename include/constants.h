@@ -18,7 +18,7 @@ constants.h
 
 // How much time to sleep between between loop executions to simulate
 // asynchronous execution (in microseconds)
-#define LOOP_SLEEP_TIME_US 100000
+#define LOOP_SLEEP_TIME_US 50000
 
 // Largest allowable packet size of packet payload
 #define PACKET_PAYLOAD_MAX 100
