@@ -29,6 +29,7 @@ struct HostContext {
   struct Net_port **node_port_array;
   int node_port_array_size;
   char **nametable;
+  int isRequestingDownload;
 };
 
 // Forward Declarations of host.c specific functions:
@@ -120,9 +121,18 @@ void host_main(int host_id) {
 
           case PKT_PING_REQ:
           case PKT_UPLOAD_REQ:
-          case PKT_DOWNLOAD_REQ:
             pktIncomingRequest(host, inPkt);
             break;
+
+          case PKT_DOWNLOAD_REQ: {
+            char *id = (char *)malloc(sizeof(char) * JIDLEN);
+            char *fname = (char *)malloc(sizeof(char) * MAX_RESPONSE_LEN);
+            parsePacket(inPkt->payload, id, fname);
+            commandUploadHandler(host, inPkt->src, fname);
+            free(id);
+            free(fname);
+            break;
+          }
 
           case PKT_PING_RESPONSE:
           case PKT_UPLOAD_RESPONSE:
@@ -249,15 +259,13 @@ void commandDownloadHandler(struct HostContext *host, int dst,
                     "This file already exists in %s", host->linkedDirPath);
     } else {
       // Directory is set, and file does not already exist
-      // Create a download request packet
-      struct Packet *dwnReqPkt =
-          createPacket(host->_id, dst, PKT_DOWNLOAD_REQ, 0, fname);
-      // Create a send request job
-      struct Job *sendReqJob = job_create(NULL, TIMETOLIVE, JOB_SEND_REQUEST,
-                                          JOB_PENDING_STATE, dwnReqPkt);
-      strncpy(sendReqJob->filepath, fullPath, sizeof(fullPath));
-
-      job_enqueue(host->_id, *host->jobq, sendReqJob);
+      host->isRequestingDownload = 1;
+      struct Packet *reqPkt =
+          createPacket(host->_id, dst, PKT_DOWNLOAD_REQ, 0, NULL);
+      reqPkt->length =
+          (char)snprintf(reqPkt->payload, PACKET_PAYLOAD_MAX, "0000:%s", fname);
+      sendPacketTo(host->node_port_array, host->node_port_array_size, reqPkt);
+      packet_delete(reqPkt);
     }
   }
 
@@ -473,6 +481,8 @@ struct HostContext *initHostContext(int host_id) {
   host_context->nametable = malloc((MAX_NUM_NAMES + 1) * sizeof(char *));
   init_nametable(host_context->nametable);
 
+  host_context->isRequestingDownload = 0;
+
   return host_context;
 }  // End of initHostContext()
 
@@ -558,9 +568,6 @@ void jobSendRequestHandler(struct HostContext *host,
             !host->jobq ? "host->jobq " : "");
     return;
   }
-
-  printf("jobSendRequestHandler: ");
-  printPacket(job_from_queue->packet);
   sendPacketTo(host->node_port_array, host->node_port_array_size,
                job_from_queue->packet);
 
@@ -638,16 +645,19 @@ void jobUploadSendHandler(struct HostContext *host,
   char *buffer = (char *)malloc(sizeof(char) * bufferSize);
 
   // Read and send one chunk of the file
-  int chunkSize = fileSize - job_from_queue->fileOffset < bufferSize
-                      ? fileSize - job_from_queue->fileOffset
-                      : bufferSize;
+  int chunkSize;
+  if (fileSize - job_from_queue->fileOffset < bufferSize) {
+    chunkSize = fileSize - job_from_queue->fileOffset;
+  } else {
+    chunkSize = bufferSize;
+  }
 
   // Clear the buffer before reading new data
   memset(buffer, 0, bufferSize * sizeof(char));
 
   int bytesRead = fread(buffer, sizeof(char), chunkSize, fp);
 
-  if (bytesRead > 0) {
+  if (bytesRead >= 0) {
     struct Packet *p = createPacket(src, dst, PKT_UPLOAD, 0, buffer);
     struct Job *j = job_create(id, 0, JOB_SEND_PKT, JOB_COMPLETE_STATE, p);
     job_enqueue(host->_id, *host->jobq, j);
@@ -655,21 +665,14 @@ void jobUploadSendHandler(struct HostContext *host,
     // Update the file offset
     job_from_queue->fileOffset += bytesRead;
 
-    // If there's still data left to send, create a new job with the updated
-    // file offset
-    if (job_from_queue->fileOffset < fileSize) {
-      struct Job *nextJob =
-          job_create(id, TIMETOLIVE, JOB_UPLOAD, JOB_PENDING_STATE,
-                     job_from_queue->packet);
-      nextJob->fp = fp;
-      nextJob->fileOffset = job_from_queue->fileOffset;
-      job_enqueue(host->_id, *host->jobq, nextJob);
-    } else {
+    // If there's still data left to send
+    if (job_from_queue->fileOffset >= fileSize) {
       // Notify the receiver that the file transfer is complete
       struct Packet *finPkt = createPacket(src, dst, PKT_UPLOAD_END, 0, NULL);
       struct Job *finJob =
           job_create(id, TIMETOLIVE, JOB_SEND_PKT, JOB_COMPLETE_STATE, finPkt);
       job_enqueue(host->_id, *host->jobq, finJob);
+      job_from_queue->state = JOB_COMPLETE_STATE;
     }
   }
 
@@ -739,7 +742,6 @@ void jobWaitForResponseHandler(struct HostContext *host,
           if (job_from_queue->state == JOB_READY_STATE) {
             // Send file upload packets
             jobUploadSendHandler(host, job_from_queue);
-            job_from_queue->state = JOB_COMPLETE_STATE;
             job_enqueue(host->_id, *host->jobq, job_from_queue);
           } else if (job_from_queue->state == JOB_ERROR_STATE) {
             colorSnprintf(responseMsg, MAX_MSG_LENGTH, BOLD_RED, "%s",
@@ -980,6 +982,13 @@ void pktUploadEnd(struct HostContext *host, struct Packet *pkt) {
     fprintf(stderr, "Request not found for ticket %s\n", id);
   }
 
+  if (host->isRequestingDownload) {
+    char doneMsg[MAX_MSG_LENGTH];
+    colorSnprintf(doneMsg, MAX_MSG_LENGTH, BOLD_GREEN, "Download Complete.\n");
+    sendMsgToManager(host->man_port->send_fd, doneMsg);
+    host->isRequestingDownload = 0;
+  }
+
   free(id);
   free(msg);
 }  // End of pktUploadEnd()
@@ -998,14 +1007,6 @@ void pktUploadReceive(struct HostContext *host, struct Packet *pkt) {
       // Open the file in append mode if it hasn't been opened already
       rjob->fp = fopen(rjob->filepath, "ab");
     }
-    // else {
-    //   fprintf(
-    //       stderr,
-    //       "Host%d: pktUploadReceive attempted to access NULL fp from job ID:
-    //       "
-    //       "%s\n",
-    //       host->_id, rjob->jid);
-    // }
 
     if (rjob->fp != NULL) {
       // Write message to the file
